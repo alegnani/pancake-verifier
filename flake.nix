@@ -1,28 +1,50 @@
 {
+  description = "Rust overlay";
+
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs";
-    flake-utils.url = "github:numtide/flake-utils";
+    nixpkgs.url      = "github:NixOS/nixpkgs/nixos-unstable";
+    rust-overlay.url = "github:oxalica/rust-overlay";
+    flake-utils.url  = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, rust-overlay, flake-utils, ... }:
     flake-utils.lib.eachDefaultSystem (system:
-    let
-      pkgs = import nixpkgs { inherit system; };
-    in
-    {
-      packages.default = pkgs.polyml;
+      let
+        overlays = [ (import rust-overlay) ];
+        pkgs = import nixpkgs {
+          inherit system overlays;
+        };
+        rust = pkgs.rust-bin.nightly.latest.default.override {
+          extensions = [ "rust-src" "cargo" "rustc"];
+        }; 
+      in
+      with pkgs;
+      {
+        devShells.default = mkShell rec {
+          buildInputs = [
+            rust   
+            icu
+            openssl
+            hol
+            gnumake
+            polyml
+            jdk11
+            z3
+          ];
 
-      devShell = pkgs.mkShell {
-        buildInputs = with pkgs; [ 
-          hol
-          gnumake
-          polyml
-        ];
+          LD_LIBRARY_PATH = "${lib.makeLibraryPath buildInputs}";
+          # LIBCLANG_PATH = pkgs.lib.makeLibraryPath [ pkgs.llvmPackages_latest.libclang.lib ];
+          nativeBuildInputs = [ rustPlatform.bindgenHook ];
 
-        shellHook = ''
-          export PATH=$(realpath ./cake-x64-64):$PATH
-        '';
-      };
-    });
+          RUST_SRC_PATH = "${rust}/lib/rustlib/src/rust/library";
+          shellHook = ''
+            export PATH=$(realpath ./cake-x64-64):$PATH
+          '';
+          NIX_LD_LIBRARY_PATH = lib.makeLibraryPath [
+            stdenv.cc.cc
+            stdenv.cc.cc.lib
+          ];
+        };
+      }
+    );
 }
-
