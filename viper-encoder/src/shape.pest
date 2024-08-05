@@ -1,0 +1,3 @@
+TOP = _{ SIMPLE | NESTED }
+SIMPLE = { "1" }
+NESTED = { "<" ~ TOP ~ ("," ~ TOP)* ~ ">" }
