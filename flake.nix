@@ -30,6 +30,7 @@
             polyml
             jdk11
             z3
+            scala_2_13
           ];
 
           LD_LIBRARY_PATH = "${lib.makeLibraryPath buildInputs}";
@@ -39,6 +40,8 @@
           RUST_SRC_PATH = "${rust}/lib/rustlib/src/rust/library";
           shellHook = ''
             export PATH=$(realpath ./cake-x64-64):$PATH
+            export VIPER_HOME=$(realpath ./ViperTools)
+            export CLASSPATH=${pkgs.scala_2_13}/lib/*
           '';
           NIX_LD_LIBRARY_PATH = lib.makeLibraryPath [
             stdenv.cc.cc
