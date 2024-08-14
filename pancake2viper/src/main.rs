@@ -1,5 +1,7 @@
 // use viper;
 mod pancake_ast;
+mod translation;
+mod viper_ast;
 
 use anyhow::anyhow;
 use pancake_ast::parse_fn_dec;
@@ -7,6 +9,7 @@ use std::{
     env,
     process::{Command, Stdio},
 };
+use translation::translate_fndec;
 
 use sexpr_parser::{parse, Parser};
 
@@ -17,13 +20,20 @@ fn main() -> anyhow::Result<()> {
     //     // let t = ast_factory.int_type();
     //     // println!("Type: {}", t);
     let args = env::args().collect::<Vec<_>>();
+    let mut asts = vec![];
     for fn_sexpr in get_sexprs(&args[1])? {
         println!("\n Function:\n");
         let s = SExprParser
             .parse(&fn_sexpr)
             .map_err(|_| anyhow!("Could not parse sexpr"))?;
         let ast = parse_fn_dec(s)?;
-        println!("AST: {:?}", ast.body);
+        println!("AST: {:?}", &ast.body);
+        asts.push(ast);
+    }
+
+    println!("\n\n################# VIPER #################\n\n");
+    for ast in asts {
+        println!("{}", translate_fndec(&ast));
     }
 
     Ok(())
@@ -61,12 +71,12 @@ use sexpr_parser::SexprFactory;
 /// Your amazing S-expression data structure
 #[derive(Debug, PartialEq)]
 enum SExpr {
-    SInt(u64),
-    SFloat(f64),
-    SSymbol(String),
+    Int(u64),
+    Float(f64),
+    Symbol(String),
     SString(String),
-    SPair(Box<(SExpr, SExpr)>),
-    SList(Vec<SExpr>),
+    Pair(Box<(SExpr, SExpr)>),
+    List(Vec<SExpr>),
 }
 
 struct SExprParser;
@@ -77,15 +87,15 @@ impl SexprFactory for SExprParser {
     type Float = f64;
 
     fn int(&mut self, x: i64) -> Self::Sexpr {
-        SExpr::SInt(x as u64)
+        SExpr::Int(x as u64)
     }
 
     fn float(&mut self, x: f64) -> Self::Sexpr {
-        SExpr::SFloat(x)
+        SExpr::Float(x)
     }
 
     fn symbol(&mut self, x: &str) -> Self::Sexpr {
-        SExpr::SSymbol(x.to_string())
+        SExpr::Symbol(x.to_string())
     }
 
     fn string(&mut self, x: &str) -> Self::Sexpr {
@@ -93,10 +103,10 @@ impl SexprFactory for SExprParser {
     }
 
     fn list(&mut self, x: Vec<Self::Sexpr>) -> Self::Sexpr {
-        SExpr::SList(x)
+        SExpr::List(x)
     }
 
     fn pair(&mut self, a: Self::Sexpr, b: Self::Sexpr) -> Self::Sexpr {
-        SExpr::SPair(Box::new((a, b)))
+        SExpr::Pair(Box::new((a, b)))
     }
 }

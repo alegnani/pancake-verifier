@@ -1,27 +1,27 @@
 use std::str::FromStr;
 
-use crate::SExpr;
+use crate::SExpr::{self, SString};
 use anyhow::anyhow;
 use pest::Parser;
 use pest_derive::Parser;
 
-#[derive(Debug)]
-pub enum Expr {
-    Const(u64),
+#[derive(Debug, Clone)]
+pub enum PancakeExpr {
+    Const(i64),
     Var(String),
     Label(String),
-    Struct(Vec<Expr>),
-    Field(u64, Box<Expr>),
-    Load(String, Box<Expr>),
-    LoadByte(Box<Expr>),
-    Op(OpType, Vec<Expr>),
-    Cmp(String, Box<Expr>, Box<Expr>),
-    Shift(ShiftType, Box<Expr>, u64),
+    Struct(Vec<PancakeExpr>),
+    Field(u64, Box<PancakeExpr>),
+    Load(String, Box<PancakeExpr>),
+    LoadByte(Box<PancakeExpr>),
+    Op(PancakeOpType, Vec<PancakeExpr>),
+    Cmp(String, Box<PancakeExpr>, Box<PancakeExpr>),
+    Shift(PancakeShiftType, Box<PancakeExpr>, u64),
     BaseAddr,
 }
 
-#[derive(EnumString, Debug)]
-enum OpType {
+#[derive(EnumString, Debug, Clone, Copy)]
+pub enum PancakeOpType {
     Add,
     Sub,
     Mul,
@@ -32,52 +32,52 @@ enum OpType {
     Xor,
 }
 
-#[derive(Debug, EnumString)]
-enum ShiftType {
+#[derive(Debug, EnumString, Clone, Copy)]
+pub enum PancakeShiftType {
     Lsl,
     Asr,
     Lsr,
 }
 
 #[derive(Debug)]
-pub enum Stmt {
+pub enum PancakeStmt {
     Skip,
-    Dec(String, Expr, Box<Stmt>),
-    Assign(String, Expr),
-    Store(Expr, Expr),
-    StoreByte(Expr, Expr),
-    Seq(Vec<Stmt>),
-    If(Expr, Box<Stmt>, Box<Stmt>),
-    While(Expr, Box<Stmt>),
+    Dec(String, PancakeExpr, Box<PancakeStmt>),
+    Assign(String, PancakeExpr),
+    Store(PancakeExpr, PancakeExpr),
+    StoreByte(PancakeExpr, PancakeExpr),
+    Seq(Vec<PancakeStmt>),
+    If(PancakeExpr, Box<PancakeStmt>, Box<PancakeStmt>),
+    While(PancakeExpr, Box<PancakeStmt>),
     Break,
     Continue,
-    Call(String, Expr, Vec<Expr>),
-    Raise(String, Expr),
-    Return(Expr),
+    Call(String, PancakeExpr, Vec<PancakeExpr>),
+    Raise(String, PancakeExpr),
+    Return(PancakeExpr),
     Tick,
-    ExtCall(String, Expr, Expr, Expr, Expr),
+    ExtCall(String, PancakeExpr, PancakeExpr, PancakeExpr, PancakeExpr),
 }
 
-pub struct FnDec {
+pub struct PancakeFnDec {
     pub name: String,
     pub args: Vec<String>,
-    pub body: Stmt,
+    pub body: PancakeStmt,
 }
 
 use strum::EnumString;
 use SExpr::*;
 
-pub fn parse_fn_dec(s: SExpr) -> anyhow::Result<FnDec> {
+pub fn parse_fn_dec(s: SExpr) -> anyhow::Result<PancakeFnDec> {
     match s {
-        SList(l) => match &l[..] {
-            [SSymbol(fun_dec), SSymbol(name), SList(args), SList(body)] if fun_dec == "func" => {
+        List(l) => match &l[..] {
+            [Symbol(fun_dec), Symbol(name), List(args), List(body)] if fun_dec == "func" => {
                 println!("Parsed function declaration of {}", name);
                 // println!("Body: {:?}", body);
                 println!("ARGS: {:?}", args);
                 for arg in args {
                     parse_arg(arg).unwrap();
                 }
-                Ok(FnDec {
+                Ok(PancakeFnDec {
                     name: name.clone(),
                     args: vec![],
                     body: parse_stmt(body)?,
@@ -89,55 +89,54 @@ pub fn parse_fn_dec(s: SExpr) -> anyhow::Result<FnDec> {
     }
 }
 
-pub fn parse_stmt(s: &[SExpr]) -> anyhow::Result<Stmt> {
+pub fn parse_stmt(s: &[SExpr]) -> anyhow::Result<PancakeStmt> {
     println!("\nParsing stmt: {:?}", s);
     match s {
-        [SSymbol(op)] if op == "skip" => Ok(Stmt::Skip),
+        [Symbol(op)] if op == "skip" => Ok(PancakeStmt::Skip),
         // Variable declaration
-        [SSymbol(op), SList(decl), SList(rem)] if op == "dec" => {
-            Ok(Stmt::Seq(vec![parse_dec(decl)?, parse_stmt(rem)?]))
+        [Symbol(op), List(decl), List(rem)] if op == "dec" => {
+            Ok(PancakeStmt::Seq(vec![parse_dec(decl)?, parse_stmt(rem)?]))
         }
-        [SSymbol(op), SList(decl)] if op == "dec" => parse_dec(decl),
-        [SSymbol(var), SSymbol(eq), SList(exp)] if eq == ":=" => {
-            Ok(Stmt::Assign(var.clone(), parse_exp(exp)?))
+        [Symbol(op), List(decl)] if op == "dec" => parse_dec(decl),
+        [Symbol(var), Symbol(eq), List(exp)] if eq == ":=" => {
+            Ok(PancakeStmt::Assign(var.clone(), parse_exp(exp)?))
         }
-        [SSymbol(op), SList(addr), SSymbol(eq), SList(exp)] if op == "mem" && eq == ":=" => {
-            Ok(Stmt::Store(parse_exp(addr)?, parse_exp(exp)?))
+        [Symbol(op), List(addr), Symbol(eq), List(exp)] if op == "mem" && eq == ":=" => {
+            Ok(PancakeStmt::Store(parse_exp(addr)?, parse_exp(exp)?))
         }
-        [SSymbol(op), SList(addr), SSymbol(eq), SSymbol(byte), SList(exp)]
+        [Symbol(op), List(addr), Symbol(eq), Symbol(byte), List(exp)]
             if op == "mem" && eq == ":=" && byte == "byte" =>
         {
-            Ok(Stmt::StoreByte(parse_exp(addr)?, parse_exp(exp)?))
+            Ok(PancakeStmt::StoreByte(parse_exp(addr)?, parse_exp(exp)?))
         }
-        [SSymbol(op), stmts @ ..] if op == "seq" => parse_seq(stmts),
-        [SSymbol(op), SList(cond), SList(b1), SList(b2)] if op == "if" => Ok(Stmt::If(
+        [Symbol(op), stmts @ ..] if op == "seq" => parse_seq(stmts),
+        [Symbol(op), List(cond), List(b1), List(b2)] if op == "if" => Ok(PancakeStmt::If(
             parse_exp(cond)?,
             Box::new(parse_stmt(b1)?),
             Box::new(parse_stmt(b2)?),
         )),
-        [SSymbol(op), SList(cond), SList(b1), SSymbol(skip)] if op == "if" && skip == "skip" => {
-            Ok(Stmt::If(
+        [Symbol(op), List(cond), List(b1), Symbol(skip)] if op == "if" && skip == "skip" => {
+            Ok(PancakeStmt::If(
                 parse_exp(cond)?,
                 Box::new(parse_stmt(b1)?),
-                Box::new(Stmt::Skip),
+                Box::new(PancakeStmt::Skip),
             ))
         }
-        [SSymbol(op), SList(cond), SList(body)] if op == "while" => {
-            Ok(Stmt::While(parse_exp(cond)?, Box::new(parse_stmt(body)?)))
-        }
-        [SSymbol(op)] if op == "break" => Ok(Stmt::Break),
-        [SSymbol(op)] if op == "continue" => Ok(Stmt::Continue),
-        [SSymbol(op), SList(label), SList(args), SSymbol(ret)] if op == "call" => Ok(Stmt::Call(
-            "todo".into(),
-            parse_exp(label)?,
-            parse_exp_list(args)?,
+        [Symbol(op), List(cond), List(body)] if op == "while" => Ok(PancakeStmt::While(
+            parse_exp(cond)?,
+            Box::new(parse_stmt(body)?),
         )),
-        [SSymbol(op), SList(exp)] if op == "return" => Ok(Stmt::Return(parse_exp(exp)?)),
-        [SSymbol(op)] if op == "tick" => Ok(Stmt::Tick),
-        [SSymbol(op), SSymbol(name), SList(arg0), SList(arg1), SList(arg2), SList(arg3)]
+        [Symbol(op)] if op == "break" => Ok(PancakeStmt::Break),
+        [Symbol(op)] if op == "continue" => Ok(PancakeStmt::Continue),
+        [Symbol(op), List(label), List(args), Symbol(ret)] if op == "call" => Ok(
+            PancakeStmt::Call("todo".into(), parse_exp(label)?, parse_exp_list(args)?),
+        ),
+        [Symbol(op), List(exp)] if op == "return" => Ok(PancakeStmt::Return(parse_exp(exp)?)),
+        [Symbol(op)] if op == "tick" => Ok(PancakeStmt::Tick),
+        [Symbol(op), Symbol(name), List(arg0), List(arg1), List(arg2), List(arg3)]
             if op == "ext_call" =>
         {
-            Ok(Stmt::ExtCall(
+            Ok(PancakeStmt::ExtCall(
                 name.clone(),
                 parse_exp(arg0)?,
                 parse_exp(arg1)?,
@@ -149,56 +148,64 @@ pub fn parse_stmt(s: &[SExpr]) -> anyhow::Result<Stmt> {
     }
 }
 
-fn parse_dec(s: &[SExpr]) -> anyhow::Result<Stmt> {
+fn parse_dec(s: &[SExpr]) -> anyhow::Result<PancakeStmt> {
     match s {
-        [SSymbol(var), SSymbol(eq), SList(exp)] if eq == ":=" => Ok(Stmt::Dec(
+        [Symbol(var), Symbol(eq), List(exp)] if eq == ":=" => Ok(PancakeStmt::Dec(
             var.clone(),
             parse_exp(exp)?,
-            Box::new(Stmt::Skip), // FIXME: ?
+            Box::new(PancakeStmt::Skip), // FIXME: ?
         )),
         _ => Err(anyhow!("Not a valid declaration")),
     }
 }
 
-fn parse_seq(s: &[SExpr]) -> anyhow::Result<Stmt> {
+fn parse_seq(s: &[SExpr]) -> anyhow::Result<PancakeStmt> {
     let mut stmts = vec![];
     for stmt in s {
         match stmt {
-            SList(stmt) => stmts.push(parse_stmt(stmt)?),
+            List(stmt) => stmts.push(parse_stmt(stmt)?),
             _ => return Err(anyhow!("Error whilst parsing sequence")),
         }
     }
-    Ok(Stmt::Seq(stmts))
+    Ok(PancakeStmt::Seq(stmts))
 }
 
-pub fn parse_exp(s: &[SExpr]) -> anyhow::Result<Expr> {
+pub fn parse_exp(s: &[SExpr]) -> anyhow::Result<PancakeExpr> {
     // println!("\nParsing expr: {:?}", s);
     match s {
-        [SSymbol(cons), SSymbol(word)] if cons == "Const" && word.starts_with("0x") => {
-            Ok(Expr::Const(u64::from_str_radix(&word[2..], 16)?))
+        [Symbol(cons), Symbol(word)] if cons == "Const" && word.starts_with("0x") => {
+            Ok(PancakeExpr::Const(i64::from_str_radix(&word[2..], 16)?))
         }
-        [SSymbol(var), SSymbol(name)] if var == "Var" => Ok(Expr::Var(name.clone())),
-        [SSymbol(label), SSymbol(name)] if label == "Label" => Ok(Expr::Label(name.clone())),
-        [SSymbol(struc), exps @ ..] if struc == "Struct" => Ok(Expr::Struct(parse_exp_list(exps)?)),
-        [SSymbol(field), SInt(idx), SList(exp)] if field == "Field" => {
-            Ok(Expr::Field(*idx, Box::new(parse_exp(exp)?)))
+        [Symbol(var), Symbol(name)] if var == "Var" => Ok(PancakeExpr::Var(name.clone())),
+        [Symbol(label), Symbol(name)] if label == "Label" => Ok(PancakeExpr::Label(name.clone())),
+        [Symbol(struc), exps @ ..] if struc == "Struct" => {
+            Ok(PancakeExpr::Struct(parse_exp_list(exps)?))
         }
-        [SSymbol(memloadbyte), SList(exp)] if memloadbyte == "MemLoadByte" => {
-            Ok(Expr::LoadByte(Box::new(parse_exp(exp)?)))
+        [Symbol(field), Int(idx), List(exp)] if field == "Field" => {
+            Ok(PancakeExpr::Field(*idx, Box::new(parse_exp(exp)?)))
         }
-        [SSymbol(memload), SSymbol(shape), SList(exp)] if memload == "MemLoad" => {
-            Ok(Expr::Load(shape.clone(), Box::new(parse_exp(exp)?))) // FIXME: do parsing of shape
+        [Symbol(memloadbyte), List(exp)] if memloadbyte == "MemLoadByte" => {
+            Ok(PancakeExpr::LoadByte(Box::new(parse_exp(exp)?)))
         }
-        [SSymbol(memload), SInt(shape), SList(exp)] if memload == "MemLoad" => {
-            Ok(Expr::Load(shape.to_string(), Box::new(parse_exp(exp)?))) // FIXME: do parsing of shape
+        [Symbol(memload), Symbol(shape), List(exp)] if memload == "MemLoad" => {
+            Ok(PancakeExpr::Load(shape.clone(), Box::new(parse_exp(exp)?))) // FIXME: do parsing of shape
         }
-        [SSymbol(shift), SList(exp), SInt(num)] => Ok(Expr::Shift(
-            ShiftType::from_str(shift)?,
+        [Symbol(memload), Int(shape), List(exp)] if memload == "MemLoad" => {
+            Ok(PancakeExpr::Load(
+                shape.to_string(),
+                Box::new(parse_exp(exp)?),
+            )) // FIXME: do parsing of shape
+        }
+        [Symbol(shift), List(exp), Int(num)] => Ok(PancakeExpr::Shift(
+            PancakeShiftType::from_str(shift)?,
             Box::new(parse_exp(exp)?),
             *num,
         )),
-        [SSymbol(base)] if base == "BaseAddr" => Ok(Expr::BaseAddr),
-        [SSymbol(op), exps @ ..] => Ok(Expr::Op(OpType::from_str(op)?, parse_exp_list(exps)?)),
+        [Symbol(base)] if base == "BaseAddr" => Ok(PancakeExpr::BaseAddr),
+        [Symbol(op), exps @ ..] => Ok(PancakeExpr::Op(
+            PancakeOpType::from_str(op)?,
+            parse_exp_list(exps)?,
+        )),
         _ => {
             println!("\n\nCould not parse: {:?}", s);
             panic!()
@@ -206,11 +213,11 @@ pub fn parse_exp(s: &[SExpr]) -> anyhow::Result<Expr> {
     }
 }
 
-fn parse_exp_list(s: &[SExpr]) -> anyhow::Result<Vec<Expr>> {
+fn parse_exp_list(s: &[SExpr]) -> anyhow::Result<Vec<PancakeExpr>> {
     let mut l = vec![];
     for exp in s {
         match exp {
-            SList(exp) => l.push(parse_exp(exp)?),
+            List(exp) => l.push(parse_exp(exp)?),
             _ => return Err(anyhow!("Error whilst parsing expr list")),
         }
     }
@@ -235,12 +242,12 @@ struct Arg {
 
 fn parse_arg(s: &SExpr) -> anyhow::Result<Arg> {
     match s {
-        SList(args) => match &args[..] {
-            [SSymbol(name), SSymbol(colon), SSymbol(shape)] if colon == ":" => Ok(Arg {
+        List(args) => match &args[..] {
+            [Symbol(name), Symbol(colon), Symbol(shape)] if colon == ":" => Ok(Arg {
                 name: name.clone(),
                 shape: parse_shape(shape)?,
             }),
-            [SSymbol(name), SSymbol(colon), SInt(shape)] if colon == ":" => Ok(Arg {
+            [Symbol(name), Symbol(colon), Int(shape)] if colon == ":" => Ok(Arg {
                 name: name.clone(),
                 shape: parse_shape(&shape.to_string())?,
             }),
