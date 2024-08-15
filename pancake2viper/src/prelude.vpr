@@ -1,0 +1,49 @@
+
+function pow(base: Int, exp: Int): Int 
+requires exp >= 0
+ensures base > 0 ==> result > 0
+{
+    exp == 0 ? 1 : base * pow(base, exp-1)
+}
+
+function lsl(base: Int, amount: Int): Int
+requires amount >= 0
+{
+    amount == 0 ? base : (2 * lsl(base, amount-1)) % 18446744073709551615
+}
+
+function lsr(base: Int, amount: Int): Int
+requires amount >= 0
+{
+    amount == 0 ? base : (lsr(base, amount-1) \ 2) % 18446744073709551615
+}
+
+
+
+method bitand(a: Int, b: Int) returns (value: Int) 
+requires 0 <= a <= 18446744073709551615
+requires 0 <= b <= 18446744073709551615
+ensures 0 <= value
+// ensures value <= a
+// ensures value <= b
+{
+    value := 0
+    var position: Int
+    var aval: Int
+    var bval: Int
+    aval := a
+    bval := b
+    position := 1
+
+    while (a > 0 || b > 0) 
+        invariant position >= 0
+        invariant value >= 0
+    {
+        if ((aval % 2 == 1) && (bval % 2 == 1)) {
+            value := value + position
+        }
+        aval := aval \ 2
+        bval := bval \ 2
+        position := position * 2
+    }
+}

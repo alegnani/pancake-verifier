@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use crate::SExpr::{self, SString};
+use crate::parser::SExpr;
 use anyhow::anyhow;
 use pest::Parser;
 use pest_derive::Parser;

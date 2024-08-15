@@ -49,6 +49,7 @@ pub enum ViperOp {
     Sub,
     Mul,
     Div,
+    IntDiv,
     Eq,
     Neq,
     Gt,
@@ -58,6 +59,7 @@ pub enum ViperOp {
     Implies,
     And,
     Or,
+    Modulo,
 }
 
 pub enum ViperType {
@@ -118,6 +120,8 @@ impl Display for ViperOp {
             Self::Implies => "==>",
             Self::And => "&&",
             Self::Or => "||",
+            Self::IntDiv => "\\",
+            Self::Modulo => "%",
         };
         write!(f, "{}", s)
     }
