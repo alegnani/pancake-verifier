@@ -1,6 +1,3 @@
-[submodule "prusti-dev"]
-	path = prusti-dev
-	url = git@github.com:viperproject/prusti-dev.git
 [submodule "cakeml"]
 	path = cakeml
 	url = git@github.com:CakeML/cakeml.git
