@@ -169,14 +169,18 @@ impl Display for ViperStmt {
             Self::VarAssign(name, expr) => format!("{} := {}", name, expr),
             Self::VarDecl(name, typ) => format!("var {}: {}", name, typ),
             Self::While(cond, invs, body) if invs.is_empty() => {
-                format!("while ({}) {{\n{}\n}}", cond, body)
+                format!(
+                    "while ({}) {{\n{}\n}}",
+                    cond,
+                    indent_block(&body.to_string())
+                )
             }
             Self::While(cond, invs, body) => {
                 format!(
                     "while ({})\n{}\n{{\n{}\n}}",
                     cond,
                     indent_block(&sep_list(invs, "\n")),
-                    body
+                    indent_block(&body.to_string()),
                 )
             }
         };

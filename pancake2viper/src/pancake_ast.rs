@@ -31,6 +31,17 @@ pub enum PancakeOpType {
     And,
     Or,
     Xor,
+    Less,
+    NotLess,
+}
+
+impl PancakeOpType {
+    pub fn is_bool(&self) -> bool {
+        matches!(
+            self,
+            Self::NotEqual | Self::Equal | Self::Less | Self::NotLess
+        )
+    }
 }
 
 #[derive(Debug, EnumString, Clone, Copy)]
@@ -88,9 +99,19 @@ pub fn parse_fn_dec(s: SExpr) -> anyhow::Result<PancakeFnDec> {
     }
 }
 
+pub fn parse_stmt_symbol(symbol: &str) -> anyhow::Result<PancakeStmt> {
+    match symbol {
+        "break" => Ok(PancakeStmt::Break),
+        "continue" => Ok(PancakeStmt::Continue),
+        "skip" => Ok(PancakeStmt::Skip),
+        "tick" => Ok(PancakeStmt::Tick),
+        x => Err(anyhow!("Failed to parse stmt symbol: {}", x)),
+    }
+}
+
 pub fn parse_stmt(s: &[SExpr]) -> anyhow::Result<PancakeStmt> {
     match s {
-        [Symbol(op)] if op == "skip" => Ok(PancakeStmt::Skip),
+        [Symbol(op)] => parse_stmt_symbol(op),
         // Variable declaration
         [Symbol(op), List(decl), List(rem)] if op == "dec" => {
             Ok(PancakeStmt::Seq(vec![parse_dec(decl)?, parse_stmt(rem)?]))
@@ -108,29 +129,42 @@ pub fn parse_stmt(s: &[SExpr]) -> anyhow::Result<PancakeStmt> {
             Ok(PancakeStmt::StoreByte(parse_exp(addr)?, parse_exp(exp)?))
         }
         [Symbol(op), stmts @ ..] if op == "seq" => parse_seq(stmts),
+
+        // if
         [Symbol(op), List(cond), List(b1), List(b2)] if op == "if" => Ok(PancakeStmt::If(
             parse_exp(cond)?,
             Box::new(parse_stmt(b1)?),
             Box::new(parse_stmt(b2)?),
         )),
-        [Symbol(op), List(cond), List(b1), Symbol(skip)] if op == "if" && skip == "skip" => {
-            Ok(PancakeStmt::If(
-                parse_exp(cond)?,
-                Box::new(parse_stmt(b1)?),
-                Box::new(PancakeStmt::Skip),
-            ))
-        }
+        [Symbol(op), List(cond), List(b1), Symbol(b2)] if op == "if" => Ok(PancakeStmt::If(
+            parse_exp(cond)?,
+            Box::new(parse_stmt(b1)?),
+            Box::new(parse_stmt_symbol(b2)?),
+        )),
+        [Symbol(op), List(cond), Symbol(b1), List(b2)] if op == "if" => Ok(PancakeStmt::If(
+            parse_exp(cond)?,
+            Box::new(parse_stmt_symbol(b1)?),
+            Box::new(parse_stmt(b2)?),
+        )),
+        [Symbol(op), List(cond), Symbol(b1), Symbol(b2)] if op == "if" => Ok(PancakeStmt::If(
+            parse_exp(cond)?,
+            Box::new(parse_stmt_symbol(b1)?),
+            Box::new(parse_stmt_symbol(b2)?),
+        )),
+
+        // while
         [Symbol(op), List(cond), List(body)] if op == "while" => Ok(PancakeStmt::While(
             parse_exp(cond)?,
             Box::new(parse_stmt(body)?),
         )),
-        [Symbol(op)] if op == "break" => Ok(PancakeStmt::Break),
-        [Symbol(op)] if op == "continue" => Ok(PancakeStmt::Continue),
+        [Symbol(op), List(cond), Symbol(body)] if op == "while" => Ok(PancakeStmt::While(
+            parse_exp(cond)?,
+            Box::new(parse_stmt_symbol(body)?),
+        )),
         [Symbol(op), List(label), List(args), Symbol(ret)] if op == "call" => Ok(
             PancakeStmt::Call("todo".into(), parse_exp(label)?, parse_exp_list(args)?),
         ),
         [Symbol(op), List(exp)] if op == "return" => Ok(PancakeStmt::Return(parse_exp(exp)?)),
-        [Symbol(op)] if op == "tick" => Ok(PancakeStmt::Tick),
         [Symbol(op), Symbol(name), List(arg0), List(arg1), List(arg2), List(arg3)]
             if op == "ext_call" =>
         {
@@ -162,6 +196,7 @@ fn parse_seq(s: &[SExpr]) -> anyhow::Result<PancakeStmt> {
     for stmt in s {
         match stmt {
             List(stmt) => stmts.push(parse_stmt(stmt)?),
+            Symbol(stmt) => stmts.push(parse_stmt_symbol(stmt)?),
             _ => return Err(anyhow!("Error whilst parsing sequence")),
         }
     }
@@ -169,7 +204,6 @@ fn parse_seq(s: &[SExpr]) -> anyhow::Result<PancakeStmt> {
 }
 
 pub fn parse_exp(s: &[SExpr]) -> anyhow::Result<PancakeExpr> {
-    // println!("\nParsing expr: {:?}", s);
     match s {
         [Symbol(cons), Symbol(word)] if cons == "Const" && word.starts_with("0x") => {
             Ok(PancakeExpr::Const(i64::from_str_radix(&word[2..], 16)?))
@@ -205,7 +239,6 @@ pub fn parse_exp(s: &[SExpr]) -> anyhow::Result<PancakeExpr> {
             parse_exp_list(exps)?,
         )),
         _ => {
-            println!("\n\nCould not parse: {:?}", s);
             panic!()
         }
     }
