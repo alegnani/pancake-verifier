@@ -1,0 +1,17 @@
+[package]
+name = "pancake-language-server"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dashmap = "6.0.1"
+ropey = "1.6.1"
+tokio = { version = "1.39.2", features = ["full"] }
+tower-lsp = "0.20.0"
+pancake2viper = { path = "../pancake2viper" }
+anyhow = "1.0.86"
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+tracing-appender = "0.2.3"
