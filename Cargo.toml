@@ -1,0 +1,7 @@
+[workspace]
+resolver = "2"
+members = [
+    "pancake-language-server",
+    "pancake2viper"
+]
+default-members = ["pancake-language-server"]

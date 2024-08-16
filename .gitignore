@@ -1,5 +1,5 @@
 .envrc
 .direnv
 
-target/
-cake-x64-64/
+**/target/
+pancake2viper/Cargo.lock
