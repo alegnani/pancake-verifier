@@ -2,7 +2,9 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use dashmap::DashMap;
+use pancake2viper::translation::translate_fndec;
 use ropey::Rope;
+
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
@@ -77,12 +79,36 @@ impl Backend {
         Ok(())
     }
 
+    async fn create_empty_file(&self, uri: Url) {
+        let create_file = CreateFile {
+            uri,
+            options: None,
+            annotation_id: None,
+        };
+        let doc_change = DocumentChangeOperation::Op(ResourceOp::Create(create_file));
+        let workspace_edit = WorkspaceEdit {
+            change_annotations: None,
+            changes: None,
+            document_changes: Some(DocumentChanges::Operations(vec![doc_change])),
+        };
+        self.client.apply_edit(workspace_edit).await.unwrap();
+    }
+
     async fn create_vpr_file(&self, uri: Url, asts: &[PancakeFnDec]) {
+        // Create empty .vpr file
         let mut path = PathBuf::from_str(uri.path()).unwrap();
         path.set_extension("vpr");
-        // let vpr_uri = Url::from_file_path(vpr_path.).unwrap();
         let vpr_uri = Url::from_file_path(path).unwrap();
+        self.create_empty_file(vpr_uri.clone()).await;
 
+        // Compile the AST into Viper code
+        let vpr_code = asts
+            .iter()
+            .map(|e| translate_fndec(e).to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        // Insert the Viper code into the .vpr file
         let text_edit = TextEdit {
             range: Range {
                 start: Position {
@@ -90,25 +116,19 @@ impl Backend {
                     character: 0,
                 },
                 end: Position {
-                    line: 0,
-                    character: 0,
+                    line: u32::MAX,
+                    character: u32::MAX,
                 },
             },
-            new_text: format!("{:?}", asts[0]),
+            new_text: vpr_code,
         };
-        self.client
-            .log_message(MessageType::INFO, format!("Ziopear {:?}", vpr_uri))
-            .await;
-        let text_document_id = OptionalVersionedTextDocumentIdentifier {
-            uri: vpr_uri,
-            version: None,
-        };
-
-        let edits = vec![OneOf::Left(text_edit)];
 
         let text_document_edit = TextDocumentEdit {
-            text_document: text_document_id,
-            edits,
+            text_document: OptionalVersionedTextDocumentIdentifier {
+                uri: vpr_uri.clone(),
+                version: None,
+            },
+            edits: vec![OneOf::Left(text_edit)],
         };
 
         let workspace_edit = WorkspaceEdit {
@@ -123,9 +143,8 @@ impl Backend {
 
 #[tokio::main]
 async fn main() {
-    println!("Starting Pancake Language Server...");
-    // let file_appender = tracing_appender::rolling::never("", "lsp.log");
-    // tracing_subscriber::fmt().with_writer(file_appender).init();
+    let file_appender = tracing_appender::rolling::never(".", "lsp.log");
+    tracing_subscriber::fmt().with_writer(file_appender).init();
 
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
