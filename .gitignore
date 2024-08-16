@@ -3,3 +3,4 @@
 
 **/target/
 pancake2viper/Cargo.lock
+*.log
