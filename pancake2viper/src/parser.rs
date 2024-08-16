@@ -1,17 +1,24 @@
 use anyhow::anyhow;
 
-pub fn get_sexprs(file_name: &str) -> anyhow::Result<Vec<String>> {
-    let cat = Command::new("cat")
-        .arg(file_name)
-        .stdout(Stdio::piped())
-        .spawn()?;
-    let cat_stdout = cat.stdout.ok_or(anyhow!("No output from cat"))?;
-    let explore = Command::new("cake")
+pub fn get_sexprs_from_file(file_name: &str) -> anyhow::Result<Vec<String>> {
+    let lines = fs::read_to_string(file_name)?;
+    get_sexprs(lines)
+}
+
+pub fn get_sexprs(lines: String) -> anyhow::Result<Vec<String>> {
+    let mut explore = Command::new("cake")
         .arg("--pancake")
         .arg("--explore")
-        .stdin(Stdio::from(cat_stdout))
+        .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()?;
+    let mut stdin = explore
+        .stdin
+        .take()
+        .ok_or(anyhow!("Could not take stdin"))?;
+
+    std::thread::spawn(move || stdin.write_all(lines.as_bytes()));
+
     let output_str = String::from_utf8(explore.wait_with_output()?.stdout)?;
 
     let pancake_lines = output_str
@@ -27,9 +34,15 @@ pub fn get_sexprs(file_name: &str) -> anyhow::Result<Vec<String>> {
         .collect::<Vec<_>>())
 }
 
-use std::process::{Command, Stdio};
+use std::{
+    fs,
+    io::Write,
+    process::{Command, Stdio},
+};
 
-use sexpr_parser::SexprFactory;
+use sexpr_parser::{Parser, SexprFactory};
+
+use crate::pancake_ast::{parse_fn_dec, PancakeFnDec};
 
 /// Your amazing S-expression data structure
 #[derive(Debug, PartialEq)]
@@ -43,6 +56,15 @@ pub enum SExpr {
 }
 
 pub struct SExprParser;
+
+impl SExprParser {
+    pub fn parse_sexpr(sexpr: &str) -> anyhow::Result<PancakeFnDec> {
+        parse_fn_dec(
+            Self.parse(sexpr)
+                .map_err(|_| anyhow!("Could not parse string to sexpr"))?,
+        )
+    }
+}
 
 impl SexprFactory for SExprParser {
     type Sexpr = SExpr;

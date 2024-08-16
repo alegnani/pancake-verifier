@@ -1,19 +1,16 @@
-mod pancake_ast;
-mod parser;
-mod translation;
-mod viper_ast;
-
 use anyhow::anyhow;
-use pancake_ast::parse_fn_dec;
-use parser::{get_sexprs, SExprParser};
+use pancake2viper::{
+    pancake_ast::parse_fn_dec,
+    parser::{get_sexprs_from_file, SExprParser},
+    translation::translate_fndec,
+};
 use sexpr_parser::Parser;
 use std::{env, fs};
-use translation::translate_fndec;
 
 fn main() -> anyhow::Result<()> {
     let args = env::args().collect::<Vec<_>>();
     let mut asts = vec![];
-    for fn_sexpr in get_sexprs(&args[1])? {
+    for fn_sexpr in get_sexprs_from_file(&args[1])? {
         println!("\n Function:\n");
         let s = SExprParser
             .parse(&fn_sexpr)

@@ -1,9 +1,10 @@
 use std::str::FromStr;
 
-use crate::parser::SExpr;
+use crate::{
+    parser::SExpr,
+    shape_parser::{parse_shape, Shape},
+};
 use anyhow::anyhow;
-use pest::Parser;
-use pest_derive::Parser;
 
 #[derive(Debug, Clone)]
 pub enum PancakeExpr {
@@ -58,6 +59,7 @@ pub enum PancakeStmt {
     ExtCall(String, PancakeExpr, PancakeExpr, PancakeExpr, PancakeExpr),
 }
 
+#[derive(Debug)]
 pub struct PancakeFnDec {
     pub name: String,
     pub args: Vec<String>,
@@ -71,9 +73,6 @@ pub fn parse_fn_dec(s: SExpr) -> anyhow::Result<PancakeFnDec> {
     match s {
         List(l) => match &l[..] {
             [Symbol(fun_dec), Symbol(name), List(args), List(body)] if fun_dec == "func" => {
-                println!("Parsed function declaration of {}", name);
-                // println!("Body: {:?}", body);
-                println!("ARGS: {:?}", args);
                 for arg in args {
                     parse_arg(arg).unwrap();
                 }
@@ -90,7 +89,6 @@ pub fn parse_fn_dec(s: SExpr) -> anyhow::Result<PancakeFnDec> {
 }
 
 pub fn parse_stmt(s: &[SExpr]) -> anyhow::Result<PancakeStmt> {
-    println!("\nParsing stmt: {:?}", s);
     match s {
         [Symbol(op)] if op == "skip" => Ok(PancakeStmt::Skip),
         // Variable declaration
@@ -224,16 +222,6 @@ fn parse_exp_list(s: &[SExpr]) -> anyhow::Result<Vec<PancakeExpr>> {
     Ok(l)
 }
 
-#[derive(Parser)]
-#[grammar = "shape.pest"]
-struct ShapeParser;
-
-#[derive(Debug, Clone)]
-enum Shape {
-    Simple(u64),
-    Nested(Vec<Shape>),
-}
-
 #[derive(Debug)]
 struct Arg {
     name: String,
@@ -254,80 +242,5 @@ fn parse_arg(s: &SExpr) -> anyhow::Result<Arg> {
             _ => Err(anyhow!("Could not parse argument")),
         },
         _ => Err(anyhow!("Could not parse argument")),
-    }
-}
-
-fn parse_shape(s: &str) -> anyhow::Result<Shape> {
-    // if s == "1" {
-    //     return Ok(Shape::Simple(1));
-    // }
-    // let mut counter = 0;
-    // let mut stack = vec![];
-    // for c in s.chars() {
-    //     match c {
-    //         '<' => {
-    //             counter = 0;
-    //             stack.push(vec![]);
-    //         }
-    //         '1' => counter += 1,
-    //         ',' => (),
-    //         '>' => ,
-    //         '_' => panic!(),
-    //     }
-    // }
-    // todo!()
-    let top = ShapeParser::parse(Rule::TOP, s)?;
-    println!("top: {:?}", top);
-    let mut shape = traverse_shape(top);
-    reduce_shape(&mut shape);
-    println!("Shape: {:?}", shape);
-    Ok(shape)
-}
-
-fn traverse_shape(pairs: pest::iterators::Pairs<Rule>) -> Shape {
-    let mut counter = 0;
-    // println!("Called traverse: {:?}", pairs);
-    let mut buf = vec![];
-    for pair in pairs {
-        match pair.as_rule() {
-            Rule::NESTED => {
-                if counter != 0 {
-                    buf.push(Shape::Simple(counter));
-                    counter = 0;
-                }
-                println!("NESTED");
-                let nested = traverse_shape(pair.into_inner());
-                buf.push(nested);
-            }
-            _ => {
-                println!("SIMPLE");
-                counter += 1;
-            }
-        }
-    }
-    println!("Counter: {}", counter);
-    if buf.is_empty() {
-        Shape::Simple(counter)
-    } else {
-        if counter != 0 {
-            buf.push(Shape::Simple(counter));
-        }
-        Shape::Nested(buf)
-    }
-}
-
-fn reduce_shape(shape: &mut Shape) {
-    match shape {
-        Shape::Nested(vec) if vec.len() == 1 => {
-            if let Shape::Simple(x) = vec[0] {
-                *shape = Shape::Simple(x)
-            }
-        }
-        Shape::Nested(vec) => {
-            for entry in vec {
-                reduce_shape(entry);
-            }
-        }
-        _ => (),
     }
 }
