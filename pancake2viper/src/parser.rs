@@ -6,13 +6,22 @@ pub fn get_sexprs_from_file(file_name: &str) -> anyhow::Result<Vec<String>> {
 }
 
 pub fn get_sexprs(lines: String) -> anyhow::Result<Vec<String>> {
-    let mut explore = Command::new("cake")
-        .arg("--pancake")
-        .arg("--explore")
+    let mut preprocess = Command::new("cpp")
+        .arg("-P")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()?;
-    let mut stdin = explore
+
+    let explore = Command::new("cake")
+        .arg("--pancake")
+        .arg("--explore")
+        .stdin(Stdio::from(
+            preprocess.stdout.ok_or(anyhow!("Could not pipe command"))?,
+        ))
+        .stdout(Stdio::piped())
+        .spawn()?;
+
+    let mut stdin = preprocess
         .stdin
         .take()
         .ok_or(anyhow!("Could not take stdin"))?;
