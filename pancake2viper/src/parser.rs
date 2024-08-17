@@ -1,18 +1,18 @@
 use anyhow::anyhow;
 
-pub fn get_sexprs_from_file(file_name: &str) -> anyhow::Result<Vec<String>> {
+pub fn get_sexprs_from_file(file_name: &str, cake_path: &str) -> anyhow::Result<Vec<String>> {
     let lines = fs::read_to_string(file_name)?;
-    get_sexprs(lines)
+    get_sexprs(lines, cake_path)
 }
 
-pub fn get_sexprs(lines: String) -> anyhow::Result<Vec<String>> {
+pub fn get_sexprs(lines: String, cake_path: &str) -> anyhow::Result<Vec<String>> {
     let mut preprocess = Command::new("cpp")
         .arg("-P")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()?;
 
-    let explore = Command::new("cake")
+    let explore = Command::new(cake_path)
         .arg("--pancake")
         .arg("--explore")
         .stdin(Stdio::from(

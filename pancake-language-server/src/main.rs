@@ -19,6 +19,7 @@ struct Backend {
     client: Client,
     file_map: DashMap<String, Rope>,
     asts_map: DashMap<String, Vec<PancakeFnDec>>,
+    cake_path: String,
 }
 
 #[tower_lsp::async_trait]
@@ -69,7 +70,7 @@ impl Backend {
     async fn on_change(&self, params: (String, Url)) -> anyhow::Result<()> {
         let rope = Rope::from_str(&params.0);
         self.file_map.insert(params.1.to_string(), rope);
-        let asts = get_sexprs(params.0)?
+        let asts = get_sexprs(params.0, &self.cake_path)?
             .iter()
             .map(|s| SExprParser::parse_sexpr(s))
             .collect::<anyhow::Result<Vec<_>>>()?;
@@ -80,6 +81,7 @@ impl Backend {
     }
 
     async fn create_empty_file(&self, uri: Url) {
+        event!(Level::DEBUG, "creating empty file {}", uri.to_string());
         let create_file = CreateFile {
             uri,
             options: None,
@@ -95,6 +97,7 @@ impl Backend {
     }
 
     async fn create_vpr_file(&self, uri: Url, asts: &[PancakeFnDec]) {
+        event!(Level::DEBUG, "creating viper file {}", uri.to_string());
         // Create empty .vpr file
         let mut path = PathBuf::from_str(uri.path()).unwrap();
         path.set_extension("vpr");
@@ -146,6 +149,8 @@ async fn main() {
     let file_appender = tracing_appender::rolling::never(".", "lsp.log");
     tracing_subscriber::fmt().with_writer(file_appender).init();
 
+    let cake_path = std::env::var("CAKE_ML").unwrap_or("cake".into());
+
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
 
@@ -153,6 +158,7 @@ async fn main() {
         client,
         file_map: DashMap::new(),
         asts_map: DashMap::new(),
+        cake_path,
     });
     Server::new(stdin, stdout, socket).serve(service).await;
 }

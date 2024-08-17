@@ -10,7 +10,7 @@ use std::{env, fs};
 fn main() -> anyhow::Result<()> {
     let args = env::args().collect::<Vec<_>>();
     let mut asts = vec![];
-    for fn_sexpr in get_sexprs_from_file(&args[1])? {
+    for fn_sexpr in get_sexprs_from_file(&args[1], "cake")? {
         println!("\n Function:\n");
         let s = SExprParser
             .parse(&fn_sexpr)
