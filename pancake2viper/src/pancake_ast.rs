@@ -11,7 +11,7 @@ pub enum PancakeExpr {
     Const(i64),
     Var(String),
     Label(String),
-    Struct(Vec<PancakeExpr>),
+    Struct(PancakeStruct),
     Field(u64, Box<PancakeExpr>),
     Load(String, Box<PancakeExpr>),
     LoadByte(Box<PancakeExpr>),
@@ -19,6 +19,30 @@ pub enum PancakeExpr {
     Cmp(String, Box<PancakeExpr>, Box<PancakeExpr>),
     Shift(PancakeShiftType, Box<PancakeExpr>, u64),
     BaseAddr,
+    Call(String, Box<PancakeExpr>, Vec<PancakeExpr>),
+}
+
+#[derive(Debug, Clone)]
+pub struct PancakeStruct(pub Vec<PancakeExpr>);
+
+impl PancakeStruct {
+    pub fn new(l: Vec<PancakeExpr>) -> Self {
+        Self(l)
+    }
+    pub fn flatten(&self) -> Vec<PancakeExpr> {
+        let mut result = Vec::new();
+        Self::flatten_helper(&self.0, &mut result);
+        result
+    }
+
+    fn flatten_helper(list: &[PancakeExpr], result: &mut Vec<PancakeExpr>) {
+        for expr in list {
+            match expr {
+                PancakeExpr::Struct(inner) => Self::flatten_helper(&inner.0, result),
+                x => result.push(x.to_owned()),
+            }
+        }
+    }
 }
 
 #[derive(EnumString, Debug, Clone, Copy)]
@@ -64,10 +88,12 @@ pub enum PancakeStmt {
     Break,
     Continue,
     Call(String, PancakeExpr, Vec<PancakeExpr>),
+    TailCall(PancakeExpr, Vec<PancakeExpr>),
+    DecCall,
+    ExtCall(String, PancakeExpr, PancakeExpr, PancakeExpr, PancakeExpr),
     Raise(String, PancakeExpr),
     Return(PancakeExpr),
     Tick,
-    ExtCall(String, PancakeExpr, PancakeExpr, PancakeExpr, PancakeExpr),
 }
 
 #[derive(Debug)]
@@ -162,8 +188,13 @@ pub fn parse_stmt(s: &[SExpr]) -> anyhow::Result<PancakeStmt> {
             Box::new(parse_stmt_symbol(body)?),
         )),
         [Symbol(op), List(label), List(args), Symbol(ret)] if op == "call" => Ok(
-            PancakeStmt::Call("todo".into(), parse_exp(label)?, parse_exp_list(args)?),
+            PancakeStmt::Call(ret.into(), parse_exp(label)?, parse_exp_list(args)?),
         ),
+        [Symbol(op), List(label), List(args), Int(ret)] if op == "call" => Ok(PancakeStmt::Call(
+            "todo_call".into(),
+            parse_exp(label)?,
+            parse_exp_list(args)?,
+        )),
         [Symbol(op), List(exp)] if op == "return" => Ok(PancakeStmt::Return(parse_exp(exp)?)),
         [Symbol(op), Symbol(name), List(arg0), List(arg1), List(arg2), List(arg3)]
             if op == "ext_call" =>
@@ -176,7 +207,11 @@ pub fn parse_stmt(s: &[SExpr]) -> anyhow::Result<PancakeStmt> {
                 parse_exp(arg3)?,
             ))
         }
-        _ => panic!(),
+        [Symbol(op), List(label), List(args)] if op == "tail_call" => Ok(PancakeStmt::TailCall(
+            parse_exp(label)?,
+            parse_exp_list(args)?,
+        )),
+        x => panic!("Could not parse stmt: {:?}", x),
     }
 }
 
@@ -210,9 +245,9 @@ pub fn parse_exp(s: &[SExpr]) -> anyhow::Result<PancakeExpr> {
         }
         [Symbol(var), Symbol(name)] if var == "Var" => Ok(PancakeExpr::Var(name.clone())),
         [Symbol(label), Symbol(name)] if label == "Label" => Ok(PancakeExpr::Label(name.clone())),
-        [Symbol(struc), exps @ ..] if struc == "Struct" => {
-            Ok(PancakeExpr::Struct(parse_exp_list(exps)?))
-        }
+        [Symbol(struc), exps @ ..] if struc == "Struct" => Ok(PancakeExpr::Struct(
+            PancakeStruct::new(parse_exp_list(exps)?),
+        )),
         [Symbol(field), Int(idx), List(exp)] if field == "Field" => {
             Ok(PancakeExpr::Field(*idx, Box::new(parse_exp(exp)?)))
         }
@@ -234,6 +269,18 @@ pub fn parse_exp(s: &[SExpr]) -> anyhow::Result<PancakeExpr> {
             *num,
         )),
         [Symbol(base)] if base == "BaseAddr" => Ok(PancakeExpr::BaseAddr),
+        [Symbol(op), List(label), List(args), Symbol(ret)] if op == "call" => {
+            Ok(PancakeExpr::Call(
+                "todo_call".into(),
+                Box::new(parse_exp(label)?),
+                parse_exp_list(args)?,
+            ))
+        }
+        [Symbol(op), List(label), List(args), Int(ret)] if op == "call" => Ok(PancakeExpr::Call(
+            "todo_call".into(),
+            Box::new(parse_exp(label)?),
+            parse_exp_list(args)?,
+        )),
         [Symbol(op), exps @ ..] => Ok(PancakeExpr::Op(
             PancakeOpType::from_str(op)?,
             parse_exp_list(exps)?,

@@ -31,6 +31,14 @@ fn mangle_var(varname: &str) -> String {
     format!("_{}", varname)
 }
 
+fn parse_fname(name: &PancakeExpr) -> String {
+    if let PancakeExpr::Label(n) = name {
+        n.into()
+    } else {
+        "error f-pointer".into()
+    }
+}
+
 fn translate_cond(cond: &PancakeExpr) -> ViperExpr {
     match cond {
         PancakeExpr::Op(op, _) if op.is_bool() => translate_expr(cond),
@@ -58,12 +66,13 @@ fn translate_optype(typ: &PancakeOpType) -> ViperOp {
 }
 
 fn translate_expr(pexpr: &PancakeExpr) -> ViperExpr {
+    println!("expr: {:?}", pexpr);
     match pexpr {
         PancakeExpr::BaseAddr => todo!(),
-        PancakeExpr::Cmp(s, a, b) => todo!(),
+        PancakeExpr::Cmp(_, _, _) => panic!("PancakeExpr::Cmp not used"),
         PancakeExpr::Const(num) => ViperExpr::IntLit(*num),
         PancakeExpr::Field(idx, obj) => todo!(),
-        PancakeExpr::Label(label) => todo!(),
+        PancakeExpr::Label(label) => panic!("{:?}", label),
         PancakeExpr::Load(shape, addr) => todo!(),
         PancakeExpr::LoadByte(addr) => todo!(),
         PancakeExpr::Op(optype, operands) if operands.len() == 1 => ViperExpr::UnaryOp(
@@ -78,9 +87,9 @@ fn translate_expr(pexpr: &PancakeExpr) -> ViperExpr {
             })
             .unwrap(),
         PancakeExpr::Shift(typ, expr, amount) => todo!(),
-        PancakeExpr::Struct(expr) => todo!(),
+        PancakeExpr::Struct(expr) => translate_struct(&expr.0),
         PancakeExpr::Var(name) => ViperExpr::Var(mangle_var(name)),
-        _ => todo!(),
+        PancakeExpr::Call(_, _, _) => panic!("Should only be possible as part of a DecCall"),
     }
 }
 
@@ -88,21 +97,38 @@ fn translate_exprs(pexprs: &[PancakeExpr]) -> Vec<ViperExpr> {
     pexprs.iter().map(translate_expr).collect()
 }
 
+fn translate_struct(flat: &[PancakeExpr]) -> ViperExpr {
+    todo!()
+}
+
 fn translate_stmt(mut ctx: TranslationContext, pstmt: &PancakeStmt) -> ViperStmt {
+    println!("stmt: {:?}", pstmt);
     match pstmt {
         PancakeStmt::Assign(name, expr) => {
             ViperStmt::VarAssign(mangle_var(name), translate_expr(expr))
         }
         PancakeStmt::Break => ViperStmt::Goto(mangle_break(ctx)),
         PancakeStmt::Call(handler, name, args) => {
-            let fname = if let PancakeExpr::Label(n) = name {
-                n
-            } else {
-                "error f-pointer"
-            };
-            ViperStmt::MethodCall(vec![], fname.to_string(), translate_exprs(args))
+            println!("Handler: {}", handler);
+            ViperStmt::MethodCall(vec![], parse_fname(name), translate_exprs(args))
         }
+        PancakeStmt::TailCall(name, args) => ViperStmt::Seq(vec![
+            ViperStmt::MethodCall(
+                vec![RETURN_VAR.into()],
+                parse_fname(name),
+                translate_exprs(args),
+            ),
+            ViperStmt::Goto(RETURN_LABEL.into()),
+        ]),
         PancakeStmt::Continue => ViperStmt::Goto(mangle_continue(ctx)),
+        PancakeStmt::Dec(name, PancakeExpr::Call(ret, fname, args), skip) => ViperStmt::Seq(vec![
+            ViperStmt::VarDecl(mangle_var(name), ViperType::Int),
+            ViperStmt::MethodCall(
+                vec![mangle_var(name)],
+                parse_fname(fname),
+                translate_exprs(args),
+            ),
+        ]),
         PancakeStmt::Dec(name, expr, skip) => {
             // add assertions
             assert!(matches!(**skip, PancakeStmt::Skip));
@@ -145,6 +171,7 @@ fn translate_stmt(mut ctx: TranslationContext, pstmt: &PancakeStmt) -> ViperStmt
                 ViperStmt::Label(mangle_break(ctx)),
             ])
         }
+        PancakeStmt::DecCall => todo!(),
     }
 }
 

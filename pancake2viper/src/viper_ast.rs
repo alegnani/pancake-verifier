@@ -6,6 +6,8 @@ type ViperPredName = String;
 
 pub struct ViperArgDecl(pub ViperVarName, pub ViperType);
 
+pub struct TypedViperExpr(ViperType, ViperExpr);
+
 pub enum ViperExpr {
     IntLit(i64),
     BoolLit(bool),
@@ -60,11 +62,18 @@ pub enum ViperOp {
     And,
     Or,
     Modulo,
+    Concat,
 }
 
 pub enum ViperType {
     Int,
     Bool,
+    Ref,
+    Perm,
+    PredicateInstance,
+    Multiset(Box<ViperType>),
+    Set(Box<ViperType>),
+    Seq(Box<ViperType>),
 }
 
 fn indent_block(block: &str) -> String {
@@ -93,6 +102,7 @@ impl Display for ViperType {
         let s = match self {
             Self::Bool => "Bool",
             Self::Int => "Int",
+            _ => panic!(),
         };
         write!(f, "{}", s)
     }
@@ -122,6 +132,7 @@ impl Display for ViperOp {
             Self::Or => "||",
             Self::IntDiv => "\\",
             Self::Modulo => "%",
+            Self::Concat => "++",
         };
         write!(f, "{}", s)
     }
@@ -262,6 +273,15 @@ mod tests {
                 ),
             )),
         });
-        println!("{}", method);
+        assert_eq!(
+            method.to_string(),
+            "method test(arg1: Int) returns (value: Int)\n\
+                \trequires arg1 >= 0\n\
+                \trequires arg1 < 64\n\
+                \tensures arg1 <= 74\n\
+            {\n\
+                \tvalue := arg1 + 10\n\
+            }\n"
+        );
     }
 }
