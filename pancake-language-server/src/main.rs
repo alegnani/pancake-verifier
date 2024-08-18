@@ -11,14 +11,14 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 use tracing::{event, instrument, Level};
 
-use pancake2viper::pancake_ast::PancakeFnDec;
+use pancake2viper::pancake::FnDec;
 use pancake2viper::parser::{get_sexprs, SExprParser};
 
 #[derive(Debug)]
 struct Backend {
     client: Client,
     file_map: DashMap<String, Rope>,
-    asts_map: DashMap<String, Vec<PancakeFnDec>>,
+    asts_map: DashMap<String, Vec<FnDec>>,
     cake_path: String,
 }
 
@@ -72,7 +72,7 @@ impl Backend {
         self.file_map.insert(params.1.to_string(), rope);
         let asts = get_sexprs(params.0, &self.cake_path)?
             .iter()
-            .map(|s| SExprParser::parse_sexpr(s))
+            .map(|s| SExprParser::parse_function(s))
             .collect::<anyhow::Result<Vec<_>>>()?;
 
         self.create_vpr_file(params.1.clone(), &asts).await;
@@ -96,7 +96,7 @@ impl Backend {
         self.client.apply_edit(workspace_edit).await.unwrap();
     }
 
-    async fn create_vpr_file(&self, uri: Url, asts: &[PancakeFnDec]) {
+    async fn create_vpr_file(&self, uri: Url, asts: &[FnDec]) {
         event!(Level::DEBUG, "creating viper file {}", uri.to_string());
         // Create empty .vpr file
         let mut path = PathBuf::from_str(uri.path()).unwrap();
