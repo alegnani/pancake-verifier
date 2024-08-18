@@ -7,14 +7,14 @@ use pancake2viper::{
 use sexpr_parser::Parser;
 use std::{env, fs};
 
+use viper::Viper;
+
 fn main() -> anyhow::Result<()> {
     let args = env::args().collect::<Vec<_>>();
     let mut asts = vec![];
     for fn_sexpr in get_sexprs_from_file(&args[1], "cake")? {
         println!("\n Function:\n");
-        let s = SExprParser
-            .parse(&fn_sexpr)
-            .map_err(|_| anyhow!("Could not parse sexpr"))?;
+        let s = SExprParser.parse(&fn_sexpr).unwrap();
         let ast = parse_fn_dec(s)?;
         println!("AST: {:?}", &ast.body);
         asts.push(ast);
@@ -26,6 +26,11 @@ fn main() -> anyhow::Result<()> {
     for ast in asts {
         println!("{}", translate_fndec(&ast));
     }
+
+    let viper_home = env::var("VIPER_HOME")?;
+    let viper = Viper::new(&viper_home);
+    let ver_ctx = viper.attach_current_thread();
+    let ast_factory = ver_ctx.new_ast_factory();
 
     Ok(())
 }

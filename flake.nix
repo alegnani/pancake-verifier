@@ -30,17 +30,19 @@
             polyml
             jdk11
             z3
-            scala_2_13
           ];
 
-          LD_LIBRARY_PATH = "${lib.makeLibraryPath buildInputs}";
+          LD_LIBRARY_PATH = "${jdk11}/lib/openjdk/lib/server:${lib.makeLibraryPath buildInputs}";
           # LIBCLANG_PATH = pkgs.lib.makeLibraryPath [ pkgs.llvmPackages_latest.libclang.lib ];
           nativeBuildInputs = [ rustPlatform.bindgenHook ];
+
+          VIPER_HOME="/home/legna/.config/Code/User/globalStorage/viper-admin.viper/Stable/ViperTools/backends";
+          JAVA_HOME = "${jdk11}";
+          Z3_EXE = "/home/legna/.config/Code/User/globalStorage/viper-admin.viper/Stable/ViperTools/z3/bin/z3";
 
           RUST_SRC_PATH = "${rust}/lib/rustlib/src/rust/library";
           shellHook = ''
             export PATH=$(realpath ../cake-x64-64):$PATH
-            export PANCAKE_LSP=$(realpath ./target/debug/pancake-language-server)
           '';
 
           NIX_LD_LIBRARY_PATH = lib.makeLibraryPath [
