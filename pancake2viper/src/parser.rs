@@ -37,7 +37,6 @@ pub fn get_sexprs(lines: String, cake_path: &str) -> anyhow::Result<Vec<String>>
         .collect::<Vec<_>>()
         .join("\n");
 
-    println!("pancake: {}", pancake_lines);
     Ok(pancake_lines
         .split("\n\n")
         .map(|s| s.to_owned())

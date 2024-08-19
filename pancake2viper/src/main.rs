@@ -7,6 +7,9 @@ use std::env;
 use viper::Viper;
 
 fn main() -> anyhow::Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
     let args = env::args().collect::<Vec<_>>();
     let sexprs = get_sexprs_from_file(&args[1], "cake")?;
     let program = SExprParser::parse_program(sexprs)?;
@@ -19,7 +22,7 @@ fn main() -> anyhow::Result<()> {
     // }
 
     let viper_home = env::var("VIPER_HOME")?;
-    let viper = Viper::new(&viper_home);
+    let viper = Viper::new_with_args(&viper_home, vec![]);
     let ver_ctx = viper.attach_current_thread();
     let ast_factory = ver_ctx.new_ast_factory();
     let ast_utils = ver_ctx.new_ast_utils();

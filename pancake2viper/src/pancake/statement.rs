@@ -2,7 +2,7 @@ use super::{parse_exp, parse_exp_list, Expr};
 use crate::parser::SExpr::{self, *};
 use anyhow::anyhow;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Stmt {
     Skip,
     Declaration(Declaration),
@@ -23,75 +23,75 @@ pub enum Stmt {
     Tick,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Declaration {
     pub lhs: String,
     pub rhs: Expr,
     pub scope: Box<Stmt>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Assign {
     pub lhs: String,
     pub rhs: Expr,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Store {
     pub address: Expr,
     pub value: Expr,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StoreByte {
     pub address: Expr,
     pub value: Expr,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Seq {
     pub stmts: Vec<Stmt>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct If {
     pub cond: Expr,
     pub if_branch: Box<Stmt>,
     pub else_branch: Box<Stmt>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct While {
     pub cond: Expr,
     pub body: Box<Stmt>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Call {
     pub rettype: String,
     pub fname: Expr,
     pub args: Vec<Expr>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TailCall {
     pub fname: Expr,
     pub args: Vec<Expr>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExtCall {
     pub fname: String,
     pub args: [Expr; 4],
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Raise {
     pub error: String,
     pub idk: Expr,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Return {
     pub value: Expr,
 }
@@ -110,10 +110,8 @@ pub fn parse_stmt(s: &[SExpr]) -> anyhow::Result<Stmt> {
     match s {
         [Symbol(op)] => parse_stmt_symbol(op),
         // Variable declaration
-        [Symbol(op), List(decl), List(rem)] if op == "dec" => Ok(Stmt::Seq(Seq {
-            stmts: vec![parse_dec(decl)?, parse_stmt(rem)?],
-        })),
-        [Symbol(op), List(decl)] if op == "dec" => parse_dec(decl),
+        [Symbol(op), List(decl), List(rem)] if op == "dec" => parse_dec(decl, Some(rem)),
+        [Symbol(op), List(decl)] if op == "dec" => parse_dec(decl, None),
         [Symbol(var), Symbol(eq), List(exp)] if eq == ":=" => Ok(Stmt::Assign(Assign {
             lhs: var.clone(),
             rhs: parse_exp(exp)?,
@@ -203,12 +201,16 @@ pub fn parse_stmt(s: &[SExpr]) -> anyhow::Result<Stmt> {
     }
 }
 
-fn parse_dec(s: &[SExpr]) -> anyhow::Result<Stmt> {
-    match s {
+fn parse_dec(decl: &[SExpr], scope: Option<&[SExpr]>) -> anyhow::Result<Stmt> {
+    let scope = match scope {
+        Some(stmts) => parse_stmt(stmts)?,
+        None => Stmt::Skip,
+    };
+    match decl {
         [Symbol(var), Symbol(eq), List(exp)] if eq == ":=" => Ok(Stmt::Declaration(Declaration {
             lhs: var.clone(),
             rhs: parse_exp(exp)?,
-            scope: Box::new(Stmt::Skip), // FIXME: ?
+            scope: Box::new(scope),
         })),
         _ => Err(anyhow!("Not a valid declaration")),
     }

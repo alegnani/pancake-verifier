@@ -89,11 +89,11 @@ pub enum OpType {
     Mul,
     NotEqual,
     Equal,
+    Less,
+    NotLess,
     And,
     Or,
     Xor,
-    Less,
-    NotLess,
 }
 
 impl OpType {

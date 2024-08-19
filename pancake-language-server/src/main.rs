@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use dashmap::DashMap;
-use pancake2viper::translation::translate_fndec;
+use pancake2viper::utils::pretty_print;
 use ropey::Rope;
 
 use tower_lsp::jsonrpc::Result;
@@ -11,14 +11,14 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 use tracing::{event, instrument, Level};
 
-use pancake2viper::pancake::FnDec;
-use pancake2viper::parser::{get_sexprs, SExprParser};
+use pancake2viper::pancake::{self, Program};
+use pancake2viper::parser::get_sexprs;
 
 #[derive(Debug)]
 struct Backend {
     client: Client,
     file_map: DashMap<String, Rope>,
-    asts_map: DashMap<String, Vec<FnDec>>,
+    asts_map: DashMap<String, pancake::Program>,
     cake_path: String,
 }
 
@@ -70,18 +70,17 @@ impl Backend {
     async fn on_change(&self, params: (String, Url)) -> anyhow::Result<()> {
         let rope = Rope::from_str(&params.0);
         self.file_map.insert(params.1.to_string(), rope);
-        let asts = get_sexprs(params.0, &self.cake_path)?
-            .iter()
-            .map(|s| SExprParser::parse_function(s))
-            .collect::<anyhow::Result<Vec<_>>>()?;
+        let sexprs = get_sexprs(params.0, &self.cake_path)?;
+        let program = pancake2viper::parser::SExprParser::parse_program(sexprs)?;
 
-        self.create_vpr_file(params.1.clone(), &asts).await;
-        self.asts_map.insert(params.1.into(), asts);
+        self.create_vpr_file(params.1.clone(), pretty_print(program.clone())?)
+            .await;
+        self.asts_map.insert(params.1.into(), program);
         Ok(())
     }
 
     async fn create_empty_file(&self, uri: Url) {
-        event!(Level::DEBUG, "creating empty file {}", uri.to_string());
+        // event!(Level::DEBUG, "creating empty file {}", uri.to_string());
         let create_file = CreateFile {
             uri,
             options: None,
@@ -96,20 +95,13 @@ impl Backend {
         self.client.apply_edit(workspace_edit).await.unwrap();
     }
 
-    async fn create_vpr_file(&self, uri: Url, asts: &[FnDec]) {
+    async fn create_vpr_file(&self, uri: Url, text: String) {
         event!(Level::DEBUG, "creating viper file {}", uri.to_string());
         // Create empty .vpr file
         let mut path = PathBuf::from_str(uri.path()).unwrap();
         path.set_extension("vpr");
         let vpr_uri = Url::from_file_path(path).unwrap();
         self.create_empty_file(vpr_uri.clone()).await;
-
-        // Compile the AST into Viper code
-        let vpr_code = asts
-            .iter()
-            .map(|e| translate_fndec(e).to_string())
-            .collect::<Vec<_>>()
-            .join("\n");
 
         // Insert the Viper code into the .vpr file
         let text_edit = TextEdit {
@@ -123,7 +115,7 @@ impl Backend {
                     character: u32::MAX,
                 },
             },
-            new_text: vpr_code,
+            new_text: text,
         };
 
         let text_document_edit = TextDocumentEdit {
