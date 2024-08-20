@@ -3,22 +3,21 @@ use std::str::FromStr;
 
 use dashmap::DashMap;
 use pancake2viper::utils::pretty_print;
-use ropey::Rope;
 
+use pancake2viper::Viper;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
-use tracing::{event, instrument, Level};
+use tracing::{event, Level};
 
-use pancake2viper::pancake::{self, Program};
 use pancake2viper::parser::get_sexprs;
 
-#[derive(Debug)]
+// #[derive(Debug)]
 struct Backend {
+    viper: Viper,
     client: Client,
-    file_map: DashMap<String, Rope>,
-    asts_map: DashMap<String, pancake::Program>,
+    file_map: DashMap<String, String>,
     cake_path: String,
 }
 
@@ -46,36 +45,35 @@ impl LanguageServer for Backend {
         Ok(())
     }
 
-    #[instrument]
+    // #[instrument]
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        let _ = self
-            .on_change((params.text_document.text, params.text_document.uri))
-            .await;
+        self.file_map.insert(
+            params.text_document.uri.to_string(),
+            params.text_document.text,
+        );
+        let _ = self.verify_file(params.text_document.uri).await;
     }
 
-    #[instrument]
-    async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
-        let _ = self
-            .on_change((
-                std::mem::take(&mut params.content_changes[0].text),
-                params.text_document.uri,
-            ))
-            .await;
+    async fn did_change(&self, params: DidChangeTextDocumentParams) {
+        self.file_map.insert(
+            params.text_document.uri.to_string(),
+            params.content_changes[0].text.to_owned(),
+        );
     }
 
-    async fn did_save(&self, _params: DidSaveTextDocumentParams) {}
+    async fn did_save(&self, params: DidSaveTextDocumentParams) {
+        self.verify_file(params.text_document.uri).await.unwrap();
+    }
 }
 
 impl Backend {
-    async fn on_change(&self, params: (String, Url)) -> anyhow::Result<()> {
-        let rope = Rope::from_str(&params.0);
-        self.file_map.insert(params.1.to_string(), rope);
-        let sexprs = get_sexprs(params.0, &self.cake_path)?;
+    async fn verify_file(&self, uri: Url) -> anyhow::Result<()> {
+        let file_contents = self.file_map.get(uri.as_str()).unwrap().clone();
+        let sexprs = get_sexprs(file_contents, &self.cake_path)?;
         let program = pancake2viper::parser::SExprParser::parse_program(sexprs)?;
 
-        self.create_vpr_file(params.1.clone(), pretty_print(program.clone())?)
+        self.create_vpr_file(uri, pretty_print(&self.viper, program.clone())?)
             .await;
-        self.asts_map.insert(params.1.into(), program);
         Ok(())
     }
 
@@ -146,10 +144,13 @@ async fn main() {
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
 
+    let viper_home = std::env::var("VIPER_HOME").unwrap();
+    let viper = Viper::new(&viper_home);
+
     let (service, socket) = LspService::new(|client| Backend {
+        viper,
         client,
         file_map: DashMap::new(),
-        asts_map: DashMap::new(),
         cake_path,
     });
     Server::new(stdin, stdout, socket).serve(service).await;

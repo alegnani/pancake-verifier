@@ -1,5 +1,5 @@
+use viper::BinOpBv;
 use viper::BvSize::BV64;
-use viper::{AstFactory, BinOpBv};
 
 use crate::pancake::{self, ShiftType};
 
@@ -81,6 +81,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Call {
         todo!()
     }
 }
+
 impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Shift {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
         let ast = ctx.ast;
