@@ -1501,7 +1501,7 @@ dependencies = [
  "serde",
  "smt-log-analyzer",
  "tokio",
- "tracing 0.1.40",
+ "tracing 0.1.0",
  "uuid",
  "viper-sys",
 ]

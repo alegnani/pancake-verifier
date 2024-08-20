@@ -17,10 +17,13 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact_name: pancake-language-server
-            asset_name: Pancake-Language-Server
-          # - os: windows-latest
-            #  artifact_name: pancake-language-server.exe
-            #  asset_name: Pancake-Language-Server.exe
+            asset_name: pancake-language-server-linux
+          - os: windows-latest
+             artifact_name: pancake-language-server.exe
+             asset_name: pancake-language-server-windows.exe
+          - os: macos-latest
+            artifact_name: pancake-language-server
+            assert_name: pancake-language-server-macos
 
     steps:
     - uses: actions/checkout@v3
