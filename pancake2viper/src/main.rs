@@ -7,19 +7,9 @@ use std::env;
 use viper::Viper;
 
 fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .init();
     let args = env::args().collect::<Vec<_>>();
     let sexprs = get_sexprs_from_file(&args[1], "cake")?;
     let program = SExprParser::parse_program(sexprs)?;
-
-    // println!("\n\n################# VIPER #################\n\n");
-    // let vpr_prelude = fs::read_to_string("src/prelude.vpr")?;
-    // println!("{}\n", vpr_prelude);
-    // for ast in asts {
-    //     println!("{}", translate_fndec(&ast));
-    // }
 
     let viper_home = env::var("VIPER_HOME")?;
     let viper = Viper::new_with_args(&viper_home, vec![]);
@@ -28,8 +18,10 @@ fn main() -> anyhow::Result<()> {
     let ast_utils = ver_ctx.new_ast_utils();
     let mut ctx = ViperEncodeCtx::new(ast_factory);
     let program = program.to_viper(&mut ctx);
-    let mut verifier = ver_ctx
-        .new_verifier_with_default_smt_and_extra_args(viper::VerificationBackend::Silicon, vec![]);
+    let mut verifier = ver_ctx.new_verifier_with_default_smt_and_extra_args(
+        viper::VerificationBackend::Silicon,
+        vec!["--logLevel=OFF".into()],
+    );
     let s = ast_utils.pretty_print(program);
     println!("{}", s);
 
