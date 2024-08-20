@@ -84,9 +84,11 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::While {
 
         let mut body_seq = ctx.stack.clone();
         body_seq.push(body);
+        body_seq.push(ast.label(&ctx.current_continue_label(), &[]));
         let body = ast.seqn(&body_seq, &[]);
 
         ctx.stack.push(ast.while_stmt(cond, &[], body));
+        ctx.stack.push(ast.label(&ctx.current_break_label(), &[]));
         let seq = ast.seqn(&ctx.stack, &decls);
         ctx.stack.clear();
         seq
