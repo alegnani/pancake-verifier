@@ -1,5 +1,9 @@
-pub mod pancake_ast;
+pub mod pancake;
 pub mod parser;
-pub mod shape_parser;
 pub mod translation;
-pub mod viper_ast;
+pub mod utils;
+
+#[cfg(test)]
+mod tests;
+
+pub use viper::Viper;

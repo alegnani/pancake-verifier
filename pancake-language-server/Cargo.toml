@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 dashmap = "6.0.1"
-ropey = "1.6.1"
 tokio = { version = "1.39.2", features = ["full"] }
 tower-lsp = "0.20.0"
 pancake2viper = { path = "../pancake2viper" }
