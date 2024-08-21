@@ -9,5 +9,5 @@ pest = "2.7.11"
 pest_derive = "2.7.11"
 sexpr_parser = "0.3.0"
 strum = { version = "0.26.3", features = ["derive"] }
-tracing = { version = "0.1.0", path = "../prusti/tracing" }
+tracing = "0.1.40"
 viper = { path = "../prusti/viper" }

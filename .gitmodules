@@ -1,4 +1,4 @@
 [submodule "prusti"]
 	path = prusti
-  url = https://github.com/alegnani/prusti-dev.git
+	url = https://github.com/alegnani/prusti-dev.git
 	branch = pancake-verifier-changes
