@@ -24,6 +24,17 @@ impl pancake::Expr {
             x => x.to_viper(ctx),
         }
     }
+
+    // TODO: this could well be a function pointer. If we stick to only using
+    // valid function addresses (no unholy pointer arithmetic) we can encode
+    // this as a switch statement checking the expression against all possible
+    // function addresses.
+    pub fn label_to_viper(&self) -> String {
+        match self {
+            Self::Label(label) => label.to_owned(),
+            _ => panic!("Probably using f-pointer"),
+        }
+    }
 }
 
 impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Op {
@@ -76,12 +87,6 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Op {
     }
 }
 
-impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Call {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
-        todo!()
-    }
-}
-
 impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Shift {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
         let ast = ctx.ast;
@@ -109,5 +114,13 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Expr {
             pancake::Expr::Shift(shift) => shift.to_viper(ctx),
             _ => todo!(),
         }
+    }
+}
+
+impl<'a> ToViper<'a, Vec<viper::Expr<'a>>> for Vec<pancake::Expr> {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Vec<viper::Expr<'a>> {
+        self.into_iter()
+            .map(|a| a.to_viper(ctx))
+            .collect::<Vec<_>>()
     }
 }

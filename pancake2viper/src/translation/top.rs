@@ -95,6 +95,8 @@ impl<'a> ToViper<'a, viper::LocalVarDecl<'a>> for pancake::Arg {
 impl<'a> ToViper<'a, viper::Method<'a>> for pancake::FnDec {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Method<'a> {
         let ast = ctx.ast;
+        // TODO: mangle arg names differently ("f_{}"), declare and assign to
+        // local variables as Viper args are immutable
         let body = ast.seqn(
             &[self.body.to_viper(ctx), ast.label(ctx.return_label(), &[])],
             &[],
