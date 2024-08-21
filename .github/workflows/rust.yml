@@ -28,6 +28,13 @@ jobs:
           ~/.cargo/git/db/
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    - uses: cachix/install-nix-action@v27
+      with:
+        github_access_token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Create Nix environment
+      run: nix develop
+    - name: Download ViperTools
+      run: echo "TOOD"
     - name: Build
       run: cargo build --verbose
     - name: Run tests

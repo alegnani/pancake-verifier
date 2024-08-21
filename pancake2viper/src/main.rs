@@ -8,7 +8,8 @@ use viper::Viper;
 
 fn main() -> anyhow::Result<()> {
     let args = env::args().collect::<Vec<_>>();
-    let sexprs = get_sexprs_from_file(&args[1], "cake")?;
+    let cake = env::var("CAKE_ML")?;
+    let sexprs = get_sexprs_from_file(&args[1], &cake)?;
     let program = SExprParser::parse_program(sexprs)?;
 
     let viper_home = env::var("VIPER_HOME")?;

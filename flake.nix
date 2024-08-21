@@ -32,18 +32,20 @@
             z3
           ];
 
-          LD_LIBRARY_PATH = "${jdk11}/lib/openjdk/lib/server:${lib.makeLibraryPath buildInputs}";
-          # LIBCLANG_PATH = pkgs.lib.makeLibraryPath [ pkgs.llvmPackages_latest.libclang.lib ];
-          nativeBuildInputs = [ rustPlatform.bindgenHook ];
-
-          VIPER_HOME="/home/legna/.config/Code/User/globalStorage/viper-admin.viper/Stable/ViperTools/backends";
-          JAVA_HOME = "${jdk11}";
-          Z3_EXE = "/home/legna/.config/Code/User/globalStorage/viper-admin.viper/Stable/ViperTools/z3/bin/z3";
-
-          RUST_SRC_PATH = "${rust}/lib/rustlib/src/rust/library";
+          # change this to your local installation of Viper
+          VIPER_INSTALL = "/home/legna/.config/Code/User/globalStorage/viper-admin.viper/Stable/ViperTools";
+          # first looks for the cake binary at CAKE_ML, then falls back to executables on PATH
           shellHook = ''
-            export PATH=$(realpath ../cake-x64-64):$PATH
+            export CAKE_ML=$(realpath ../cake-x64-64/cake)
           '';
+
+          VIPER_HOME = "${VIPER_INSTALL}/backends";
+          JAVA_HOME = "${jdk11}";
+          Z3_EXE = "${VIPER_INSTALL}/z3/bin/z3";
+
+          LD_LIBRARY_PATH = "${jdk11}/lib/openjdk/lib/server:${lib.makeLibraryPath buildInputs}";
+          nativeBuildInputs = [ rustPlatform.bindgenHook ];
+          RUST_SRC_PATH = "${rust}/lib/rustlib/src/rust/library";
 
           NIX_LD_LIBRARY_PATH = lib.makeLibraryPath [
             stdenv.cc.cc
