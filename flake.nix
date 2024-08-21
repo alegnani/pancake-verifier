@@ -32,12 +32,10 @@
             z3
           ];
 
-          # change this to your local installation of Viper
+          # change this to your local installation of Viper and cake
           VIPER_INSTALL = "/home/legna/.config/Code/User/globalStorage/viper-admin.viper/Stable/ViperTools";
           # first looks for the cake binary at CAKE_ML, then falls back to executables on PATH
-          shellHook = ''
-            export CAKE_ML=$(realpath ../cake-x64-64/cake)
-          '';
+          # CAKE_ML="";
 
           VIPER_HOME = "${VIPER_INSTALL}/backends";
           JAVA_HOME = "${jdk11}";

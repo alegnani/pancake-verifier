@@ -19,8 +19,8 @@ jobs:
             artifact_name: pancake-language-server
             asset_name: pancake-language-server-linux
           - os: windows-latest
-             artifact_name: pancake-language-server.exe
-             asset_name: pancake-language-server-windows.exe
+            artifact_name: pancake-language-server.exe
+            asset_name: pancake-language-server-windows.exe
           - os: macos-latest
             artifact_name: pancake-language-server
             assert_name: pancake-language-server-macos
