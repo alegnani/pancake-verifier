@@ -2,7 +2,7 @@ use viper::{AstFactory, Declaration, LocalVarDecl};
 
 use crate::pancake;
 
-use super::bitvector::create_bv_domain;
+use super::viper_prelude::create_viper_prelude;
 
 pub struct ViperEncodeCtx<'a> {
     pub ast: AstFactory<'a>,
@@ -79,6 +79,10 @@ impl<'a> ViperEncodeCtx<'a> {
             .map(LocalVarDecl::into)
             .collect()
     }
+
+    pub fn heap_var(&self) -> viper::Expr {
+        self.ast.local_var("heap", self.ast.ref_type())
+    }
 }
 
 pub trait ToViper<'a, T> {
@@ -125,8 +129,7 @@ impl<'a> ToViper<'a, viper::Program<'a>> for pancake::Program {
             .into_iter()
             .map(|f| f.to_viper(ctx))
             .collect::<Vec<_>>();
-
-        let dom = create_bv_domain(ast);
-        ast.program(&[dom], &[], &[], &[], &functions)
+        let (domains, fields) = create_viper_prelude(ast);
+        ast.program(&domains, &fields, &[], &[], &functions)
     }
 }

@@ -18,6 +18,8 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Stmt {
             pancake::Stmt::Call(call) => call.to_viper(ctx),
             pancake::Stmt::ExtCall(ext) => ext.to_viper(ctx),
             pancake::Stmt::TailCall(tail) => tail.to_viper(ctx),
+            pancake::Stmt::Store(store) => store.to_viper(ctx),
+            pancake::Stmt::StoreByte(store) => store.to_viper(ctx),
             _ => todo!(),
         };
         ctx.stack.push(stmt);
@@ -188,5 +190,41 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::TailCall {
         let call = ast.method_call(&self.fname.label_to_viper(), &args, &[ret]);
         let goto = ast.goto(ctx.return_label());
         ast.seqn(&[call, goto], &[])
+    }
+}
+
+impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Store {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+        let ast = ctx.ast;
+        let addr_expr = self.address.to_viper(ctx);
+        let f_app = ast.domain_func_app2(
+            "slot",
+            &[ctx.heap_var(), addr_expr],
+            &[],
+            ast.ref_type(),
+            "IArray",
+            ast.no_position(),
+        );
+        let elem_acc = ast.field_access(f_app, ast.field("heap_elem", ast.ref_type()));
+        let rhs = self.value.to_viper(ctx);
+        ast.field_assign(elem_acc, rhs)
+    }
+}
+
+impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::StoreByte {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+        let ast = ctx.ast;
+        let truncate = pancake::Expr::Op(pancake::Op {
+            optype: pancake::OpType::And,
+            operands: vec![self.value, pancake::Expr::Const((1 << 8) - 1)],
+        });
+        ast.seqn(
+            &[pancake::Stmt::Store(pancake::Store {
+                address: self.address,
+                value: truncate,
+            })
+            .to_viper(ctx)],
+            &[],
+        )
     }
 }
