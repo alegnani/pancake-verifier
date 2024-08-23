@@ -6,6 +6,7 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Stmt {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
         let stmt = match self {
+            pancake::Stmt::Annotation(annot) => ast.comment(&annot.line),
             pancake::Stmt::Skip => ast.comment("skip"),
             pancake::Stmt::Tick => ast.comment("tick"),
             pancake::Stmt::Declaration(dec) => dec.to_viper(ctx),

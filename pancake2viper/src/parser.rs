@@ -8,6 +8,7 @@ pub fn get_sexprs_from_file(file_name: &str, cake_path: &str) -> anyhow::Result<
 pub fn get_sexprs(lines: String, cake_path: &str) -> anyhow::Result<Vec<String>> {
     let mut preprocess = Command::new("cpp")
         .arg("-P")
+        .arg("-C")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()?;

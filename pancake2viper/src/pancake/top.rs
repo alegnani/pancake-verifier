@@ -21,7 +21,7 @@ pub fn parse_fn_dec(s: SExpr) -> anyhow::Result<FnDec> {
                 Ok(FnDec {
                     fname: name.clone(),
                     args,
-                    body: parse_stmt(body)?,
+                    body: parse_stmt(body.iter().collect())?,
                 })
             }
             _ => Err(anyhow!("Shape of SExpr::List does not match")),
