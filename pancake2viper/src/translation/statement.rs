@@ -7,6 +7,7 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Stmt {
         let ast = ctx.ast;
         let stmt = match self {
             pancake::Stmt::Skip => ast.comment("skip"),
+            pancake::Stmt::Tick => ast.comment("tick"),
             pancake::Stmt::Declaration(dec) => dec.to_viper(ctx),
             pancake::Stmt::Assign(ass) => ass.to_viper(ctx),
             pancake::Stmt::Break => ast.goto(&ctx.current_break_label()),
@@ -20,7 +21,7 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Stmt {
             pancake::Stmt::TailCall(tail) => tail.to_viper(ctx),
             pancake::Stmt::Store(store) => store.to_viper(ctx),
             pancake::Stmt::StoreByte(store) => store.to_viper(ctx),
-            _ => todo!(),
+            pancake::Stmt::Raise(_) => todo!("Raise not implemented"),
         };
         ctx.stack.push(stmt);
 

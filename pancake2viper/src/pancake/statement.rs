@@ -16,7 +16,6 @@ pub enum Stmt {
     Continue,
     Call(Call),
     TailCall(TailCall),
-    DecCall,
     ExtCall(ExtCall),
     Raise(Raise),
     Return(Return),
