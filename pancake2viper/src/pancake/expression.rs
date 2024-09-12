@@ -4,7 +4,7 @@ use crate::parser::SExpr::{self, *};
 use anyhow::anyhow;
 use strum::EnumString;
 
-use super::shape::{parse_shape, Shape};
+use super::shape::Shape;
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -133,12 +133,12 @@ pub fn parse_exp(s: &[SExpr]) -> anyhow::Result<Expr> {
         }
         [Symbol(memload), Symbol(shape), List(exp)] if memload == "MemLoad" => {
             Ok(Expr::Load(Load {
-                shape: parse_shape(shape)?,
+                shape: Shape::parse(shape)?,
                 address: Box::new(parse_exp(exp)?),
             }))
         }
         [Symbol(memload), Int(shape), List(exp)] if memload == "MemLoad" => Ok(Expr::Load(Load {
-            shape: parse_shape(&shape.to_string())?,
+            shape: Shape::parse(&shape.to_string())?,
             address: Box::new(parse_exp(exp)?),
         })),
         [Symbol(shift), List(exp), Int(num)] => Ok(Expr::Shift(Shift {

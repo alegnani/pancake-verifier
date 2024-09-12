@@ -1,8 +1,4 @@
-use super::{
-    parse_stmt,
-    shape::{parse_shape, Shape},
-    Stmt,
-};
+use super::{parse_stmt, shape::Shape, Stmt};
 use crate::parser::SExpr::{self, *};
 use anyhow::anyhow;
 
@@ -46,11 +42,11 @@ fn parse_arg(s: &SExpr) -> anyhow::Result<Arg> {
         List(args) => match &args[..] {
             [Symbol(name), Symbol(colon), Symbol(shape)] if colon == ":" => Ok(Arg {
                 name: name.clone(),
-                shape: parse_shape(shape)?,
+                shape: Shape::parse(shape)?,
             }),
             [Symbol(name), Symbol(colon), Int(shape)] if colon == ":" => Ok(Arg {
                 name: name.clone(),
-                shape: parse_shape(&shape.to_string())?,
+                shape: Shape::parse(&shape.to_string())?,
             }),
             _ => Err(anyhow!("Could not parse argument")),
         },
