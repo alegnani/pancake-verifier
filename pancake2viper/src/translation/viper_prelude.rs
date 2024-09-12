@@ -1,10 +1,11 @@
-use viper::{AstFactory, Domain, DomainFunc, Field};
+use viper::{AstFactory, Domain, DomainFunc, Field, Method};
 
-pub fn create_viper_prelude(ast: AstFactory) -> (Vec<Domain>, Vec<Field>) {
+pub fn create_viper_prelude(ast: AstFactory) -> (Vec<Domain>, Vec<Field>, Vec<Method>) {
     let domains = vec![create_array_domain(ast), create_bv_domain(ast)];
     // TODO: split fields into the functions
     let fields = vec![ast.field("heap_elem", ast.int_type())];
-    (domains, fields)
+    let methods = vec![create_array_method(ast)];
+    (domains, fields, methods)
 }
 
 fn create_bv_domain(ast: AstFactory) -> Domain {
@@ -112,4 +113,32 @@ fn create_array_domain(ast: AstFactory) -> Domain {
     let axioms = [all_diff_ax, len_nonneg_ax];
 
     ast.domain("IArray", &functions, &axioms, &[])
+}
+
+fn create_array_method(ast: AstFactory) -> Method {
+    let iarray_type = ast.domain_type("IArray", &[], &[]);
+    let int_type = ast.int_type();
+    let l = ast.local_var("l", int_type);
+    let h = ast.local_var("h", int_type);
+    let src = ast.local_var("src", iarray_type);
+    let dst = ast.local_var("dst", iarray_type);
+
+    let args = [
+        ast.local_var_decl("src", iarray_type),
+        ast.local_var_decl("l", int_type),
+        ast.local_var_decl("h", int_type),
+    ];
+    let returns = [ast.local_var_decl("dst", iarray_type)];
+
+    let pres = [
+        ast.le_cmp(ast.int_lit(0), l),
+        ast.le_cmp(l, h),
+        ast.lt_cmp(
+            h,
+            ast.domain_func_app2("len", &[src], &[], int_type, "IArray", ast.no_position()),
+        ),
+    ];
+
+    // FIXME: finish preconditions and postconditions
+    ast.method("copy_slice", &args, &returns, &pres, &[], None)
 }

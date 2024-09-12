@@ -44,9 +44,9 @@ fn parse_arg(s: &SExpr) -> anyhow::Result<Arg> {
                 name: name.clone(),
                 shape: Shape::parse(shape)?,
             }),
-            [Symbol(name), Symbol(colon), Int(shape)] if colon == ":" => Ok(Arg {
+            [Symbol(name), Symbol(colon), Int(_)] if colon == ":" => Ok(Arg {
                 name: name.clone(),
-                shape: Shape::parse(&shape.to_string())?,
+                shape: Shape::Simple,
             }),
             _ => Err(anyhow!("Could not parse argument")),
         },

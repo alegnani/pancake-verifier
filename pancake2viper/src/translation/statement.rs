@@ -1,6 +1,6 @@
 use crate::pancake;
 
-use super::top::{ToViper, ViperEncodeCtx};
+use super::top::{ToShape, ToViper, ToViperType, ViperEncodeCtx};
 
 impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Stmt {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
@@ -118,10 +118,13 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Seq {
 impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Declaration {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
-        let decl = ast.local_var_decl(&ctx.mangle_var(&self.lhs), ast.int_type());
+        let name = ctx.mangle_var(&self.lhs);
+        let shape = self.rhs.shape(ctx);
+        let decl = ast.local_var_decl(&name, shape.to_viper_type(ctx));
         ctx.declarations.push(decl);
 
-        let var = ast.local_var(&ctx.mangle_var(&self.lhs), ast.int_type());
+        let var = ast.local_var(&ctx.mangle_var(&self.lhs), shape.to_viper_type(ctx));
+        ctx.type_map.insert(name, shape);
         let ass = match self.rhs {
             pancake::Expr::Call(call) => {
                 let args: Vec<viper::Expr> = call.args.to_viper(ctx);
@@ -144,7 +147,10 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Declaration {
 impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Assign {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
-        let var = ast.local_var(&ctx.mangle_var(&self.lhs), ast.int_type());
+        let name = ctx.mangle_var(&self.lhs);
+        let lhs_shape = ctx.type_map.get(&name).unwrap();
+        assert_eq!(lhs_shape, &self.rhs.shape(ctx));
+        let var = ast.local_var(&ctx.mangle_var(&self.lhs), lhs_shape.to_viper_type(ctx));
         let ass = ast.local_var_assign(var, self.rhs.to_viper(ctx));
 
         let decls = ctx.pop_decls();
@@ -160,6 +166,7 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Assign {
 impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Call {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
+        // FIXME: use actual return type
         let decl = ast.local_var_decl("discard", ast.int_type());
         let var = ast.local_var("discard", ast.int_type());
         let args: Vec<viper::Expr> = self.args.to_viper(ctx);
