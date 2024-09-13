@@ -52,7 +52,7 @@ use std::{
 
 use sexpr_parser::{Parser, SexprFactory};
 
-use crate::pancake::{self, parse_fn_dec};
+use crate::pancake::{self, FnDec};
 
 /// Your amazing S-expression data structure
 #[derive(Debug, PartialEq)]
@@ -69,7 +69,7 @@ pub struct SExprParser;
 
 impl SExprParser {
     pub fn parse_function(sexpr: &str) -> anyhow::Result<pancake::FnDec> {
-        parse_fn_dec(
+        FnDec::parse(
             Self.parse(sexpr)
                 .map_err(|_| anyhow!("Could not parse string to sexpr"))?,
         )

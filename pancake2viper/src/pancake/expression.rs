@@ -16,38 +16,40 @@ pub enum Expr {
     Load(Load),
     LoadByte(LoadByte),
     Op(Op),
-    Cmp(String, Box<Expr>, Box<Expr>),
+    // Cmp(String, Box<Expr>, Box<Expr>),
     Shift(Shift),
     BaseAddr,
     Call(ExprCall),
 }
 
 #[derive(Debug, Clone)]
-pub struct Struct(pub Vec<Expr>);
+pub struct Struct {
+    pub elements: Vec<Expr>,
+}
 
 impl Struct {
-    pub fn new(l: Vec<Expr>) -> Self {
-        Self(l)
+    pub fn new(elements: Vec<Expr>) -> Self {
+        Self { elements }
     }
-    pub fn flatten(&self) -> Vec<Expr> {
-        let mut result = Vec::new();
-        Self::flatten_helper(&self.0, &mut result);
-        result
-    }
+    // pub fn flatten(&self) -> Vec<Expr> {
+    //     let mut result = Vec::new();
+    //     Self::flatten_helper(&self.elements, &mut result);
+    //     result
+    // }
 
-    fn flatten_helper(list: &[Expr], result: &mut Vec<Expr>) {
-        for expr in list {
-            match expr {
-                Expr::Struct(inner) => Self::flatten_helper(&inner.0, result),
-                x => result.push(x.to_owned()),
-            }
-        }
-    }
+    // fn flatten_helper(list: &[Expr], result: &mut Vec<Expr>) {
+    //     for expr in list {
+    //         match expr {
+    //             Expr::Struct(inner) => Self::flatten_helper(&inner.0, result),
+    //             x => result.push(x.to_owned()),
+    //         }
+    //     }
+    // }
 }
 
 #[derive(Debug, Clone)]
 pub struct Field {
-    pub field_idx: u64,
+    pub field_idx: usize,
     pub obj: Box<Expr>,
 }
 
@@ -77,7 +79,7 @@ pub struct Shift {
 
 #[derive(Debug, Clone)]
 pub struct ExprCall {
-    pub rettype: String,
+    pub rettype: Shape,
     pub fname: Box<Expr>,
     pub args: Vec<Expr>,
 }
@@ -94,15 +96,6 @@ pub enum OpType {
     And,
     Or,
     Xor,
-}
-
-impl OpType {
-    pub fn is_bool(&self) -> bool {
-        matches!(
-            self,
-            Self::NotEqual | Self::Equal | Self::Less | Self::NotLess
-        )
-    }
 }
 
 #[derive(Debug, EnumString, Clone, Copy)]
@@ -123,7 +116,7 @@ pub fn parse_exp(s: &[SExpr]) -> anyhow::Result<Expr> {
             Ok(Expr::Struct(Struct::new(parse_exp_list(exps)?)))
         }
         [Symbol(field), Int(idx), List(exp)] if field == "Field" => Ok(Expr::Field(Field {
-            field_idx: *idx,
+            field_idx: *idx as usize,
             obj: Box::new(parse_exp(exp)?),
         })),
         [Symbol(memloadbyte), List(exp)] if memloadbyte == "MemLoadByte" => {
@@ -149,14 +142,14 @@ pub fn parse_exp(s: &[SExpr]) -> anyhow::Result<Expr> {
         [Symbol(base)] if base == "BaseAddr" => Ok(Expr::BaseAddr),
         [Symbol(op), List(label), List(args), Symbol(ret)] if op == "call" => {
             Ok(Expr::Call(ExprCall {
-                rettype: "todo_call".into(),
+                rettype: Shape::parse(ret)?,
                 fname: Box::new(parse_exp(label)?),
                 args: parse_exp_list(args)?,
             }))
         }
         [Symbol(op), List(label), List(args), Int(ret)] if op == "call" => {
             Ok(Expr::Call(ExprCall {
-                rettype: "todo_call".into(),
+                rettype: Shape::Simple,
                 fname: Box::new(parse_exp(label)?),
                 args: parse_exp_list(args)?,
             }))

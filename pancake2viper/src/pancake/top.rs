@@ -1,5 +1,8 @@
 use super::{parse_stmt, shape::Shape, Stmt};
-use crate::parser::SExpr::{self, *};
+use crate::{
+    parser::SExpr::{self, *},
+    translation::top::ToShape,
+};
 use anyhow::anyhow;
 
 #[derive(Debug, Clone)]
@@ -9,20 +12,44 @@ pub struct FnDec {
     pub body: Stmt,
 }
 
-pub fn parse_fn_dec(s: SExpr) -> anyhow::Result<FnDec> {
-    match s {
-        List(l) => match &l[..] {
-            [Symbol(fun_dec), Symbol(name), List(args), List(body)] if fun_dec == "func" => {
-                let args = args.iter().map(parse_arg).collect::<anyhow::Result<_>>()?;
-                Ok(FnDec {
-                    fname: name.clone(),
-                    args,
-                    body: parse_stmt(body.iter().collect())?,
-                })
-            }
-            _ => Err(anyhow!("Shape of SExpr::List does not match")),
-        },
-        _ => Err(anyhow!("SExpr is not a list")),
+impl FnDec {
+    pub fn parse(s: SExpr) -> anyhow::Result<Self> {
+        match s {
+            List(l) => match &l[..] {
+                [Symbol(fun_dec), Symbol(name), List(args), List(body)] if fun_dec == "func" => {
+                    let args = args.iter().map(parse_arg).collect::<anyhow::Result<_>>()?;
+                    Ok(FnDec {
+                        fname: name.clone(),
+                        args,
+                        body: parse_stmt(body.iter().collect())?,
+                    })
+                }
+                _ => Err(anyhow!("Shape of SExpr::List does not match")),
+            },
+            _ => Err(anyhow!("SExpr is not a list")),
+        }
+    }
+
+    fn collect_returns(body: &Stmt, ctx: &crate::translation::ViperEncodeCtx<'_>) -> Vec<Shape> {
+        match body {
+            Stmt::Seq(seqn) => seqn
+                .stmts
+                .iter()
+                .flat_map(|s| Self::collect_returns(s, ctx))
+                .collect(),
+            Stmt::Declaration(dec) => Self::collect_returns(&dec.scope, ctx),
+            Stmt::Return(ret) => vec![ret.value.shape(ctx)],
+            // Stmt::TailCall(tail) => tail.shape(ctx), // TODO: evaluate return types
+            _ => vec![],
+        }
+    }
+}
+
+impl<'a> ToShape<'a> for FnDec {
+    fn shape(&self, ctx: &crate::translation::ViperEncodeCtx<'a>) -> Shape {
+        let shapes = FnDec::collect_returns(&self.body, ctx);
+        // TODO: add check for types to be the same and non-empty
+        shapes[0].clone()
     }
 }
 

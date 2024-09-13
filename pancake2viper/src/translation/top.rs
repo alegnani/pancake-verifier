@@ -104,11 +104,11 @@ pub trait ToViper<'a, T> {
         todo!()
     }
 }
-pub trait ToViperType<'a, T> {
+pub trait ToViperType<'a> {
     fn to_viper_type(&self, ctx: &ViperEncodeCtx<'a>) -> viper::Type<'a>;
 }
 
-pub trait ToShape<'a, T> {
+pub trait ToShape<'a> {
     fn shape(&self, ctx: &ViperEncodeCtx<'a>) -> Shape;
 }
 
@@ -119,7 +119,7 @@ impl<'a> ToViper<'a, viper::LocalVarDecl<'a>> for pancake::Arg {
     }
 }
 
-impl<'a> ToShape<'a, viper::LocalVarDecl<'a>> for pancake::Arg {
+impl<'a> ToShape<'a> for pancake::Arg {
     fn shape(&self, _ctx: &ViperEncodeCtx<'a>) -> Shape {
         self.shape.clone()
     }

@@ -97,13 +97,6 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Shift {
     }
 }
 
-// impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Field {
-//     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
-//         let ast = ctx.ast;
-//         ast.domain_func_app2("slot", args, type_var_map, return_type, domain_name, pos)
-//     }
-// }
-
 impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Load {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
         let ast = ctx.ast;
@@ -135,12 +128,51 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::LoadByte {
 
 impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Struct {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
-        todo!()
+        let ast = ctx.ast;
+        let len: u64 = self.elements.iter().map(|e| e.shape(ctx).len()).sum();
+        let fresh = ctx.fresh_var();
+        let struct_decl = ast.local_var_decl(&fresh, ctx.heap_type());
+        let struct_var = ast.local_var(&fresh, ctx.heap_type());
+        let assumptions = [
+            ast.inhale(
+                ast.eq_cmp(
+                    ast.domain_func_app2(
+                        "len",
+                        &[struct_var],
+                        &[],
+                        ast.int_type(),
+                        "IArray",
+                        ast.no_position(),
+                    ),
+                    ast.int_lit(len as i64),
+                ),
+                ast.no_position(),
+            ),
+            ast.inhale(
+                ast.predicate_access(&[struct_var], "full_acc"),
+                ast.no_position(),
+            ),
+        ];
+        ctx.stack
+            .push(ast.seqn(&assumptions, &[struct_decl.into()]));
+        struct_var
+    }
+}
+
+impl<'a> ToShape<'a> for pancake::Struct {
+    fn shape(&self, ctx: &ViperEncodeCtx<'a>) -> Shape {
+        let inner_shapes = self
+            .elements
+            .iter()
+            .map(|e| e.shape(ctx))
+            .collect::<Vec<_>>();
+        Shape::Nested(inner_shapes)
     }
 }
 
 impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Field {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
+        // FIXME
         let ast = ctx.ast;
         let rf = ast.domain_func_app2(
             "slot",
@@ -151,6 +183,19 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Field {
             ast.no_position(),
         );
         ast.field_access(rf, ast.field("heap_elem", ast.int_type()))
+    }
+}
+
+impl<'a> ToShape<'a> for pancake::Field {
+    fn shape(&self, ctx: &ViperEncodeCtx<'a>) -> Shape {
+        let obj_shape = self.obj.shape(ctx);
+        match obj_shape {
+            Shape::Simple => panic!("Field access into value of shape '1'"),
+            Shape::Nested(ls) => {
+                assert!(self.field_idx < ls.len(), "Field access out of bounds");
+                ls[self.field_idx].clone()
+            }
+        }
     }
 }
 
@@ -173,30 +218,31 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Expr {
             pancake::Expr::Load(load) => load.to_viper(ctx),
             pancake::Expr::LoadByte(load) => load.to_viper(ctx),
             pancake::Expr::Field(field) => field.to_viper(ctx),
-            _ => todo!(),
+            pancake::Expr::BaseAddr => todo!(),
+            pancake::Expr::Struct(struc) => struc.to_viper(ctx),
         }
     }
 }
 
-impl<'a> ToShape<'a, viper::Expr<'a>> for pancake::Expr {
+impl<'a> ToShape<'a> for pancake::Expr {
     fn shape(&self, ctx: &ViperEncodeCtx<'a>) -> Shape {
         match self {
             pancake::Expr::Const(_)
             | pancake::Expr::Op(_)
             | pancake::Expr::Shift(_)
-            | pancake::Expr::LoadByte(_) => Shape::Simple,
+            | pancake::Expr::LoadByte(_)
+            | pancake::Expr::BaseAddr => Shape::Simple,
             pancake::Expr::Var(var) => ctx.type_map.get(var).unwrap().clone(),
-            pancake::Expr::Call(call) => todo!(),
+            pancake::Expr::Call(call) => call.rettype.clone(),
+            pancake::Expr::Label(_) => panic!("Should not be possible"),
             pancake::Expr::Load(load) => load.shape.clone(),
-            // pancake::Expr::Field(field) => field.shape(ctx),
-            // pancake::Expr::Struct(struc) => struc.shape(ctx),
-            // TODO
-            _ => todo!(),
+            pancake::Expr::Field(field) => field.shape(ctx),
+            pancake::Expr::Struct(struc) => struc.shape(ctx),
         }
     }
 }
 
-impl<'a> ToViperType<'a, viper::Program<'a>> for Shape {
+impl<'a> ToViperType<'a> for Shape {
     fn to_viper_type(&self, ctx: &ViperEncodeCtx<'a>) -> viper::Type<'a> {
         match self {
             Self::Simple => ctx.ast.int_type(),
