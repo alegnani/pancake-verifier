@@ -1,4 +1,4 @@
-use viper::Viper;
+use viper::{AstFactory, Expr, LocalVarDecl, Type, Viper};
 
 use crate::{
     pancake,
@@ -11,4 +11,19 @@ pub fn pretty_print(viper: &Viper, program: pancake::Program) -> anyhow::Result<
     let ast = vctx.new_ast_factory();
     let mut ctx = ViperEncodeCtx::new(ast);
     Ok(utils.pretty_print(program.to_viper(&mut ctx)))
+}
+
+pub trait ViperUtils<'a> {
+    fn new_var(&self, name: &str, typ: Type) -> (LocalVarDecl<'a>, Expr<'a>);
+    fn acc(&self, expr: Expr) -> Expr<'a>;
+}
+
+impl<'a> ViperUtils<'a> for AstFactory<'a> {
+    fn new_var(&self, name: &str, typ: Type) -> (LocalVarDecl<'a>, Expr<'a>) {
+        (self.local_var_decl(name, typ), self.local_var(name, typ))
+    }
+
+    fn acc(&self, expr: Expr) -> Expr<'a> {
+        self.field_access_predicate(expr, self.full_perm())
+    }
 }

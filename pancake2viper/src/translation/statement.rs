@@ -127,8 +127,9 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Declaration {
         ctx.type_map.insert(name, shape);
         let ass = match self.rhs {
             pancake::Expr::Call(call) => {
-                let args: Vec<viper::Expr> = call.args.to_viper(ctx);
-                ast.method_call(&call.fname.label_to_viper(), &args, &[var])
+                let mut args: Vec<viper::Expr> = call.args.to_viper(ctx);
+                args.insert(0, ctx.heap_var());
+                ast.method_call(&ctx.mangle_fn(&call.fname.label_to_viper()), &args, &[var])
             }
             other => ast.local_var_assign(var, other.to_viper(ctx)),
         };
@@ -169,8 +170,9 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Call {
         // FIXME: use actual return type
         let decl = ast.local_var_decl("discard", ast.int_type());
         let var = ast.local_var("discard", ast.int_type());
-        let args: Vec<viper::Expr> = self.args.to_viper(ctx);
-        let call = ast.method_call(&self.fname.label_to_viper(), &args, &[var]);
+        let mut args: Vec<viper::Expr> = self.args.to_viper(ctx);
+        args.insert(0, ctx.heap_var());
+        let call = ast.method_call(&ctx.mangle_fn(&self.fname.label_to_viper()), &args, &[var]);
         ast.seqn(&[call], &[decl.into()])
     }
 }
@@ -190,13 +192,14 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::ExtCall {
 impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::TailCall {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
-        let args = self
+        let mut args = self
             .args
             .into_iter()
             .map(|a| a.to_viper(ctx))
             .collect::<Vec<_>>();
+        args.insert(0, ctx.heap_var());
         let ret = ctx.return_var();
-        let call = ast.method_call(&self.fname.label_to_viper(), &args, &[ret]);
+        let call = ast.method_call(&ctx.mangle_fn(&self.fname.label_to_viper()), &args, &[ret]);
         let goto = ast.goto(ctx.return_label());
         ast.seqn(&[call, goto], &[])
     }

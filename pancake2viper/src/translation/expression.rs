@@ -135,21 +135,12 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Struct {
         let struct_var = ast.local_var(&fresh, ctx.heap_type());
         let assumptions = [
             ast.inhale(
-                ast.eq_cmp(
-                    ast.domain_func_app2(
-                        "len",
-                        &[struct_var],
-                        &[],
-                        ast.int_type(),
-                        "IArray",
-                        ast.no_position(),
-                    ),
-                    ast.int_lit(len as i64),
-                ),
+                ast.eq_cmp(ctx.iarray.len_f(struct_var), ast.int_lit(len as i64)),
                 ast.no_position(),
             ),
             ast.inhale(
-                ast.predicate_access(&[struct_var], "full_acc"),
+                ctx.iarray
+                    .array_acc_expr(struct_var, ast.int_lit(0), ctx.iarray.len_f(struct_var)),
                 ast.no_position(),
             ),
         ];

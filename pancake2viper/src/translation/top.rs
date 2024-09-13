@@ -2,9 +2,10 @@ use std::collections::HashMap;
 
 use viper::{AstFactory, Declaration, LocalVarDecl};
 
-use crate::pancake::{self, Shape};
-
-use super::viper_prelude::create_viper_prelude;
+use crate::{
+    pancake::{self, Shape},
+    viper_prelude::{create_viper_prelude, IArrayHelper},
+};
 
 pub struct ViperEncodeCtx<'a> {
     pub ast: AstFactory<'a>,
@@ -13,6 +14,7 @@ pub struct ViperEncodeCtx<'a> {
     pub type_map: HashMap<String, Shape>,
     fresh_counter: u64,
     while_counter: u64,
+    pub iarray: IArrayHelper<'a>,
 }
 
 impl<'a> ViperEncodeCtx<'a> {
@@ -24,6 +26,7 @@ impl<'a> ViperEncodeCtx<'a> {
             type_map: HashMap::new(),
             fresh_counter: 0,
             while_counter: 0,
+            iarray: IArrayHelper::new(ast),
         }
     }
 
@@ -35,6 +38,7 @@ impl<'a> ViperEncodeCtx<'a> {
             type_map: self.type_map.clone(),
             fresh_counter: self.fresh_counter,
             while_counter: self.while_counter,
+            iarray: self.iarray,
         }
     }
 
@@ -76,6 +80,10 @@ impl<'a> ViperEncodeCtx<'a> {
 
     pub fn mangle_var(&self, var: &str) -> String {
         format!("_{}", var)
+    }
+
+    pub fn mangle_fn(&self, fname: &str) -> String {
+        format!("f_{}", fname)
     }
 
     pub fn pop_decls(&mut self) -> Vec<Declaration<'a>> {
@@ -165,7 +173,7 @@ impl<'a> ToViper<'a, viper::Method<'a>> for pancake::FnDec {
         let body = ast.seqn(&args_assigns, &copied_args);
 
         ast.method(
-            &self.fname,
+            &ctx.mangle_fn(&self.fname),
             &args,
             &[ctx.return_decl()],
             &[],
