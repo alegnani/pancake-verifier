@@ -229,15 +229,12 @@ fn parse_dec(decl: Vec<&SExpr>, scope: Option<Vec<&SExpr>>) -> anyhow::Result<St
 }
 
 fn parse_seq(s: &[&SExpr]) -> anyhow::Result<Stmt> {
-    println!("SEQ: \n\n{:?} \n\n{:?}", s[0], s[1]);
-    println!("\nSEQ FULL {:?}", s);
+    // TODO: handle annotations or positional information correctly i don't remember
     match s {
         // this might be positional sequence
         [List(pos), pstmt] => {
-            println!("matches {:?} {:?}", pos, pstmt);
             match &pos[..] {
                 [Symbol(loc), st @ ..] if loc == "annot" => {
-                    println!("Si gode");
                     return parse_stmt(vec![pstmt]);
                 }
                 // [Symbol(loc), Symbol(start), Symbol(stop)] => panic!("{}->{}", start, stop),

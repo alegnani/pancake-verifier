@@ -166,7 +166,6 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Assign {
     }
 }
 
-// TODO: mangle function names
 impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Call {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;

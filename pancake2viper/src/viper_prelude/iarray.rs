@@ -219,24 +219,3 @@ impl<'a> IArrayHelper<'a> {
         self.ast.method_call("copy_slice", &[src, l, h], &[dst])
     }
 }
-
-/*
- * This should encode the following:
- * predicate slice_acc(src: IArray, l: Int, h: Int) {
- *     forall j: Int :: l <= j < h <= len(src) ==> acc(slot(src, j).heap_elem)
- * }
- *
- * predicate slice_acc(src: IArray) {
- *     forall j: Int :: 0 <= j < len(src) ==> acc(slot(src, j).heap_elem)
- * }
- */
-// fn create_array_predicates(ast: AstFactory) -> [Predicate; 2] {
-//     let iarray_type = ast.domain_type("IArray", &[], &[]);
-//     // let body = ast.forall(&[ast.local_var_decl("j", ast.int_type())], &[]);
-//     // let full_acc = ast.predicate(
-//     //     "full_acc",
-//     //     &[ast.local_var_decl("src", iarray_type)],
-//     //     Some(body),
-//     // );
-//     todo!()
-// }
