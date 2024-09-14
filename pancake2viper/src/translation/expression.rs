@@ -200,7 +200,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Field {
                     ctx.stack.push(ctx.iarray.copy_slice_m(
                         obj,
                         ast.int_lit(offset as i64),
-                        ast.int_lit((offset + size + 1) as i64),
+                        ast.int_lit((offset + size) as i64),
                         f,
                     ));
                     f
