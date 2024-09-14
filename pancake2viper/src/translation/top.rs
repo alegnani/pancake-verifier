@@ -133,7 +133,6 @@ impl<'a> ToShape<'a> for pancake::Arg {
     }
 }
 
-// FIXME: shape arguments are wrong as they are modelled by copy and not reference semantics
 impl<'a> ToViper<'a, viper::Method<'a>> for pancake::FnDec {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Method<'a> {
         let ast = ctx.ast;

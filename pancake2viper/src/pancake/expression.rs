@@ -31,20 +31,16 @@ impl Struct {
     pub fn new(elements: Vec<Expr>) -> Self {
         Self { elements }
     }
-    // pub fn flatten(&self) -> Vec<Expr> {
-    //     let mut result = Vec::new();
-    //     Self::flatten_helper(&self.elements, &mut result);
-    //     result
-    // }
 
-    // fn flatten_helper(list: &[Expr], result: &mut Vec<Expr>) {
-    //     for expr in list {
-    //         match expr {
-    //             Expr::Struct(inner) => Self::flatten_helper(&inner.0, result),
-    //             x => result.push(x.to_owned()),
-    //         }
-    //     }
-    // }
+    pub fn flatten(&self) -> Vec<Expr> {
+        self.elements
+            .iter()
+            .flat_map(|e| match e {
+                Expr::Struct(inner) => inner.flatten(),
+                x => vec![x.clone()],
+            })
+            .collect()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -147,13 +143,11 @@ pub fn parse_exp(s: &[SExpr]) -> anyhow::Result<Expr> {
                 args: parse_exp_list(args)?,
             }))
         }
-        [Symbol(op), List(label), List(args), Int(ret)] if op == "call" => {
-            Ok(Expr::Call(ExprCall {
-                rettype: Shape::Simple,
-                fname: Box::new(parse_exp(label)?),
-                args: parse_exp_list(args)?,
-            }))
-        }
+        [Symbol(op), List(label), List(args), Int(_)] if op == "call" => Ok(Expr::Call(ExprCall {
+            rettype: Shape::Simple,
+            fname: Box::new(parse_exp(label)?),
+            args: parse_exp_list(args)?,
+        })),
         [Symbol(op), exps @ ..] => Ok(Expr::Op(Op {
             optype: OpType::from_str(op)?,
             operands: parse_exp_list(exps)?,

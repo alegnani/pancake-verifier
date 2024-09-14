@@ -133,7 +133,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Struct {
         let fresh = ctx.fresh_var();
         let struct_decl = ast.local_var_decl(&fresh, ctx.heap_type());
         let struct_var = ast.local_var(&fresh, ctx.heap_type());
-        let assumptions = [
+        let mut assumptions = vec![
             ast.inhale(
                 ast.eq_cmp(ctx.iarray.len_f(struct_var), ast.int_lit(len as i64)),
                 ast.no_position(),
@@ -144,8 +144,16 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Struct {
                 ast.no_position(),
             ),
         ];
-        ctx.stack
-            .push(ast.seqn(&assumptions, &[struct_decl.into()]));
+        let assignments = self.flatten().into_iter().enumerate().map(|(idx, e)| {
+            let lhs = ast.field_access(
+                ctx.iarray.slot_f(struct_var, ast.int_lit(idx as i64)),
+                ctx.iarray.field(),
+            );
+            ast.field_assign(lhs, e.to_viper(ctx))
+        });
+        assumptions.extend(assignments);
+        ctx.declarations.push(struct_decl);
+        ctx.stack.push(ast.seqn(&assumptions, &[]));
         struct_var
     }
 }
