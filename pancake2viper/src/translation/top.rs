@@ -64,14 +64,13 @@ impl<'a> ViperEncodeCtx<'a> {
         "retval"
     }
 
-    pub fn return_decl(&self) -> viper::LocalVarDecl {
-        self.ast
-            .local_var_decl(self.return_var_name(), self.ast.int_type())
-    }
-
-    pub fn return_var(&self) -> viper::Expr {
-        self.ast
-            .local_var(self.return_var_name(), self.ast.int_type())
+    pub fn return_var(&self) -> (viper::LocalVarDecl, viper::Expr) {
+        (
+            self.ast
+                .local_var_decl(self.return_var_name(), self.ast.int_type()),
+            self.ast
+                .local_var(self.return_var_name(), self.ast.int_type()),
+        )
     }
 
     pub fn new_while_ctx(&mut self) {
@@ -94,15 +93,14 @@ impl<'a> ViperEncodeCtx<'a> {
     }
 
     pub fn heap_type(&self) -> viper::Type {
-        self.ast.domain_type("IArray", &[], &[])
+        self.iarray.get_type()
     }
 
-    pub fn heap_var(&self) -> viper::Expr {
-        self.ast.local_var("heap", self.heap_type())
-    }
-
-    pub fn heap_var_decl(&self) -> viper::LocalVarDecl {
-        self.ast.local_var_decl("heap", self.heap_type())
+    pub fn heap_var(&self) -> (viper::LocalVarDecl, viper::Expr) {
+        (
+            self.ast.local_var_decl("heap", self.heap_type()),
+            self.ast.local_var("heap", self.heap_type()),
+        )
     }
 }
 
@@ -122,8 +120,8 @@ pub trait ToShape<'a> {
 
 impl<'a> ToViper<'a, viper::LocalVarDecl<'a>> for pancake::Arg {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::LocalVarDecl<'a> {
-        let ast = ctx.ast;
-        ast.local_var_decl(&self.name, self.shape.to_viper_type(ctx))
+        ctx.ast
+            .local_var_decl(&self.name, self.shape.to_viper_type(ctx))
     }
 }
 
@@ -166,7 +164,7 @@ impl<'a> ToViper<'a, viper::Method<'a>> for pancake::FnDec {
             .into_iter()
             .map(|a| a.to_viper(ctx))
             .collect::<Vec<_>>();
-        args.insert(0, ctx.heap_var_decl());
+        args.insert(0, ctx.heap_var().0);
 
         args_assigns.extend_from_slice(&[body, ast.label(ctx.return_label(), &[])]);
         let body = ast.seqn(&args_assigns, &copied_args);
@@ -174,7 +172,7 @@ impl<'a> ToViper<'a, viper::Method<'a>> for pancake::FnDec {
         ast.method(
             &ctx.mangle_fn(&self.fname),
             &args,
-            &[ctx.return_decl()],
+            &[ctx.return_var().0],
             &[],
             &[],
             Some(body),

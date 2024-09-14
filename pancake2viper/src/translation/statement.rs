@@ -1,4 +1,4 @@
-use crate::pancake;
+use crate::{pancake, utils::ViperUtils};
 
 use super::top::{ToShape, ToViper, ToViperType, ViperEncodeCtx};
 
@@ -44,7 +44,7 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Return {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
         let value = self.value.to_viper(ctx);
-        let ass = ast.local_var_assign(ctx.return_var(), value);
+        let ass = ast.local_var_assign(ctx.return_var().1, value);
         let goto = ast.goto(ctx.return_label());
 
         let decls = ctx.pop_decls();
@@ -131,7 +131,7 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Declaration {
         let ass = match self.rhs {
             pancake::Expr::Call(call) => {
                 let mut args: Vec<viper::Expr> = call.args.to_viper(ctx);
-                args.insert(0, ctx.heap_var());
+                args.insert(0, ctx.heap_var().1);
                 ast.method_call(&ctx.mangle_fn(&call.fname.label_to_viper()), &args, &[var])
             }
             other => ast.local_var_assign(var, other.to_viper(ctx)),
@@ -170,10 +170,9 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Call {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
         // FIXME: use actual return type
-        let decl = ast.local_var_decl("discard", ast.int_type());
-        let var = ast.local_var("discard", ast.int_type());
+        let (decl, var) = ast.new_var("discard", ast.int_type());
         let mut args: Vec<viper::Expr> = self.args.to_viper(ctx);
-        args.insert(0, ctx.heap_var());
+        args.insert(0, ctx.heap_var().1);
         let call = ast.method_call(&ctx.mangle_fn(&self.fname.label_to_viper()), &args, &[var]);
         ast.seqn(&[call], &[decl.into()])
     }
@@ -199,9 +198,13 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::TailCall {
             .into_iter()
             .map(|a| a.to_viper(ctx))
             .collect::<Vec<_>>();
-        args.insert(0, ctx.heap_var());
+        args.insert(0, ctx.heap_var().1);
         let ret = ctx.return_var();
-        let call = ast.method_call(&ctx.mangle_fn(&self.fname.label_to_viper()), &args, &[ret]);
+        let call = ast.method_call(
+            &ctx.mangle_fn(&self.fname.label_to_viper()),
+            &args,
+            &[ret.1],
+        );
         let goto = ast.goto(ctx.return_label());
         ast.seqn(&[call, goto], &[])
     }
@@ -211,15 +214,8 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Store {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
         let addr_expr = self.address.to_viper(ctx);
-        let f_app = ast.domain_func_app2(
-            "slot",
-            &[ctx.heap_var(), addr_expr],
-            &[],
-            ast.ref_type(),
-            "IArray",
-            ast.no_position(),
-        );
-        let elem_acc = ast.field_access(f_app, ast.field("heap_elem", ast.ref_type()));
+        let f_app = ctx.iarray.slot_f(ctx.heap_var().1, addr_expr);
+        let elem_acc = ast.field_access(f_app, ctx.iarray.field());
         let rhs = self.value.to_viper(ctx);
         ast.field_assign(elem_acc, rhs)
     }

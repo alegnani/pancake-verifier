@@ -15,38 +15,34 @@ impl<'a> IArrayHelper<'a> {
     pub fn new(ast: AstFactory<'a>) -> Self {
         let domain_name = "IArray";
         let iarray_type = ast.domain_type(domain_name, &[], &[]);
-        let a = ast.local_var_decl("a", iarray_type);
-        let r = ast.local_var_decl("r", ast.ref_type());
-        let i = ast.local_var_decl("i", ast.int_type());
+        let (a_decl, a) = ast.new_var("a", iarray_type);
+        let (r_decl, r) = ast.new_var("r", ast.ref_type());
+        let (i_decl, i) = ast.new_var("i", ast.int_type());
 
-        let slot_f = ast.domain_func("slot", &[a, i], ast.ref_type(), false, domain_name);
-        let len_f = ast.domain_func("len", &[a], ast.int_type(), false, domain_name);
-        let first_f = ast.domain_func("first", &[r], iarray_type, false, domain_name);
-        let second_f = ast.domain_func("second", &[r], ast.int_type(), false, domain_name);
+        let slot_f = ast.domain_func(
+            "slot",
+            &[a_decl, i_decl],
+            ast.ref_type(),
+            false,
+            domain_name,
+        );
+        let len_f = ast.domain_func("len", &[a_decl], ast.int_type(), false, domain_name);
+        let first_f = ast.domain_func("first", &[r_decl], iarray_type, false, domain_name);
+        let second_f = ast.domain_func("second", &[r_decl], ast.int_type(), false, domain_name);
         let functions = [slot_f, len_f, first_f, second_f];
 
-        let slot_a_i_app = ast.domain_func_app(
-            slot_f,
-            &[
-                ast.local_var("a", iarray_type),
-                ast.local_var("i", ast.int_type()),
-            ],
-            &[],
-        );
+        let slot_a_i_app = ast.domain_func_app(slot_f, &[a, i], &[]);
 
         let first_app = ast.domain_func_app(first_f, &[slot_a_i_app], &[]);
         let second_app = ast.domain_func_app(second_f, &[slot_a_i_app], &[]);
-        let len_app = ast.domain_func_app(len_f, &[ast.local_var("a", iarray_type)], &[]);
+        let len_app = ast.domain_func_app(len_f, &[a], &[]);
 
         let all_diff_ax = ast.named_domain_axiom(
             "all_diff",
             ast.forall(
-                &[a, i],
+                &[a_decl, i_decl],
                 &[ast.trigger(&[slot_a_i_app])],
-                ast.and(
-                    ast.eq_cmp(first_app, ast.local_var("a", iarray_type)),
-                    ast.eq_cmp(second_app, ast.local_var("i", ast.int_type())),
-                ),
+                ast.and(ast.eq_cmp(first_app, a), ast.eq_cmp(second_app, i)),
             ),
             domain_name,
         );
@@ -54,7 +50,7 @@ impl<'a> IArrayHelper<'a> {
         let len_nonneg_ax = ast.named_domain_axiom(
             "len_nonneg",
             ast.forall(
-                &[a],
+                &[a_decl],
                 &[ast.trigger(&[len_app])],
                 ast.ge_cmp(len_app, ast.int_lit(0)),
             ),
@@ -140,8 +136,7 @@ impl<'a> IArrayHelper<'a> {
     /// ```
     pub fn array_acc_expr(&self, array: Expr, l: Expr, h: Expr) -> Expr<'a> {
         let ast = self.ast;
-        let j_decl = ast.local_var_decl("j", ast.int_type());
-        let j = ast.local_var("j", ast.int_type());
+        let (j_decl, j) = ast.new_var("j", ast.int_type());
         let zero = ast.int_lit(0);
         let upper = self.len_f(array);
 

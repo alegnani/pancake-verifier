@@ -48,9 +48,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Op {
             .fold((ctx, init), move |(ctx, acc), expr| {
                 let typ = ast.int_type();
                 let fresh = ctx.fresh_var();
-                let var = ast.local_var(&fresh, typ);
-
-                let decl = ast.local_var_decl(&fresh, typ);
+                let (var_decl, var) = ast.new_var(&fresh, typ);
                 ctx.type_map.insert(fresh, Shape::Simple);
                 let right = expr.to_viper(ctx);
                 let one = ast.int_lit(1);
@@ -76,7 +74,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Op {
                     }
                 };
                 let ass = ast.local_var_assign(var, rhs);
-                ctx.declarations.push(decl);
+                ctx.declarations.push(var_decl);
                 ctx.stack.push(ass);
 
                 (ctx, var)
@@ -105,15 +103,14 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Load {
         let ast = ctx.ast;
         // if self.shape
         let fresh_str = ctx.fresh_var();
-        let array_type = ast.domain_type("IArray", &[], &[]);
-        let fresh_decl = ast.local_var_decl(&fresh_str, array_type);
-        let fresh = ast.local_var(&fresh_str, array_type);
+        let array_type = ctx.iarray.get_type();
+        let (fresh_decl, fresh) = ast.new_var(&fresh_str, array_type);
         let lower = self.address.to_viper(ctx);
         let higher = ast.add(lower, ast.int_lit(self.shape.len() as i64));
 
         ctx.type_map.insert(fresh_str, self.shape);
 
-        let slice = ast.method_call("copy_slice", &[ctx.heap_var(), lower, higher], &[fresh]);
+        let slice = ast.method_call("copy_slice", &[ctx.heap_var().1, lower, higher], &[fresh]);
         ctx.declarations.push(fresh_decl);
         ctx.stack.push(slice);
         fresh
@@ -134,8 +131,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Struct {
         let ast = ctx.ast;
         let len: usize = self.elements.iter().map(|e| e.shape(ctx).len()).sum();
         let fresh = ctx.fresh_var();
-        let struct_decl = ast.local_var_decl(&fresh, ctx.heap_type());
-        let struct_var = ast.local_var(&fresh, ctx.heap_type());
+        let (struct_decl, struct_var) = ast.new_var(&fresh, ctx.heap_type());
         let mut assumptions = vec![
             ast.inhale(
                 ast.eq_cmp(ctx.iarray.len_f(struct_var), ast.int_lit(len as i64)),
@@ -270,7 +266,7 @@ impl<'a> ToViperType<'a> for Shape {
     fn to_viper_type(&self, ctx: &ViperEncodeCtx<'a>) -> viper::Type<'a> {
         match self {
             Self::Simple => ctx.ast.int_type(),
-            Self::Nested(_) => ctx.ast.domain_type("IArray", &[], &[]),
+            Self::Nested(_) => ctx.iarray.get_type(),
         }
     }
 }
