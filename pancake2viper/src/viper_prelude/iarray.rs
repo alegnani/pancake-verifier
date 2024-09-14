@@ -1,4 +1,4 @@
-use viper::{AstFactory, Domain, DomainFunc, Expr, Field, Method, Predicate, Type};
+use viper::{AstFactory, Domain, DomainFunc, Expr, Field, Method, Predicate, Stmt, Type};
 
 use crate::utils::ViperUtils;
 
@@ -72,7 +72,7 @@ impl<'a> IArrayHelper<'a> {
         }
     }
 
-    /// Encodes the following function to access an element of an IArray
+    /// Encodes the following function application to access an element of an IArray
     /// ```viper
     /// slot(array, idx)
     /// ```
@@ -80,7 +80,7 @@ impl<'a> IArrayHelper<'a> {
         self.ast.domain_func_app(self.slot_f, &[array, idx], &[])
     }
 
-    /// Encodes the following function to get the length of an IArray
+    /// Encodes the following function application to get the length of an IArray
     /// ```viper
     /// len(array)
     /// ```
@@ -167,7 +167,7 @@ impl<'a> IArrayHelper<'a> {
     ///     ensures full_acc(dst)
     ///     ensures forall i: Int :: 0 <= i < h - l ==> slot(src, l + i).heap_elem == slot(dst, i).heap_elem
     /// ```
-    pub fn copy_slice_m(&self) -> Method<'a> {
+    pub fn copy_slice_def(&self) -> Method<'a> {
         let ast = self.ast;
         let (src_decl, src) = ast.new_var("src", self.get_type());
         let (l_decl, l) = ast.new_var("l", ast.int_type());
@@ -179,7 +179,7 @@ impl<'a> IArrayHelper<'a> {
         let pres = [
             ast.le_cmp(zero, l),
             ast.le_cmp(l, h),
-            ast.lt_cmp(h, self.len_f(src)),
+            ast.le_cmp(h, self.len_f(src)),
             self.array_acc_expr(src, l, h),
         ];
 
@@ -209,6 +209,14 @@ impl<'a> IArrayHelper<'a> {
             &posts,
             None,
         )
+    }
+
+    /// Encodes the following method application for copying a slice of an IArray
+    /// ```viper
+    /// dst := copy_slice(src, l, h)
+    /// ```
+    pub fn copy_slice_m(&self, src: Expr, l: Expr, h: Expr, dst: Expr) -> Stmt<'a> {
+        self.ast.method_call("copy_slice", &[src, l, h], &[dst])
     }
 }
 

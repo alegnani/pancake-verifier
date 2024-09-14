@@ -10,6 +10,6 @@ pub fn create_viper_prelude(ast: AstFactory) -> (Vec<Domain>, Vec<Field>, Vec<Me
     let domains = vec![iarray.domain, create_bv_domain(ast)];
     // TODO: split fields into the functions
     let fields = vec![iarray.field()];
-    let methods = vec![iarray.copy_slice_m()];
+    let methods = vec![iarray.copy_slice_def()];
     (domains, fields, methods)
 }

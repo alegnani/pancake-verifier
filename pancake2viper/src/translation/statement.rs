@@ -5,6 +5,8 @@ use super::top::{ToShape, ToViper, ToViperType, ViperEncodeCtx};
 impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Stmt {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
+        ctx.stack
+            .insert(0, ast.comment(&format!("START: {:?}", &self)));
         let stmt = match self {
             pancake::Stmt::Annotation(annot) => ast.comment(&annot.line),
             pancake::Stmt::Skip => ast.comment("skip"),
@@ -25,6 +27,7 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Stmt {
             pancake::Stmt::Raise(_) => todo!("Raise not implemented"),
         };
         ctx.stack.push(stmt);
+        ctx.stack.push(ast.comment(" END "));
 
         let decls = ctx
             .declarations

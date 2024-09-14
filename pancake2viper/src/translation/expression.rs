@@ -1,7 +1,10 @@
 use viper::BinOpBv;
 use viper::BvSize::BV64;
 
-use crate::pancake::{self, Shape, ShiftType};
+use crate::{
+    pancake::{self, Shape, ShiftType},
+    utils::ViperUtils,
+};
 
 use super::top::{ToShape, ToViper, ToViperType, ViperEncodeCtx};
 
@@ -129,7 +132,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::LoadByte {
 impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Struct {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
         let ast = ctx.ast;
-        let len: u64 = self.elements.iter().map(|e| e.shape(ctx).len()).sum();
+        let len: usize = self.elements.iter().map(|e| e.shape(ctx).len()).sum();
         let fresh = ctx.fresh_var();
         let struct_decl = ast.local_var_decl(&fresh, ctx.heap_type());
         let struct_var = ast.local_var(&fresh, ctx.heap_type());
@@ -171,17 +174,39 @@ impl<'a> ToShape<'a> for pancake::Struct {
 
 impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Field {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
-        // FIXME
         let ast = ctx.ast;
-        let rf = ast.domain_func_app2(
-            "slot",
-            &[self.obj.to_viper(ctx), ast.int_lit(self.field_idx as i64)],
-            &[],
-            ast.ref_type(),
-            "IArray",
-            ast.no_position(),
+        let obj_shape = self.obj.shape(ctx);
+        let obj = self.obj.to_viper(ctx);
+
+        assert!(
+            self.field_idx < obj_shape.len(),
+            "{} < {} failed",
+            self.field_idx,
+            obj_shape.len()
         );
-        ast.field_access(rf, ast.field("heap_elem", ast.int_type()))
+        match &obj_shape {
+            Shape::Simple => panic!("Can't acces field of shape '1'"),
+            Shape::Nested(elems) => {
+                if elems[self.field_idx].len() == 1 {
+                    ast.field_access(
+                        ctx.iarray.slot_f(obj, ast.int_lit(self.field_idx as i64)),
+                        ctx.iarray.field(),
+                    )
+                } else {
+                    let fresh = ctx.fresh_var();
+                    let (f_decl, f) = ast.new_var(&fresh, ctx.iarray.get_type());
+                    ctx.declarations.push(f_decl);
+                    let (offset, size) = obj_shape.access(self.field_idx);
+                    ctx.stack.push(ctx.iarray.copy_slice_m(
+                        obj,
+                        ast.int_lit(offset as i64),
+                        ast.int_lit((offset + size + 1) as i64),
+                        f,
+                    ));
+                    f
+                }
+            }
+        }
     }
 }
 
@@ -231,7 +256,7 @@ impl<'a> ToShape<'a> for pancake::Expr {
             | pancake::Expr::Shift(_)
             | pancake::Expr::LoadByte(_)
             | pancake::Expr::BaseAddr => Shape::Simple,
-            pancake::Expr::Var(var) => ctx.type_map.get(var).unwrap().clone(),
+            pancake::Expr::Var(var) => ctx.type_map.get(&ctx.mangle_var(var)).unwrap().clone(),
             pancake::Expr::Call(call) => call.rettype.clone(),
             pancake::Expr::Label(_) => panic!("Should not be possible"),
             pancake::Expr::Load(load) => load.shape.clone(),

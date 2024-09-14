@@ -43,7 +43,7 @@ impl<'a> ViperEncodeCtx<'a> {
     }
 
     pub fn fresh_var(&mut self) -> String {
-        let fresh = format!("f_{}", self.fresh_counter);
+        let fresh = format!("_fr{}", self.fresh_counter);
         self.fresh_counter += 1;
         fresh
     }

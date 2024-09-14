@@ -7,7 +7,7 @@ pub enum Shape {
 }
 
 impl Shape {
-    pub fn len(&self) -> u64 {
+    pub fn len(&self) -> usize {
         match self {
             Self::Simple => 1,
             Self::Nested(l) => l.iter().map(|e| e.len()).sum(),
@@ -16,6 +16,18 @@ impl Shape {
 
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    pub fn access(&self, idx: usize) -> (usize, usize) {
+        match self {
+            Self::Simple => panic!("Can't acces field of shape '1'"),
+            Self::Nested(elems) => {
+                assert!(idx < elems.len());
+                let size = elems[idx].len();
+                let offset = elems.iter().take(idx).map(Self::len).sum();
+                (offset, size)
+            }
+        }
     }
 
     pub fn parse(s: &str) -> anyhow::Result<Self> {
