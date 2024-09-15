@@ -258,13 +258,8 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::StoreByte {
         let word_offset = ast.module(byte_address, eight);
         let word_address = ast.sub(byte_address, word_offset);
         let byte_mask = ast.backend_bv64_lit(255);
-        let shift_amount = ast.mul(eight, word_offset);
-        let mask = ast.bv_binop(
-            BinOpBv::BvShl,
-            BV64,
-            byte_mask,
-            ast.int_to_backend_bv(BV64, shift_amount),
-        );
+        let shift_amount = ast.int_to_backend_bv(BV64, ast.mul(eight, word_offset));
+        let mask = ast.bv_binop(BinOpBv::BvShl, BV64, byte_mask, shift_amount);
         let inv_mask = ast.bv_unnop(UnOpBv::Not, BV64, mask);
         let value = ast.bv_binop(
             BinOpBv::BitAnd,
@@ -272,6 +267,7 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::StoreByte {
             byte_mask,
             ast.int_to_backend_bv(BV64, self.value.to_viper(ctx)),
         );
+        let value = ast.bv_binop(BinOpBv::BvShl, BV64, value, shift_amount);
         let old = ast.int_to_backend_bv(BV64, iarray.access(ctx.heap_var().1, word_address));
         let new = ast.bv_binop(
             BinOpBv::BitOr,
