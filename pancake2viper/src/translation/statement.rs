@@ -1,3 +1,5 @@
+use viper::{BinOpBv, BvSize::BV64, UnOpBv};
+
 use crate::{pancake, utils::ViperUtils};
 
 use super::top::{ToShape, ToViper, ToViperType, ViperEncodeCtx};
@@ -213,28 +215,71 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::TailCall {
 impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Store {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
+        let zero = ast.int_lit(0);
+        let eight = ast.int_lit(8);
+        let iarray = ctx.iarray;
         let addr_expr = self.address.to_viper(ctx);
-        let f_app = ctx.iarray.slot_f(ctx.heap_var().1, addr_expr);
-        let elem_acc = ast.field_access(f_app, ctx.iarray.field());
+
+        // FIXME: change this to match word size
+        // assert addr % 8 == 0
+        let assertion = ast.assert(
+            ast.eq_cmp(ast.module(addr_expr, eight), zero),
+            ast.no_position(),
+        );
+
+        let word_addr = ast.div(addr_expr, eight);
+        let rhs_shape = self.value.shape(ctx);
         let rhs = self.value.to_viper(ctx);
-        ast.field_assign(elem_acc, rhs)
+
+        let store = if rhs_shape.len() == 1 {
+            ast.field_assign(iarray.access(ctx.heap_var().1, word_addr), rhs)
+        } else {
+            iarray.copy_slice_m(
+                rhs,
+                zero,
+                ctx.heap_var().1,
+                word_addr,
+                ast.int_lit(rhs_shape.len() as i64),
+            )
+        };
+
+        ast.seqn(&[assertion, store], &[])
     }
 }
 
+// FIXME: change this to match word size
 impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::StoreByte {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
-        let truncate = pancake::Expr::Op(pancake::Op {
-            optype: pancake::OpType::And,
-            operands: vec![self.value, pancake::Expr::Const((1 << 8) - 1)],
-        });
-        ast.seqn(
-            &[pancake::Stmt::Store(pancake::Store {
-                address: self.address,
-                value: truncate,
-            })
-            .to_viper(ctx)],
-            &[],
-        )
+        let iarray = ctx.iarray;
+        let eight = ast.int_lit(8);
+
+        let byte_address = self.address.to_viper(ctx);
+        let word_offset = ast.module(byte_address, eight);
+        let word_address = ast.sub(byte_address, word_offset);
+        let byte_mask = ast.backend_bv64_lit(255);
+        let shift_amount = ast.mul(eight, word_offset);
+        let mask = ast.bv_binop(
+            BinOpBv::BvShl,
+            BV64,
+            byte_mask,
+            ast.int_to_backend_bv(BV64, shift_amount),
+        );
+        let inv_mask = ast.bv_unnop(UnOpBv::Not, BV64, mask);
+        let value = ast.bv_binop(
+            BinOpBv::BitAnd,
+            BV64,
+            byte_mask,
+            ast.int_to_backend_bv(BV64, self.value.to_viper(ctx)),
+        );
+        let old = ast.int_to_backend_bv(BV64, iarray.access(ctx.heap_var().1, word_address));
+        let new = ast.bv_binop(
+            BinOpBv::BitOr,
+            BV64,
+            ast.bv_binop(BinOpBv::BitAnd, BV64, old, inv_mask),
+            ast.bv_binop(BinOpBv::BitAnd, BV64, value, mask),
+        );
+        let new = ast.backend_bv_to_int(BV64, new);
+        ast.field_assign(iarray.access(ctx.heap_var().1, word_address), new)
     }
 }
