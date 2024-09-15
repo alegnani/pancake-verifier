@@ -6,7 +6,6 @@ use crate::utils::ViperUtils;
 pub struct IArrayHelper<'a> {
     ast: AstFactory<'a>,
     pub domain: Domain<'a>,
-    // copy_slice_m: Method<'a>,
     pub len_f: DomainFunc<'a>,
     pub slot_f: DomainFunc<'a>,
 }
@@ -151,9 +150,9 @@ impl<'a> IArrayHelper<'a> {
         ast.forall(&[j_decl], &[], ast.implies(guard, access))
     }
 
-    /// Encodes the following method for copying a slice of an IArray
+    /// Encodes the following method for creating a slice of an IArray
     /// ```viper
-    /// method copy_slice(src: IArray, l: Int, h: Int) returns  (dst: IArray)
+    /// method create_slice(src: IArray, l: Int, h: Int) returns  (dst: IArray)
     ///     requires 0 <= l <= h < len(src)
     ///     requires slice_acc(src, l, h)
     ///     ensures len(dst) == h - l
@@ -162,7 +161,7 @@ impl<'a> IArrayHelper<'a> {
     ///     ensures full_acc(dst)
     ///     ensures forall i: Int :: 0 <= i < h - l ==> slot(src, l + i).heap_elem == slot(dst, i).heap_elem
     /// ```
-    pub fn copy_slice_def(&self) -> Method<'a> {
+    pub fn create_slice_def(&self) -> Method<'a> {
         let ast = self.ast;
         let (src_decl, src) = ast.new_var("src", self.get_type());
         let (l_decl, l) = ast.new_var("l", ast.int_type());
@@ -197,7 +196,7 @@ impl<'a> IArrayHelper<'a> {
         ];
 
         ast.method(
-            "copy_slice",
+            "create_slice",
             &[src_decl, l_decl, h_decl],
             &[dst_decl],
             &pres,
@@ -206,11 +205,11 @@ impl<'a> IArrayHelper<'a> {
         )
     }
 
-    /// Encodes the following method application for copying a slice of an IArray
+    /// Encodes the following method application for creating a slice of an IArray
     /// ```viper
-    /// dst := copy_slice(src, l, h)
+    /// dst := create_slice(src, l, h)
     /// ```
-    pub fn copy_slice_m(&self, src: Expr, l: Expr, h: Expr, dst: Expr) -> Stmt<'a> {
-        self.ast.method_call("copy_slice", &[src, l, h], &[dst])
+    pub fn create_slice_m(&self, src: Expr, l: Expr, h: Expr, dst: Expr) -> Stmt<'a> {
+        self.ast.method_call("create_slice", &[src, l, h], &[dst])
     }
 }

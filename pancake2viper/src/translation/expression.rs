@@ -110,7 +110,9 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Load {
 
         ctx.type_map.insert(fresh_str, self.shape);
 
-        let slice = ast.method_call("copy_slice", &[ctx.heap_var().1, lower, higher], &[fresh]);
+        let slice = ctx
+            .iarray
+            .create_slice_m(ctx.heap_var().1, lower, higher, fresh);
         ctx.declarations.push(fresh_decl);
         ctx.stack.push(slice);
         fresh
@@ -176,9 +178,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Field {
 
         assert!(
             self.field_idx < obj_shape.len(),
-            "{} < {} failed",
-            self.field_idx,
-            obj_shape.len()
+            "Field access out of bounds"
         );
         match &obj_shape {
             Shape::Simple => panic!("Can't acces field of shape '1'"),
@@ -193,7 +193,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Field {
                     let (f_decl, f) = ast.new_var(&fresh, ctx.iarray.get_type());
                     ctx.declarations.push(f_decl);
                     let (offset, size) = obj_shape.access(self.field_idx);
-                    ctx.stack.push(ctx.iarray.copy_slice_m(
+                    ctx.stack.push(ctx.iarray.create_slice_m(
                         obj,
                         ast.int_lit(offset as i64),
                         ast.int_lit((offset + size) as i64),
@@ -231,14 +231,14 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Expr {
                     .unwrap()
                     .to_viper_type(ctx),
             ),
-            pancake::Expr::Label(name) => todo!(), // not sure if we need this
+            pancake::Expr::Label(_) => panic!(), // XXX: not sure if we need this
             pancake::Expr::Op(op) => op.to_viper(ctx),
             pancake::Expr::Call(_) => panic!("Should only be possible as part of a DecCall"),
             pancake::Expr::Shift(shift) => shift.to_viper(ctx),
             pancake::Expr::Load(load) => load.to_viper(ctx),
             pancake::Expr::LoadByte(load) => load.to_viper(ctx),
             pancake::Expr::Field(field) => field.to_viper(ctx),
-            pancake::Expr::BaseAddr => todo!(),
+            pancake::Expr::BaseAddr => ast.int_lit(0), // XXX: encode this differently?
             pancake::Expr::Struct(struc) => struc.to_viper(ctx),
         }
     }
