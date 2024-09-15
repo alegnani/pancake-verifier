@@ -160,8 +160,24 @@ impl<'a> IArrayHelper<'a> {
         ast.forall(&[j_decl], &[], ast.implies(guard, access))
     }
 
-    /// Encodes the following method for copying a slice of an IArray
+    /// Encodes the following methods for copying and creating a slice of an IArray
     /// ```viper
+    /// method copy_slice(src: IArray, src_idx: Int, dst: IArray, dst_idx: Int, length: Int)
+    ///     requires 0 <= src_idx <= len(src)
+    ///     requires 0 <= dst_idx <= len(dst)
+    ///     requires src_idx + length <= len(src)
+    ///     requires dst_idx + length <= len(dst)
+    ///     requires slice_access(src, src_idx, length)
+    ///     requires slice_access(dst, dst_idx, length)
+    ///
+    ///     ensures slice_access(src, src_idx, length)
+    ///     ensures slice_access(dst, dst_idx, length)
+    ///     ensures forall i : Int :: 0 <= i < length ==>
+    ///         old(slot(src, src_idx + i).heap_elem) == slot(src, src_idx + i).heap_elem
+    ///     ensures forall i : Int :: 0 <= i < length ==>
+    ///         slot(src, src_idx + i).heap_elem == slot(dst, dst_idx + i).heap_elem
+    ///
+    ///
     /// method create_slice(src: IArray, src_idx: Int, dst: IArray, dst_idx: Int, length: Int)
     ///     requires 0 <= src_idx <= len(src)
     ///     requires 0 <= dst_idx <= len(dst)
@@ -172,8 +188,10 @@ impl<'a> IArrayHelper<'a> {
     ///
     ///     ensures slice_access(src, src_idx, length)
     ///     ensures slice_access(dst, dst_idx, length)
-    ///     ensures forall i : Int :: 0 <= i < length ==> old(slot(src, src_idx + i).heap_elem) == slot(src, src_idx + i).heap_elem
-    ///     ensures forall i : Int :: 0 <= i < length ==> slot(src, src_idx + i).heap_elem == slot(dst, dst_idx + i).heap_elem
+    ///     ensures forall i : Int :: 0 <= i < length ==>
+    ///         old(slot(src, src_idx + i).heap_elem) == slot(src, src_idx + i).heap_elem
+    ///     ensures forall i : Int :: 0 <= i < length ==>
+    ///         slot(src, src_idx + i).heap_elem == slot(dst, dst_idx + i).heap_elem
     /// ```
     pub fn slice_defs(&self) -> Vec<Method<'a>> {
         let ast = self.ast;

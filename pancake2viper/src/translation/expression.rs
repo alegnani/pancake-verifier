@@ -146,10 +146,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Struct {
             ),
         ];
         let assignments = self.flatten().into_iter().enumerate().map(|(idx, e)| {
-            let lhs = ast.field_access(
-                ctx.iarray.slot_f(struct_var, ast.int_lit(idx as i64)),
-                ctx.iarray.field(),
-            );
+            let lhs = ctx.iarray.access(struct_var, ast.int_lit(idx as i64));
             ast.field_assign(lhs, e.to_viper(ctx))
         });
         assumptions.extend(assignments);
@@ -184,10 +181,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Field {
             Shape::Simple => panic!("Can't acces field of shape '1'"),
             Shape::Nested(elems) => {
                 if elems[self.field_idx].len() == 1 {
-                    ast.field_access(
-                        ctx.iarray.slot_f(obj, ast.int_lit(self.field_idx as i64)),
-                        ctx.iarray.field(),
-                    )
+                    ctx.iarray.access(obj, ast.int_lit(self.field_idx as i64))
                 } else {
                     let fresh = ctx.fresh_var();
                     let (f_decl, f) = ast.new_var(&fresh, ctx.iarray.get_type());
