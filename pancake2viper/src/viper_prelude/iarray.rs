@@ -67,6 +67,7 @@ impl<'a> IArrayHelper<'a> {
         }
     }
 
+    // TODO: maybe deprecated in favour of access() ???
     /// Encodes the following function application to access an element of an IArray
     /// ```viper
     /// slot(array, idx)
@@ -83,6 +84,14 @@ impl<'a> IArrayHelper<'a> {
         self.ast.domain_func_app(self.len_f, &[array], &[])
     }
 
+    /// Encodes array accesses of an IArray
+    /// ```viper
+    /// slot(array, idx).heap_elem
+    /// ```
+    pub fn access(&self, array: Expr, idx: Expr) -> Expr<'a> {
+        self.ast.field_access(self.slot_f(array, idx), self.field())
+    }
+
     /// The type of an IArray
     pub fn get_type(&self) -> Type<'a> {
         self.ast.domain_type("IArray", &[], &[])
@@ -95,19 +104,19 @@ impl<'a> IArrayHelper<'a> {
 
     /// Encodes the following predicate for slice access of an IArray
     /// ```viper
-    /// predicate slice_acc(src: IArray, l: Int, h: Int) {
-    ///     forall j: Int ::l <= j < h <= len(src) ==> acc(slot(src, j).heap_elem)
+    /// predicate slice_acc(src: IArray, idx: Int, length: Int) {
+    ///     forall j: Int :: 0 <= idx <= j < idx + length <= len(src) ==> acc(slot(src, j).heap_elem)
     /// }
     /// ```
     pub fn slice_acc_def(&self) -> Predicate<'a> {
         let ast = self.ast;
         let (src_decl, src) = ast.new_var("src", self.get_type());
-        let (l_decl, l) = ast.new_var("l", ast.int_type());
-        let (h_decl, h) = ast.new_var("h", ast.int_type());
+        let (idx_decl, idx) = ast.new_var("idx", ast.int_type());
+        let (length_decl, length) = ast.new_var("length", ast.int_type());
         self.ast.predicate(
             "slice_acc",
-            &[src_decl, l_decl, h_decl],
-            Some(self.array_acc_expr(src, l, h)),
+            &[src_decl, idx_decl, length_decl],
+            Some(self.array_acc_expr(src, idx, length)),
         )
     }
 
@@ -131,85 +140,161 @@ impl<'a> IArrayHelper<'a> {
 
     /// Encodes the following expression for permissions of an IArray (slice)
     /// ```viper
-    ///     forall j: Int ::0 <= j < len(src) ==> acc(slot(src, j).heap_elem)
+    ///     forall j: Int :: 0 <= idx <= j < idx + length <= len(src) ==> acc(slot(src, j).heap_elem)
     /// ```
-    pub fn array_acc_expr(&self, array: Expr, l: Expr, h: Expr) -> Expr<'a> {
+    pub fn array_acc_expr(&self, array: Expr, idx: Expr, length: Expr) -> Expr<'a> {
         let ast = self.ast;
         let (j_decl, j) = ast.new_var("j", ast.int_type());
-        let zero = ast.int_lit(0);
         let upper = self.len_f(array);
+        let zero = ast.int_lit(0);
+        let limit = ast.add(idx, length);
 
-        let l0 = ast.le_cmp(zero, l);
-        let lj = ast.le_cmp(l, j);
-        let jh = ast.lt_cmp(j, h);
-        let hu = ast.le_cmp(h, upper);
-        let guard = ast.and(ast.and(l0, lj), ast.and(jh, hu));
+        let i0 = ast.le_cmp(zero, idx);
+        let ij = ast.le_cmp(idx, j);
+        let jl = ast.lt_cmp(j, limit);
+        let lu = ast.le_cmp(limit, upper);
+        let guard = ast.and(ast.and(i0, ij), ast.and(jl, lu));
 
-        let access = ast.acc(ast.field_access(self.slot_f(array, j), self.field()));
+        let access = ast.acc(self.access(array, j));
 
         ast.forall(&[j_decl], &[], ast.implies(guard, access))
     }
 
-    /// Encodes the following method for creating a slice of an IArray
+    /// Encodes the following method for copying a slice of an IArray
     /// ```viper
-    /// method create_slice(src: IArray, l: Int, h: Int) returns  (dst: IArray)
-    ///     requires 0 <= l <= h < len(src)
-    ///     requires slice_acc(src, l, h)
-    ///     ensures len(dst) == h - l
-    ///     ensures slice_acc(src, l, h)
-    ///     ensures forall i: Int :: l <= i < h ==> old(slot(src, i).heap_elem) == slot(src, i).heap_elem
-    ///     ensures full_acc(dst)
-    ///     ensures forall i: Int :: 0 <= i < h - l ==> slot(src, l + i).heap_elem == slot(dst, i).heap_elem
+    /// method create_slice(src: IArray, src_idx: Int, dst: IArray, dst_idx: Int, length: Int)
+    ///     requires 0 <= src_idx <= len(src)
+    ///     requires 0 <= dst_idx <= len(dst)
+    ///     requires src_idx + length <= len(src)
+    ///     requires dst_idx + length <= len(dst)
+    ///     requires slice_access(src, src_idx, length)
+    ///     requires slice_access(dst, dst_idx, length)
+    ///
+    ///     ensures slice_access(src, src_idx, length)
+    ///     ensures slice_access(dst, dst_idx, length)
+    ///     ensures forall i : Int :: 0 <= i < length ==> old(slot(src, src_idx + i).heap_elem) == slot(src, src_idx + i).heap_elem
+    ///     ensures forall i : Int :: 0 <= i < length ==> slot(src, src_idx + i).heap_elem == slot(dst, dst_idx + i).heap_elem
     /// ```
-    pub fn create_slice_def(&self) -> Method<'a> {
+    pub fn slice_defs(&self) -> Vec<Method<'a>> {
         let ast = self.ast;
         let (src_decl, src) = ast.new_var("src", self.get_type());
-        let (l_decl, l) = ast.new_var("l", ast.int_type());
-        let (h_decl, h) = ast.new_var("h", ast.int_type());
+        let (src_idx_decl, src_idx) = ast.new_var("src_idx", ast.int_type());
         let (dst_decl, dst) = ast.new_var("dst", self.get_type());
+        let (dst_idx_decl, dst_idx) = ast.new_var("dst_idx", ast.int_type());
+        let (length_decl, length) = ast.new_var("length", ast.int_type());
         let (i_decl, i) = ast.new_var("i", ast.int_type());
+
         let zero = ast.int_lit(0);
+        let len_src = self.len_f(src);
+        let len_dst = self.len_f(dst);
 
         let pres = [
-            ast.le_cmp(zero, l),
-            ast.le_cmp(l, h),
-            ast.le_cmp(h, self.len_f(src)),
-            self.array_acc_expr(src, l, h),
+            // requires 0 <= src_idx <= len(src)
+            ast.le_cmp(zero, src_idx),
+            ast.le_cmp(src_idx, len_src),
+            // requires src_idx + length <= len(src)
+            ast.le_cmp(ast.add(src_idx, length), len_src),
+            // requires slice_access(src, src_idx, length)
+            self.array_acc_expr(src, src_idx, length),
+            // requires 0 <= dst_idx <= len(dst)
+            ast.le_cmp(zero, dst_idx),
+            ast.le_cmp(dst_idx, len_dst),
+            // requires dst_idx + length <= len(dst)
+            ast.le_cmp(ast.add(dst_idx, length), len_dst),
+            // requires slice_access(dst, dst_idx, length)
+            self.array_acc_expr(dst, dst_idx, length),
         ];
 
-        let src_guard = ast.and(ast.le_cmp(l, i), ast.lt_cmp(i, h));
-        let slot_i = ast.field_access(self.slot_f(src, i), self.field());
-        let src_impl = ast.eq_cmp(ast.old(slot_i), slot_i);
+        let guard = ast.and(ast.le_cmp(zero, i), ast.lt_cmp(i, length));
+        let src_idx_i = ast.add(src_idx, i);
+        let dst_idx_i = ast.add(dst_idx, i);
 
-        let dst_guard = ast.and(ast.le_cmp(zero, i), ast.lt_cmp(i, ast.sub(h, l)));
-        let dst_impl = ast.eq_cmp(
-            ast.field_access(self.slot_f(src, ast.add(l, i)), self.field()),
-            ast.field_access(self.slot_f(dst, i), self.field()),
+        let src_impl = ast.eq_cmp(
+            ast.old(self.access(src, src_idx_i)),
+            self.access(src, src_idx_i),
         );
+        let dst_impl = ast.eq_cmp(self.access(src, src_idx_i), self.access(dst, dst_idx_i));
 
         let posts = [
-            ast.eq_cmp(self.len_f(dst), ast.sub(h, l)),
-            self.array_acc_expr(src, l, h),
-            ast.forall(&[i_decl], &[], ast.implies(src_guard, src_impl)),
-            self.array_acc_expr(dst, zero, self.len_f(dst)),
-            ast.forall(&[i_decl], &[], ast.implies(dst_guard, dst_impl)),
+            // ensures slice_access(src, src_idx, length)
+            self.array_acc_expr(src, src_idx, length),
+            // ensures slice_access(dst, dst_idx, length)
+            self.array_acc_expr(dst, dst_idx, length),
+            // ensures forall i : Int :: 0 <= i < length ==> old(slot(src, src_idx + i).heap_elem) == slot(src, src_idx + i).heap_elem
+            ast.forall(&[i_decl], &[], ast.implies(guard, src_impl)),
+            // ensures forall i : Int :: 0 <= i < length ==> slot(src, src_idx + i).heap_elem == slot(dst, dst_idx + i).heap_elem
+            ast.forall(&[i_decl], &[], ast.implies(guard, dst_impl)),
         ];
 
-        ast.method(
-            "create_slice",
-            &[src_decl, l_decl, h_decl],
-            &[dst_decl],
+        let copy_slice = ast.method(
+            "copy_slice",
+            &[src_decl, src_idx_decl, dst_decl, dst_idx_decl, length_decl],
+            &[],
             &pres,
             &posts,
             None,
-        )
+        );
+
+        let create_impl = ast.eq_cmp(self.access(src, src_idx_i), self.access(dst, i));
+
+        let create_posts = [
+            // length == len(dst)
+            ast.eq_cmp(length, len_dst),
+            // ensures slice_access(src, src_idx, length)
+            posts[0],
+            // ensures full_access(dst)
+            self.array_acc_expr(dst, zero, length),
+            // ensures forall i : Int :: 0 <= i < length ==> old(slot(src, src_idx + i).heap_elem) == slot(src, src_idx + i).heap_elem
+            posts[2],
+            // ensures forall i: Int :: 0 <= i < length ==> slot(src, idx + i).heap_elem == slot(dst, i).heap_elem
+            ast.forall(&[i_decl], &[], ast.implies(guard, create_impl)),
+        ];
+
+        let body = ast.seqn(
+            &[
+                // inhale len(dst) == length
+                ast.inhale(ast.eq_cmp(length, len_dst), ast.no_position()),
+                // inhale full_access(dst)
+                ast.inhale(self.array_acc_expr(dst, zero, length), ast.no_position()),
+                // copy_slice(src, idx, dst, 0, length)
+                self.copy_slice_m(src, src_idx, dst, zero, length),
+            ],
+            &[],
+        );
+
+        let create_slice = ast.method(
+            "create_slice",
+            &[src_decl, src_idx_decl, length_decl],
+            &[dst_decl],
+            &pres[0..4],
+            &create_posts,
+            Some(body),
+        );
+        vec![copy_slice, create_slice]
+    }
+
+    /// Encodes the following method application for copying a slice of an IArray
+    /// ```viper
+    /// copy_slice(src, src_idx, dst, dst_idx, length)
+    /// ```
+    pub fn copy_slice_m(
+        &self,
+        src: Expr,
+        src_idx: Expr,
+        dst: Expr,
+        dst_idx: Expr,
+        length: Expr,
+    ) -> Stmt<'a> {
+        self.ast
+            .method_call("copy_slice", &[src, src_idx, dst, dst_idx, length], &[])
     }
 
     /// Encodes the following method application for creating a slice of an IArray
     /// ```viper
-    /// dst := create_slice(src, l, h)
+    /// dst := create_slice(src, idx, length)
     /// ```
-    pub fn create_slice_m(&self, src: Expr, l: Expr, h: Expr, dst: Expr) -> Stmt<'a> {
-        self.ast.method_call("create_slice", &[src, l, h], &[dst])
+    pub fn create_slice_m(&self, src: Expr, idx: Expr, length: Expr, dst: Expr) -> Stmt<'a> {
+        self.ast
+            .method_call("create_slice", &[src, idx, length], &[dst])
     }
 }

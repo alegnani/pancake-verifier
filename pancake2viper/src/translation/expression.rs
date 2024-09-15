@@ -105,14 +105,14 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Load {
         let fresh_str = ctx.fresh_var();
         let array_type = ctx.iarray.get_type();
         let (fresh_decl, fresh) = ast.new_var(&fresh_str, array_type);
-        let lower = self.address.to_viper(ctx);
-        let higher = ast.add(lower, ast.int_lit(self.shape.len() as i64));
+        let idx = self.address.to_viper(ctx);
+        let length = ast.int_lit(self.shape.len() as i64);
 
         ctx.type_map.insert(fresh_str, self.shape);
 
         let slice = ctx
             .iarray
-            .create_slice_m(ctx.heap_var().1, lower, higher, fresh);
+            .create_slice_m(ctx.heap_var().1, idx, length, fresh);
         ctx.declarations.push(fresh_decl);
         ctx.stack.push(slice);
         fresh
@@ -196,7 +196,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Field {
                     ctx.stack.push(ctx.iarray.create_slice_m(
                         obj,
                         ast.int_lit(offset as i64),
-                        ast.int_lit((offset + size) as i64),
+                        ast.int_lit(size as i64),
                         f,
                     ));
                     f
@@ -238,7 +238,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Expr {
             pancake::Expr::Load(load) => load.to_viper(ctx),
             pancake::Expr::LoadByte(load) => load.to_viper(ctx),
             pancake::Expr::Field(field) => field.to_viper(ctx),
-            pancake::Expr::BaseAddr => ast.int_lit(0), // XXX: encode this differently?
+            pancake::Expr::BaseAddr => ast.int_lit(0),
             pancake::Expr::Struct(struc) => struc.to_viper(ctx),
         }
     }
