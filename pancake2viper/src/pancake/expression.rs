@@ -53,6 +53,7 @@ pub struct Field {
 pub struct Load {
     pub shape: Shape,
     pub address: Box<Expr>,
+    pub assert: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -124,11 +125,13 @@ pub fn parse_exp(s: &[SExpr]) -> anyhow::Result<Expr> {
             Ok(Expr::Load(Load {
                 shape: Shape::parse(shape)?,
                 address: Box::new(parse_exp(exp)?),
+                assert: true,
             }))
         }
         [Symbol(memload), Int(shape), List(exp)] if memload == "MemLoad" => Ok(Expr::Load(Load {
             shape: Shape::parse(&shape.to_string())?,
             address: Box::new(parse_exp(exp)?),
+            assert: true,
         })),
         [Symbol(shift), List(exp), Int(num)] => Ok(Expr::Shift(Shift {
             shifttype: ShiftType::from_str(shift)?,

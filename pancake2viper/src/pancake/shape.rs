@@ -14,6 +14,13 @@ impl Shape {
         }
     }
 
+    pub fn is_simple(&self) -> bool {
+        match self {
+            Self::Simple => true,
+            Self::Nested(_) => false,
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }

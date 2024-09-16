@@ -101,30 +101,68 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Shift {
 impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Load {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
         let ast = ctx.ast;
-        // if self.shape
-        let fresh_str = ctx.fresh_var();
-        let array_type = ctx.iarray.get_type();
-        let (fresh_decl, fresh) = ast.new_var(&fresh_str, array_type);
-        let idx = self.address.to_viper(ctx);
-        let length = ast.int_lit(self.shape.len() as i64);
+        let zero = ast.int_lit(0);
+        let eight = ast.int_lit(8);
+        let iarray = ctx.iarray;
+        let addr_exp = self.address.to_viper(ctx);
+        let word_addr = ast.div(addr_exp, eight);
 
-        ctx.type_map.insert(fresh_str, self.shape);
+        if self.assert {
+            // assert addr % 8 == 0
+            let assertion = ast.assert(
+                ast.eq_cmp(ast.module(addr_exp, eight), zero),
+                ast.no_position(),
+            );
+            ctx.stack.push(assertion);
+        }
 
-        let slice = ctx
-            .iarray
-            .create_slice_m(ctx.heap_var().1, idx, length, fresh);
-        ctx.declarations.push(fresh_decl);
-        ctx.stack.push(slice);
-        fresh
+        if self.shape.is_simple() {
+            iarray.access(ctx.heap_var().1, word_addr)
+        } else {
+            let fresh_str = ctx.fresh_var();
+            let (fresh_decl, fresh) = ast.new_var(&fresh_str, iarray.get_type());
+            let length = ast.int_lit(self.shape.len() as i64);
+            ctx.type_map.insert(fresh_str, self.shape);
+
+            let slice = iarray.create_slice_m(ctx.heap_var().1, word_addr, length, fresh);
+            ctx.declarations.push(fresh_decl);
+            ctx.stack.push(slice);
+            fresh
+        }
     }
 }
 
 impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::LoadByte {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
-        todo!()
-        // pancake::Stmt::Seq(pancake::Seq { stmts: vec![
+        let ast = ctx.ast;
+        let eight = ast.int_lit(8);
 
-        // ] }).to_viper(ctx)
+        let byte_address = self.address.clone().to_viper(ctx);
+        let word_offset = ast.module(byte_address, eight);
+        let byte_mask = ast.backend_bv64_lit(255);
+        let shift_amount = ast.int_to_backend_bv(BV64, ast.mul(eight, word_offset));
+
+        let load = pancake::Expr::Load(pancake::Load {
+            shape: Shape::Simple,
+            address: self.address,
+            assert: false,
+        })
+        .to_viper(ctx);
+
+        ast.backend_bv_to_int(
+            BV64,
+            ast.bv_binop(
+                BinOpBv::BitAnd,
+                BV64,
+                byte_mask,
+                ast.bv_binop(
+                    BinOpBv::BvLShr,
+                    BV64,
+                    ast.int_to_backend_bv(BV64, load),
+                    shift_amount,
+                ),
+            ),
+        )
     }
 }
 

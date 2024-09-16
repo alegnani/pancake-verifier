@@ -231,7 +231,7 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Store {
         let rhs_shape = self.value.shape(ctx);
         let rhs = self.value.to_viper(ctx);
 
-        let store = if rhs_shape.len() == 1 {
+        let store = if rhs_shape.is_simple() {
             ast.field_assign(iarray.access(ctx.heap_var().1, word_addr), rhs)
         } else {
             iarray.copy_slice_m(
