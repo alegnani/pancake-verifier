@@ -23,11 +23,16 @@ fn main() -> anyhow::Result<()> {
         viper::VerificationBackend::Silicon,
         vec!["--logLevel=OFF".into()],
     );
+    let defines = "\
+        define full_access(a) forall j: Int :: 0 <= j < len(a) ==> acc(slot(a, j).heap_elem)\n\
+        define slice_access(a, idx, length) forall j: Int :: 0 <= idx <= j < idx + length <= len(a) ==> acc(slot(a, j).heap_elem)
+    ";
+    println!("// Defines\n{}", defines);
     let s = ast_utils.pretty_print(program);
     println!("{}", s);
 
-    let res = verifier.verify(program);
-    println!("Res: {:?}", res);
+    // let res = verifier.verify(program);
+    // println!("Res: {:?}", res);
 
     Ok(())
 }
