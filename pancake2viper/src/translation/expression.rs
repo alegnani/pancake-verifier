@@ -14,17 +14,11 @@ use super::{
 impl pancake::Expr {
     pub fn cond_to_viper<'a>(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
         let ast = ctx.ast;
-        match self {
-            pancake::Expr::Op(op) => {
-                let tmp = op.to_viper(ctx);
-                ast.ne_cmp(tmp, ast.int_lit(0))
-            }
-            pancake::Expr::Const(c) => {
-                let tmp = ast.int_lit(c);
-                ast.ne_cmp(tmp, ast.int_lit(0))
-            }
-            x => x.to_viper(ctx),
-        }
+        assert!(
+            self.shape(ctx).is_simple(),
+            "Can't use value of shape not `1` as condition"
+        );
+        ast.ne_cmp(self.to_viper(ctx), ast.int_lit(0))
     }
 
     // TODO: this could well be a function pointer. If we stick to only using
