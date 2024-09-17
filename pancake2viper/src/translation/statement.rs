@@ -5,7 +5,10 @@ use crate::{
     utils::ViperUtils,
 };
 
-use super::top::{ToShape, ToViper, ToViperType, ViperEncodeCtx};
+use super::{
+    context::ViperEncodeCtx,
+    top::{ToShape, ToViper, ToViperType},
+};
 
 impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Stmt {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
@@ -225,10 +228,14 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Store {
 
         // FIXME: change this to match word size
         // assert addr % 8 == 0
-        let assertion = ast.assert(
-            ast.eq_cmp(ast.module(addr_expr, eight), zero),
-            ast.no_position(),
-        );
+        let assertion = if ctx.options.assert_aligned_accesses {
+            ast.assert(
+                ast.eq_cmp(ast.module(addr_expr, eight), zero),
+                ast.no_position(),
+            )
+        } else {
+            ast.comment("skipping alignment assertion")
+        };
 
         let word_addr = ast.div(addr_expr, eight);
         let rhs_shape = self.value.shape(ctx);

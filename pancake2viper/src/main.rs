@@ -1,6 +1,6 @@
 use pancake2viper::{
     parser::{get_sexprs_from_file, SExprParser},
-    translation::{ToViper, ViperEncodeCtx},
+    translation::{context::EncodeOptions, ToViper, ViperEncodeCtx},
 };
 use std::env;
 
@@ -17,7 +17,7 @@ fn main() -> anyhow::Result<()> {
     let ver_ctx = viper.attach_current_thread();
     let ast_factory = ver_ctx.new_ast_factory();
     let ast_utils = ver_ctx.new_ast_utils();
-    let mut ctx = ViperEncodeCtx::new(ast_factory);
+    let mut ctx = ViperEncodeCtx::new(ast_factory, EncodeOptions::default());
     let program = program.to_viper(&mut ctx);
     let mut verifier = ver_ctx.new_verifier_with_default_smt_and_extra_args(
         viper::VerificationBackend::Silicon,

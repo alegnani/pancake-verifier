@@ -6,7 +6,10 @@ use crate::{
     utils::ViperUtils,
 };
 
-use super::top::{ToShape, ToViper, ToViperType, ViperEncodeCtx};
+use super::{
+    context::ViperEncodeCtx,
+    top::{ToShape, ToViper, ToViperType},
+};
 
 impl pancake::Expr {
     pub fn cond_to_viper<'a>(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
@@ -40,44 +43,52 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Op {
     fn to_viper(mut self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
         assert!(!self.operands.is_empty());
         let ast = ctx.ast;
+        let translate_op = |optype, left, right| {
+            let one = ast.int_lit(1);
+            let zero = ast.int_lit(0);
+            match optype {
+                pancake::OpType::Add => ast.add(left, right),
+                pancake::OpType::Sub => ast.sub(left, right),
+                pancake::OpType::Mul => ast.mul(left, right),
+                pancake::OpType::NotEqual => ast.cond_exp(ast.ne_cmp(left, right), one, zero),
+                pancake::OpType::Equal => ast.cond_exp(ast.eq_cmp(left, right), one, zero),
+                pancake::OpType::Less => ast.cond_exp(ast.lt_cmp(left, right), one, zero),
+                pancake::OpType::NotLess => ast.cond_exp(ast.ge_cmp(left, right), one, zero),
+                x => {
+                    let lbv = ast.int_to_backend_bv(BV64, left);
+                    let rbv = ast.int_to_backend_bv(BV64, right);
+                    let bvop = match x {
+                        pancake::OpType::And => ast.bv_binop(BinOpBv::BitAnd, BV64, lbv, rbv),
+                        pancake::OpType::Or => ast.bv_binop(BinOpBv::BitOr, BV64, lbv, rbv),
+                        pancake::OpType::Xor => ast.bv_binop(BinOpBv::BitXor, BV64, lbv, rbv),
+                        _ => panic!("This is impossible"),
+                    };
+                    ast.backend_bv_to_int(BV64, bvop)
+                }
+            }
+        };
 
         let init = self.operands.remove(0).to_viper(ctx);
 
         self.operands
             .into_iter()
             .fold((ctx, init), move |(ctx, acc), expr| {
-                let typ = ast.int_type();
-                let fresh = ctx.fresh_var();
-                let (var_decl, var) = ast.new_var(&fresh, typ);
-                ctx.type_map.insert(fresh, Shape::Simple);
-                let right = expr.to_viper(ctx);
-                let one = ast.int_lit(1);
-                let zero = ast.int_lit(0);
-                let rhs = match self.optype {
-                    pancake::OpType::Add => ast.add(acc, right),
-                    pancake::OpType::Sub => ast.sub(acc, right),
-                    pancake::OpType::Mul => ast.mul(acc, right),
-                    pancake::OpType::NotEqual => ast.cond_exp(ast.ne_cmp(acc, right), one, zero),
-                    pancake::OpType::Equal => ast.cond_exp(ast.eq_cmp(acc, right), one, zero),
-                    pancake::OpType::Less => ast.cond_exp(ast.lt_cmp(acc, right), one, zero),
-                    pancake::OpType::NotLess => ast.cond_exp(ast.ge_cmp(acc, right), one, zero),
-                    x => {
-                        let lbv = ast.int_to_backend_bv(BV64, acc);
-                        let rbv = ast.int_to_backend_bv(BV64, right);
-                        let bvop = match x {
-                            pancake::OpType::And => ast.bv_binop(BinOpBv::BitAnd, BV64, lbv, rbv),
-                            pancake::OpType::Or => ast.bv_binop(BinOpBv::BitOr, BV64, lbv, rbv),
-                            pancake::OpType::Xor => ast.bv_binop(BinOpBv::BitXor, BV64, lbv, rbv),
-                            _ => panic!("This is impossible"),
-                        };
-                        ast.backend_bv_to_int(BV64, bvop)
-                    }
-                };
-                let ass = ast.local_var_assign(var, rhs);
-                ctx.declarations.push(var_decl);
-                ctx.stack.push(ass);
+                if ctx.options.expr_unrolling {
+                    let typ = ast.int_type();
+                    let fresh = ctx.fresh_var();
+                    let (var_decl, var) = ast.new_var(&fresh, typ);
+                    ctx.type_map.insert(fresh, Shape::Simple);
+                    let right = expr.to_viper(ctx);
+                    let rhs = translate_op(self.optype, acc, right);
+                    let ass = ast.local_var_assign(var, rhs);
+                    ctx.declarations.push(var_decl);
+                    ctx.stack.push(ass);
 
-                (ctx, var)
+                    (ctx, var)
+                } else {
+                    let new_expr = translate_op(self.optype, acc, expr.to_viper(ctx));
+                    (ctx, new_expr)
+                }
             })
             .1
     }
@@ -107,7 +118,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Load {
         let addr_exp = self.address.to_viper(ctx);
         let word_addr = ast.div(addr_exp, eight);
 
-        if self.assert {
+        if self.assert && ctx.options.assert_aligned_accesses {
             // assert addr % 8 == 0
             let assertion = ast.assert(
                 ast.eq_cmp(ast.module(addr_exp, eight), zero),
