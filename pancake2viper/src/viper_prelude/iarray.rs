@@ -15,7 +15,7 @@ impl<'a> IArrayHelper<'a> {
         let domain_name = "IArray";
         let iarray_type = ast.domain_type(domain_name, &[], &[]);
         let (a_decl, a) = ast.new_var("a", iarray_type);
-        let (r_decl, r) = ast.new_var("r", ast.ref_type());
+        let (r_decl, _r) = ast.new_var("r", ast.ref_type());
         let (i_decl, i) = ast.new_var("i", ast.int_type());
 
         let slot_f = ast.domain_func(

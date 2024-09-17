@@ -63,11 +63,10 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::If {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
 
-        let mut then_ctx = ctx.child();
-        let mut else_ctx = ctx.child();
-
         let cond = self.cond.cond_to_viper(ctx);
+        let mut then_ctx = ctx.child();
         let then_body = self.if_branch.to_viper(&mut then_ctx);
+        let mut else_ctx = then_ctx.child();
         let else_body = self.else_branch.to_viper(&mut else_ctx);
 
         let decls = ctx.pop_decls();
@@ -83,9 +82,8 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::While {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
 
-        let mut body_ctx = ctx.child();
-
         let cond = self.cond.cond_to_viper(ctx);
+        let mut body_ctx = ctx.child();
         let body = self.body.to_viper(&mut body_ctx);
 
         let decls = ctx

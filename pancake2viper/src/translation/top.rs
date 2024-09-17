@@ -85,6 +85,10 @@ impl<'a> ViperEncodeCtx<'a> {
         format!("f_{}", fname)
     }
 
+    pub fn mangle_arg(&self, arg: &str) -> String {
+        format!("arg_{}", arg)
+    }
+
     pub fn pop_decls(&mut self) -> Vec<Declaration<'a>> {
         self.declarations
             .drain(..)
@@ -121,7 +125,7 @@ pub trait ToShape<'a> {
 impl<'a> ToViper<'a, viper::LocalVarDecl<'a>> for pancake::Arg {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::LocalVarDecl<'a> {
         ctx.ast
-            .local_var_decl(&self.name, self.shape.to_viper_type(ctx))
+            .local_var_decl(&ctx.mangle_arg(&self.name), self.shape.to_viper_type(ctx))
     }
 }
 
@@ -135,8 +139,6 @@ impl<'a> ToViper<'a, viper::Method<'a>> for pancake::FnDec {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Method<'a> {
         let ast = ctx.ast;
 
-        let body = self.body.to_viper(ctx);
-
         // Copy all the parameters as they are read-only in Viper
         let copied_args = self
             .args
@@ -147,6 +149,12 @@ impl<'a> ToViper<'a, viper::Method<'a>> for pancake::FnDec {
             })
             .collect::<Vec<_>>();
 
+        for arg in &self.args {
+            ctx.type_map
+                .insert(ctx.mangle_var(&arg.name), arg.shape.clone());
+            ctx.type_map.insert(arg.name.clone(), arg.shape.clone());
+        }
+
         let mut args_assigns = self
             .args
             .iter()
@@ -154,10 +162,12 @@ impl<'a> ToViper<'a, viper::Method<'a>> for pancake::FnDec {
                 let typ = a.shape.to_viper_type(ctx);
                 ast.local_var_assign(
                     ast.local_var(&ctx.mangle_var(&a.name), typ),
-                    ast.local_var(&a.name, typ),
+                    ast.local_var(&ctx.mangle_arg(&a.name), typ),
                 )
             })
             .collect::<Vec<_>>();
+
+        let body = self.body.to_viper(ctx);
 
         let mut args = self
             .args
