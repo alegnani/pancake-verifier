@@ -15,15 +15,10 @@ pub fn pretty_print(viper: &Viper, program: pancake::Program) -> anyhow::Result<
 
 pub trait ViperUtils<'a> {
     fn new_var(&self, name: &str, typ: Type) -> (LocalVarDecl<'a>, Expr<'a>);
-    fn acc(&self, expr: Expr) -> Expr<'a>;
 }
 
 impl<'a> ViperUtils<'a> for AstFactory<'a> {
     fn new_var(&self, name: &str, typ: Type) -> (LocalVarDecl<'a>, Expr<'a>) {
         (self.local_var_decl(name, typ), self.local_var(name, typ))
-    }
-
-    fn acc(&self, expr: Expr) -> Expr<'a> {
-        self.field_access_predicate(expr, self.full_perm())
     }
 }

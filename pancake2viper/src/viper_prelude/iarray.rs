@@ -113,10 +113,11 @@ impl<'a> IArrayHelper<'a> {
         let (src_decl, src) = ast.new_var("src", self.get_type());
         let (idx_decl, idx) = ast.new_var("idx", ast.int_type());
         let (length_decl, length) = ast.new_var("length", ast.int_type());
+        let (perm_decl, perm) = ast.new_var("perm", ast.perm_type());
         self.ast.predicate(
             "slice_acc",
-            &[src_decl, idx_decl, length_decl],
-            Some(self.array_acc_expr(src, idx, length)),
+            &[src_decl, idx_decl, length_decl, perm_decl],
+            Some(self.array_acc_expr(src, idx, length, perm)),
         )
     }
 
@@ -129,12 +130,13 @@ impl<'a> IArrayHelper<'a> {
     pub fn full_acc_def(&self) -> Predicate<'a> {
         let ast = self.ast;
         let (src_decl, src) = ast.new_var("src", self.get_type());
+        let (perm_decl, perm) = ast.new_var("perm", ast.perm_type());
         let l = ast.int_lit(0);
         let h = self.len_f(src);
         self.ast.predicate(
             "slice_acc",
-            &[src_decl],
-            Some(self.array_acc_expr(src, l, h)),
+            &[src_decl, perm_decl],
+            Some(self.array_acc_expr(src, l, h, perm)),
         )
     }
 
@@ -142,7 +144,7 @@ impl<'a> IArrayHelper<'a> {
     /// ```viper
     ///     forall j: Int :: 0 <= idx <= j < idx + length <= len(src) ==> acc(slot(src, j).heap_elem)
     /// ```
-    pub fn array_acc_expr(&self, array: Expr, idx: Expr, length: Expr) -> Expr<'a> {
+    pub fn array_acc_expr(&self, array: Expr, idx: Expr, length: Expr, perm: Expr) -> Expr<'a> {
         let ast = self.ast;
         let (j_decl, j) = ast.new_var("j", ast.int_type());
         let upper = self.len_f(array);
@@ -155,7 +157,7 @@ impl<'a> IArrayHelper<'a> {
         let lu = ast.le_cmp(limit, upper);
         let guard = ast.and(ast.and(i0, ij), ast.and(jl, lu));
 
-        let access = ast.acc(self.access(array, j));
+        let access = ast.field_access_predicate(self.access(array, j), perm);
 
         ast.forall(&[j_decl], &[], ast.implies(guard, access))
     }
@@ -212,15 +214,15 @@ impl<'a> IArrayHelper<'a> {
             ast.le_cmp(src_idx, len_src),
             // requires src_idx + length <= len(src)
             ast.le_cmp(ast.add(src_idx, length), len_src),
-            // requires slice_access(src, src_idx, length)
-            self.array_acc_expr(src, src_idx, length),
+            // requires slice_access(src, src_idx, length, wildcard)
+            self.array_acc_expr(src, src_idx, length, ast.wildcard_perm()),
             // requires 0 <= dst_idx <= len(dst)
             ast.le_cmp(zero, dst_idx),
             ast.le_cmp(dst_idx, len_dst),
             // requires dst_idx + length <= len(dst)
             ast.le_cmp(ast.add(dst_idx, length), len_dst),
-            // requires slice_access(dst, dst_idx, length)
-            self.array_acc_expr(dst, dst_idx, length),
+            // requires slice_access(dst, dst_idx, length, write)
+            self.array_acc_expr(dst, dst_idx, length, ast.full_perm()),
         ];
 
         let guard = ast.and(ast.le_cmp(zero, i), ast.lt_cmp(i, length));
@@ -234,10 +236,10 @@ impl<'a> IArrayHelper<'a> {
         let dst_impl = ast.eq_cmp(self.access(src, src_idx_i), self.access(dst, dst_idx_i));
 
         let posts = [
-            // ensures slice_access(src, src_idx, length)
-            self.array_acc_expr(src, src_idx, length),
-            // ensures slice_access(dst, dst_idx, length)
-            self.array_acc_expr(dst, dst_idx, length),
+            // ensures slice_access(src, src_idx, length, wildcard)
+            self.array_acc_expr(src, src_idx, length, ast.wildcard_perm()),
+            // ensures slice_access(dst, dst_idx, length, write)
+            self.array_acc_expr(dst, dst_idx, length, ast.full_perm()),
             // ensures forall i : Int :: 0 <= i < length ==> old(slot(src, src_idx + i).heap_elem) == slot(src, src_idx + i).heap_elem
             ast.forall(&[i_decl], &[], ast.implies(guard, src_impl)),
             // ensures forall i : Int :: 0 <= i < length ==> slot(src, src_idx + i).heap_elem == slot(dst, dst_idx + i).heap_elem
@@ -260,8 +262,8 @@ impl<'a> IArrayHelper<'a> {
             ast.eq_cmp(length, len_dst),
             // ensures slice_access(src, src_idx, length)
             posts[0],
-            // ensures full_access(dst)
-            self.array_acc_expr(dst, zero, length),
+            // ensures full_access(dst, write)
+            self.array_acc_expr(dst, zero, length, ast.full_perm()),
             // ensures forall i : Int :: 0 <= i < length ==> old(slot(src, src_idx + i).heap_elem) == slot(src, src_idx + i).heap_elem
             posts[2],
             // ensures forall i: Int :: 0 <= i < length ==> slot(src, idx + i).heap_elem == slot(dst, i).heap_elem
@@ -272,8 +274,11 @@ impl<'a> IArrayHelper<'a> {
             &[
                 // inhale len(dst) == length
                 ast.inhale(ast.eq_cmp(length, len_dst), ast.no_position()),
-                // inhale full_access(dst)
-                ast.inhale(self.array_acc_expr(dst, zero, length), ast.no_position()),
+                // inhale full_access(dst, write)
+                ast.inhale(
+                    self.array_acc_expr(dst, zero, length, ast.full_perm()),
+                    ast.no_position(),
+                ),
                 // copy_slice(src, idx, dst, 0, length)
                 self.copy_slice_m(src, src_idx, dst, zero, length),
             ],

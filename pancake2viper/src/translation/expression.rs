@@ -178,8 +178,12 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Struct {
                 ast.no_position(),
             ),
             ast.inhale(
-                ctx.iarray
-                    .array_acc_expr(struct_var, ast.int_lit(0), ctx.iarray.len_f(struct_var)),
+                ctx.iarray.array_acc_expr(
+                    struct_var,
+                    ast.int_lit(0),
+                    ctx.iarray.len_f(struct_var),
+                    ast.full_perm(),
+                ),
                 ast.no_position(),
             ),
         ];
