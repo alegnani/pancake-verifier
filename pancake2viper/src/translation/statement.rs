@@ -1,6 +1,9 @@
 use viper::{BinOpBv, BvSize::BV64, UnOpBv};
 
-use crate::{pancake, utils::ViperUtils};
+use crate::{
+    pancake::{self, Store, StoreByte},
+    utils::ViperUtils,
+};
 
 use super::top::{ToShape, ToViper, ToViperType, ViperEncodeCtx};
 
@@ -26,6 +29,8 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Stmt {
             pancake::Stmt::TailCall(tail) => tail.to_viper(ctx),
             pancake::Stmt::Store(store) => store.to_viper(ctx),
             pancake::Stmt::StoreByte(store) => store.to_viper(ctx),
+            pancake::Stmt::SharedStore(store) => store.to_viper(ctx),
+            pancake::Stmt::SharedStoreByte(store) => store.to_viper(ctx),
             pancake::Stmt::Raise(_) => todo!("Raise not implemented"),
         };
         ctx.stack.push(stmt);
@@ -275,5 +280,27 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::StoreByte {
         );
         let new = ast.backend_bv_to_int(BV64, new);
         ast.field_assign(iarray.access(ctx.heap_var().1, word_address), new)
+    }
+}
+
+// TODO: how to model shared memory?
+impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::SharedStore {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+        pancake::Stmt::Store(Store {
+            address: self.address,
+            value: self.value,
+        })
+        .to_viper(ctx)
+    }
+}
+
+// TODO: how to model shared memory?
+impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::SharedStoreByte {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+        pancake::Stmt::StoreByte(StoreByte {
+            address: self.address,
+            value: self.value,
+        })
+        .to_viper(ctx)
     }
 }

@@ -10,6 +10,8 @@ pub enum Stmt {
     Assign(Assign),
     Store(Store),
     StoreByte(StoreByte),
+    SharedStore(SharedStore),
+    SharedStoreByte(SharedStoreByte),
     Seq(Seq),
     If(If),
     While(While),
@@ -44,6 +46,18 @@ pub struct Store {
 
 #[derive(Debug, Clone)]
 pub struct StoreByte {
+    pub address: Expr,
+    pub value: Expr,
+}
+
+#[derive(Debug, Clone)]
+pub struct SharedStore {
+    pub address: Expr,
+    pub value: Expr,
+}
+
+#[derive(Debug, Clone)]
+pub struct SharedStoreByte {
     pub address: Expr,
     pub value: Expr,
 }
@@ -138,6 +152,20 @@ pub fn parse_stmt(s: Vec<&SExpr>) -> anyhow::Result<Stmt> {
             if op == "mem" && eq == ":=" && byte == "byte" =>
         {
             Ok(Stmt::StoreByte(StoreByte {
+                address: parse_exp(addr)?,
+                value: parse_exp(exp)?,
+            }))
+        }
+        [Symbol(op), List(addr), Symbol(eq), List(exp)] if op == "mem" && eq == ":=" => {
+            Ok(Stmt::SharedStore(SharedStore {
+                address: parse_exp(addr)?,
+                value: parse_exp(exp)?,
+            }))
+        }
+        [Symbol(op), List(addr), Symbol(eq), Symbol(byte), List(exp)]
+            if op == "mem" && eq == ":=" && byte == "byte" =>
+        {
+            Ok(Stmt::SharedStoreByte(SharedStoreByte {
                 address: parse_exp(addr)?,
                 value: parse_exp(exp)?,
             }))

@@ -24,8 +24,8 @@ fn main() -> anyhow::Result<()> {
         vec!["--logLevel=OFF".into()],
     );
     let defines = "\
-        define full_access(a) forall j: Int :: 0 <= j < len(a) ==> acc(slot(a, j).heap_elem)\n\
-        define slice_access(a, idx, length) forall j: Int :: 0 <= idx <= j < idx + length <= len(a) ==> acc(slot(a, j).heap_elem)
+        define full_access(a, pm) forall j: Int :: 0 <= j < len(a) ==> acc(slot(a, j).heap_elem, pm)\n\
+        define slice_access(a, idx, length, pm) forall j: Int :: 0 <= idx <= j < idx + length <= len(a) ==> acc(slot(a, j).heap_elem, pm)
     ";
     println!("// Defines\n{}", defines);
     let s = ast_utils.pretty_print(program);
