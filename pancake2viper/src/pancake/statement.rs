@@ -9,9 +9,11 @@ pub enum Stmt {
     Declaration(Declaration),
     Assign(Assign),
     Store(Store),
-    StoreByte(StoreByte),
+    StoreBits(StoreBits),
     SharedStore(SharedStore),
-    SharedStoreByte(SharedStoreByte),
+    SharedStoreBits(SharedStoreBits),
+    SharedLoad(SharedLoad),
+    SharedLoadBits(SharedLoadBits),
     Seq(Seq),
     If(If),
     While(While),
@@ -38,6 +40,23 @@ pub struct Assign {
     pub rhs: Expr,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum MemOpBytes {
+    Byte,
+    HalfWord,
+}
+
+impl MemOpBytes {
+    pub fn bits(&self) -> u32 {
+        match self {
+            Self::Byte => 8,
+            Self::HalfWord => 32,
+        }
+    }
+}
+
+// Stores
+
 #[derive(Debug, Clone)]
 pub struct Store {
     pub address: Expr,
@@ -45,9 +64,10 @@ pub struct Store {
 }
 
 #[derive(Debug, Clone)]
-pub struct StoreByte {
+pub struct StoreBits {
     pub address: Expr,
     pub value: Expr,
+    pub size: MemOpBytes,
 }
 
 #[derive(Debug, Clone)]
@@ -57,9 +77,25 @@ pub struct SharedStore {
 }
 
 #[derive(Debug, Clone)]
-pub struct SharedStoreByte {
+pub struct SharedStoreBits {
     pub address: Expr,
     pub value: Expr,
+    pub size: MemOpBytes,
+}
+
+// Shared loads
+
+#[derive(Debug, Clone)]
+pub struct SharedLoad {
+    pub address: Expr,
+    pub dst: Expr,
+}
+
+#[derive(Debug, Clone)]
+pub struct SharedLoadBits {
+    pub address: Expr,
+    pub dst: Expr,
+    pub size: MemOpBytes,
 }
 
 #[derive(Debug, Clone)]
@@ -151,25 +187,73 @@ pub fn parse_stmt(s: Vec<&SExpr>) -> anyhow::Result<Stmt> {
         [Symbol(op), List(addr), Symbol(eq), Symbol(byte), List(exp)]
             if op == "mem" && eq == ":=" && byte == "byte" =>
         {
-            Ok(Stmt::StoreByte(StoreByte {
+            Ok(Stmt::StoreBits(StoreBits {
                 address: parse_exp(addr)?,
                 value: parse_exp(exp)?,
+                size: MemOpBytes::Byte,
             }))
         }
-        [Symbol(op), List(addr), Symbol(eq), List(exp)] if op == "mem" && eq == ":=" => {
+
+        // Shared stores
+        [Symbol(op), Symbol(size), List(addr), List(exp)]
+            if op == "shared_mem_store" && size == "word" =>
+        {
             Ok(Stmt::SharedStore(SharedStore {
                 address: parse_exp(addr)?,
                 value: parse_exp(exp)?,
             }))
         }
-        [Symbol(op), List(addr), Symbol(eq), Symbol(byte), List(exp)]
-            if op == "mem" && eq == ":=" && byte == "byte" =>
+
+        [Symbol(op), Symbol(size), List(addr), List(exp)]
+            if op == "shared_mem_store" && size == "byte" =>
         {
-            Ok(Stmt::SharedStoreByte(SharedStoreByte {
+            Ok(Stmt::SharedStoreBits(SharedStoreBits {
                 address: parse_exp(addr)?,
                 value: parse_exp(exp)?,
+                size: MemOpBytes::Byte,
             }))
         }
+
+        [Symbol(op), Symbol(size), List(addr), List(exp)]
+            if op == "shared_mem_store" && size == "halfword" =>
+        {
+            Ok(Stmt::SharedStoreBits(SharedStoreBits {
+                address: parse_exp(addr)?,
+                value: parse_exp(exp)?,
+                size: MemOpBytes::Byte,
+            }))
+        }
+
+        // Shared loads
+        [Symbol(op), Symbol(size), Symbol(dst), List(exp)]
+            if op == "shared_mem_load" && size == "word" =>
+        {
+            Ok(Stmt::SharedLoad(SharedLoad {
+                address: parse_exp(exp)?,
+                dst: Expr::Var(dst.into()),
+            }))
+        }
+
+        [Symbol(op), Symbol(size), Symbol(dst), List(exp)]
+            if op == "shared_mem_load" && size == "byte" =>
+        {
+            Ok(Stmt::SharedLoadBits(SharedLoadBits {
+                address: parse_exp(exp)?,
+                dst: Expr::Var(dst.into()),
+                size: MemOpBytes::Byte,
+            }))
+        }
+
+        [Symbol(op), Symbol(size), Symbol(dst), List(exp)]
+            if op == "shared_mem_load" && size == "halfword" =>
+        {
+            Ok(Stmt::SharedLoadBits(SharedLoadBits {
+                address: parse_exp(exp)?,
+                dst: Expr::Var(dst.into()),
+                size: MemOpBytes::HalfWord,
+            }))
+        }
+
         [Symbol(op), stmts @ ..] if op == "seq" => parse_seq(stmts),
 
         // if

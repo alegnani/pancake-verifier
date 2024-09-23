@@ -1,5 +1,6 @@
 pub mod context;
 pub mod expression;
+pub mod mem_operations;
 pub mod statement;
 pub mod top;
 

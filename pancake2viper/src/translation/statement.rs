@@ -1,7 +1,7 @@
 use viper::{BinOpBv, BvSize::BV64, UnOpBv};
 
 use crate::{
-    pancake::{self, Store, StoreByte},
+    pancake::{self, Store, StoreBits},
     utils::ViperUtils,
 };
 
@@ -31,9 +31,11 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Stmt {
             pancake::Stmt::ExtCall(ext) => ext.to_viper(ctx),
             pancake::Stmt::TailCall(tail) => tail.to_viper(ctx),
             pancake::Stmt::Store(store) => store.to_viper(ctx),
-            pancake::Stmt::StoreByte(store) => store.to_viper(ctx),
+            pancake::Stmt::StoreBits(store) => store.to_viper(ctx),
             pancake::Stmt::SharedStore(store) => store.to_viper(ctx),
-            pancake::Stmt::SharedStoreByte(store) => store.to_viper(ctx),
+            pancake::Stmt::SharedStoreBits(store) => store.to_viper(ctx),
+            pancake::Stmt::SharedLoad(load) => load.to_viper(ctx),
+            pancake::Stmt::SharedLoadBits(load) => load.to_viper(ctx),
             pancake::Stmt::Raise(_) => todo!("Raise not implemented"),
         };
         ctx.stack.push(stmt);
@@ -215,99 +217,5 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::TailCall {
         );
         let goto = ast.goto(ctx.return_label());
         ast.seqn(&[call, goto], &[])
-    }
-}
-
-impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Store {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
-        let ast = ctx.ast;
-        let zero = ast.int_lit(0);
-        let eight = ast.int_lit(8);
-        let iarray = ctx.iarray;
-        let addr_expr = self.address.to_viper(ctx);
-
-        // FIXME: change this to match word size
-        // assert addr % 8 == 0
-        let assertion = if ctx.options.assert_aligned_accesses {
-            ast.assert(
-                ast.eq_cmp(ast.module(addr_expr, eight), zero),
-                ast.no_position(),
-            )
-        } else {
-            ast.comment("skipping alignment assertion")
-        };
-
-        let word_addr = ast.div(addr_expr, eight);
-        let rhs_shape = self.value.shape(ctx);
-        let rhs = self.value.to_viper(ctx);
-
-        let store = if rhs_shape.is_simple() {
-            ast.field_assign(iarray.access(ctx.heap_var().1, word_addr), rhs)
-        } else {
-            iarray.copy_slice_m(
-                rhs,
-                zero,
-                ctx.heap_var().1,
-                word_addr,
-                ast.int_lit(rhs_shape.len() as i64),
-            )
-        };
-
-        ast.seqn(&[assertion, store], &[])
-    }
-}
-
-// FIXME: change this to match word size
-impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::StoreByte {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
-        let ast = ctx.ast;
-        let iarray = ctx.iarray;
-        let eight = ast.int_lit(8);
-
-        let byte_address = self.address.to_viper(ctx);
-        let word_offset = ast.module(byte_address, eight);
-        let word_address = ast.sub(byte_address, word_offset);
-        let byte_mask = ast.backend_bv64_lit(255);
-        let shift_amount = ast.int_to_backend_bv(BV64, ast.mul(eight, word_offset));
-        let mask = ast.bv_binop(BinOpBv::BvShl, BV64, byte_mask, shift_amount);
-        let inv_mask = ast.bv_unnop(UnOpBv::Not, BV64, mask);
-        let value = ast.bv_binop(
-            BinOpBv::BitAnd,
-            BV64,
-            byte_mask,
-            ast.int_to_backend_bv(BV64, self.value.to_viper(ctx)),
-        );
-        let value = ast.bv_binop(BinOpBv::BvShl, BV64, value, shift_amount);
-        let old = ast.int_to_backend_bv(BV64, iarray.access(ctx.heap_var().1, word_address));
-        let new = ast.bv_binop(
-            BinOpBv::BitOr,
-            BV64,
-            ast.bv_binop(BinOpBv::BitAnd, BV64, old, inv_mask),
-            ast.bv_binop(BinOpBv::BitAnd, BV64, value, mask),
-        );
-        let new = ast.backend_bv_to_int(BV64, new);
-        ast.field_assign(iarray.access(ctx.heap_var().1, word_address), new)
-    }
-}
-
-// TODO: how to model shared memory?
-impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::SharedStore {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
-        pancake::Stmt::Store(Store {
-            address: self.address,
-            value: self.value,
-        })
-        .to_viper(ctx)
-    }
-}
-
-// TODO: how to model shared memory?
-impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::SharedStoreByte {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
-        pancake::Stmt::StoreByte(StoreByte {
-            address: self.address,
-            value: self.value,
-        })
-        .to_viper(ctx)
     }
 }
