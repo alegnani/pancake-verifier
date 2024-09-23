@@ -19,6 +19,7 @@ pub enum Expr {
     // Cmp(String, Box<Expr>, Box<Expr>),
     Shift(Shift),
     BaseAddr,
+    BytesInWord,
     Call(ExprCall),
 }
 
@@ -105,7 +106,7 @@ pub enum ShiftType {
 pub fn parse_exp(s: &[SExpr]) -> anyhow::Result<Expr> {
     match s {
         [Symbol(cons), Symbol(word)] if cons == "Const" && word.starts_with("0x") => {
-            Ok(Expr::Const(i64::from_str_radix(&word[2..], 16)?))
+            Ok(Expr::Const(u64::from_str_radix(&word[2..], 16)? as i64))
         }
         [Symbol(var), Symbol(name)] if var == "Var" => Ok(Expr::Var(name.clone())),
         [Symbol(label), Symbol(name)] if label == "Label" => Ok(Expr::Label(name.clone())),
@@ -139,6 +140,7 @@ pub fn parse_exp(s: &[SExpr]) -> anyhow::Result<Expr> {
             amount: *num,
         })),
         [Symbol(base)] if base == "BaseAddr" => Ok(Expr::BaseAddr),
+        [Symbol(bytes)] if bytes == "BytesInWord" => Ok(Expr::BytesInWord),
         [Symbol(op), List(label), List(args), Symbol(ret)] if op == "call" => {
             Ok(Expr::Call(ExprCall {
                 rettype: Shape::parse(ret)?,

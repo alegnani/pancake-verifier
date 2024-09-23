@@ -280,6 +280,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Expr {
             pancake::Expr::LoadByte(load) => load.to_viper(ctx),
             pancake::Expr::Field(field) => field.to_viper(ctx),
             pancake::Expr::BaseAddr => ast.int_lit(0),
+            pancake::Expr::BytesInWord => ast.int_lit(64), // TODO: change this to actual word size
             pancake::Expr::Struct(struc) => struc.to_viper(ctx),
         }
     }
@@ -292,7 +293,8 @@ impl<'a> ToShape<'a> for pancake::Expr {
             | pancake::Expr::Op(_)
             | pancake::Expr::Shift(_)
             | pancake::Expr::LoadByte(_)
-            | pancake::Expr::BaseAddr => Shape::Simple,
+            | pancake::Expr::BaseAddr
+            | pancake::Expr::BytesInWord => Shape::Simple,
             pancake::Expr::Var(var) => ctx.type_map.get(&ctx.mangle_var(var)).unwrap().clone(),
             pancake::Expr::Call(call) => call.rettype.clone(),
             pancake::Expr::Label(_) => panic!("Should not be possible"),
