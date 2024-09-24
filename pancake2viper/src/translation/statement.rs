@@ -1,9 +1,4 @@
-use viper::{BinOpBv, BvSize::BV64, UnOpBv};
-
-use crate::{
-    pancake::{self, Store, StoreBits},
-    utils::ViperUtils,
-};
+use crate::{pancake, utils::ViperUtils};
 
 use super::{
     context::ViperEncodeCtx,
@@ -131,20 +126,23 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Seq {
 impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Declaration {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
-        let name = ctx.mangle_var(&self.lhs);
+        let name = ctx.new_scoped_var(self.lhs);
         let shape = self.rhs.shape(ctx);
-        let decl = ast.local_var_decl(&name, shape.to_viper_type(ctx));
-        ctx.declarations.push(decl);
+        let var = ast.new_var(&name, shape.to_viper_type(ctx));
+        ctx.declarations.push(var.0);
 
-        let var = ast.local_var(&ctx.mangle_var(&self.lhs), shape.to_viper_type(ctx));
-        ctx.type_map.insert(name, shape);
+        ctx.set_type(name, shape);
         let ass = match self.rhs {
             pancake::Expr::Call(call) => {
                 let mut args: Vec<viper::Expr> = call.args.to_viper(ctx);
                 args.insert(0, ctx.heap_var().1);
-                ast.method_call(&ctx.mangle_fn(&call.fname.label_to_viper()), &args, &[var])
+                ast.method_call(
+                    &ctx.mangle_fn(&call.fname.label_to_viper()),
+                    &args,
+                    &[var.1],
+                )
             }
-            other => ast.local_var_assign(var, other.to_viper(ctx)),
+            other => ast.local_var_assign(var.1, other.to_viper(ctx)),
         };
         let scope = self.scope.to_viper(&mut ctx.child());
 
@@ -161,10 +159,10 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Declaration {
 impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Assign {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
+        let lhs_shape = ctx.get_type(&self.lhs);
         let name = ctx.mangle_var(&self.lhs);
-        let lhs_shape = ctx.type_map.get(&name).unwrap();
-        assert_eq!(lhs_shape, &self.rhs.shape(ctx));
-        let var = ast.local_var(&ctx.mangle_var(&self.lhs), lhs_shape.to_viper_type(ctx));
+        assert_eq!(lhs_shape, self.rhs.shape(ctx));
+        let var = ast.local_var(name, lhs_shape.to_viper_type(ctx));
         let ass = ast.local_var_assign(var, self.rhs.to_viper(ctx));
 
         let decls = ctx.pop_decls();

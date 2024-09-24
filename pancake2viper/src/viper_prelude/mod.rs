@@ -1,4 +1,5 @@
 pub mod bitvector;
+pub mod ext_calls;
 pub mod iarray;
 pub mod shared_mem;
 

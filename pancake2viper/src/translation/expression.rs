@@ -71,7 +71,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Op {
                     let typ = ast.int_type();
                     let fresh = ctx.fresh_var();
                     let (var_decl, var) = ast.new_var(&fresh, typ);
-                    ctx.type_map.insert(fresh, Shape::Simple);
+                    ctx.set_type(fresh, Shape::Simple);
                     let right = expr.to_viper(ctx);
                     let rhs = translate_op(self.optype, acc, right);
                     let ass = ast.local_var_assign(var, rhs);
@@ -127,7 +127,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Load {
             let fresh_str = ctx.fresh_var();
             let (fresh_decl, fresh) = ast.new_var(&fresh_str, iarray.get_type());
             let length = ast.int_lit(self.shape.len() as i64);
-            ctx.type_map.insert(fresh_str, self.shape);
+            ctx.set_type(fresh_str, self.shape);
 
             let slice = iarray.create_slice_m(ctx.heap_var().1, word_addr, length, fresh);
             ctx.declarations.push(fresh_decl);
@@ -266,11 +266,8 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Expr {
         match self {
             pancake::Expr::Const(c) => ast.int_lit(c),
             pancake::Expr::Var(name) => ast.local_var(
-                &ctx.mangle_var(&name),
-                ctx.type_map
-                    .get(&ctx.mangle_var(&name))
-                    .unwrap()
-                    .to_viper_type(ctx),
+                ctx.mangle_var(&name),
+                ctx.get_type(&name).to_viper_type(ctx),
             ),
             pancake::Expr::Label(_) => panic!(), // XXX: not sure if we need this
             pancake::Expr::Op(op) => op.to_viper(ctx),
@@ -295,7 +292,7 @@ impl<'a> ToShape<'a> for pancake::Expr {
             | pancake::Expr::LoadByte(_)
             | pancake::Expr::BaseAddr
             | pancake::Expr::BytesInWord => Shape::Simple,
-            pancake::Expr::Var(var) => ctx.type_map.get(&ctx.mangle_var(var)).unwrap().clone(),
+            pancake::Expr::Var(var) => ctx.get_type(var),
             pancake::Expr::Call(call) => call.rettype.clone(),
             pancake::Expr::Label(_) => panic!("Should not be possible"),
             pancake::Expr::Load(load) => load.shape.clone(),

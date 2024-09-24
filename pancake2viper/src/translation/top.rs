@@ -1,9 +1,11 @@
+use viper::AstFactory;
+
 use crate::{
     pancake::{self, Shape},
     viper_prelude::create_viper_prelude,
 };
 
-use super::context::ViperEncodeCtx;
+use super::context::{EncodeOptions, ViperEncodeCtx};
 
 pub trait ToViper<'a, T> {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> T;
@@ -41,15 +43,17 @@ impl<'a> ToViper<'a, viper::Method<'a>> for pancake::FnDec {
             .args
             .iter()
             .map(|a| {
-                ast.local_var_decl(&ctx.mangle_var(&a.name), a.shape.to_viper_type(ctx))
-                    .into()
+                ast.local_var_decl(
+                    &ctx.new_scoped_var(a.name.clone()),
+                    a.shape.to_viper_type(ctx),
+                )
+                .into()
             })
             .collect::<Vec<_>>();
 
         for arg in &self.args {
-            ctx.type_map
-                .insert(ctx.mangle_var(&arg.name), arg.shape.clone());
-            ctx.type_map.insert(arg.name.clone(), arg.shape.clone());
+            ctx.set_type(ctx.mangle_var(&arg.name).to_owned(), arg.shape.clone());
+            ctx.set_type(arg.name.clone(), arg.shape.clone());
         }
 
         let mut args_assigns = self
@@ -58,7 +62,7 @@ impl<'a> ToViper<'a, viper::Method<'a>> for pancake::FnDec {
             .map(|a| {
                 let typ = a.shape.to_viper_type(ctx);
                 ast.local_var_assign(
-                    ast.local_var(&ctx.mangle_var(&a.name), typ),
+                    ast.local_var(ctx.mangle_var(&a.name), typ),
                     ast.local_var(&ctx.mangle_arg(&a.name), typ),
                 )
             })
@@ -87,13 +91,19 @@ impl<'a> ToViper<'a, viper::Method<'a>> for pancake::FnDec {
     }
 }
 
-impl<'a> ToViper<'a, viper::Program<'a>> for pancake::Program {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Program<'a> {
-        let ast = ctx.ast;
+pub trait ProgramToViper<'a> {
+    fn to_viper(self, ast: AstFactory<'a>, options: EncodeOptions) -> viper::Program<'a>;
+}
+
+impl<'a> ProgramToViper<'a> for pancake::Program {
+    fn to_viper(self, ast: AstFactory<'a>, options: EncodeOptions) -> viper::Program<'a> {
         let program_methods = self
             .functions
             .into_iter()
-            .map(|f| f.to_viper(ctx))
+            .map(|f| {
+                let mut ctx = ViperEncodeCtx::new(f.fname.clone(), ast, options);
+                f.to_viper(&mut ctx)
+            })
             .collect::<Vec<_>>();
         let (domains, fields, mut methods) = create_viper_prelude(ast);
         methods.extend(program_methods.iter());

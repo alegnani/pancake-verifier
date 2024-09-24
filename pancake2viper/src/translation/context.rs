@@ -8,11 +8,13 @@ pub struct ViperEncodeCtx<'a> {
     pub ast: AstFactory<'a>,
     pub stack: Vec<viper::Stmt<'a>>,
     pub declarations: Vec<viper::LocalVarDecl<'a>>,
-    pub type_map: HashMap<String, Shape>,
+    type_map: HashMap<String, Shape>,
     fresh_counter: u64,
     while_counter: u64,
     pub iarray: IArrayHelper<'a>,
     pub options: EncodeOptions,
+    fname: String,
+    pub var_map: HashMap<String, String>,
 }
 
 #[derive(Clone, Copy)]
@@ -31,7 +33,7 @@ impl Default for EncodeOptions {
 }
 
 impl<'a> ViperEncodeCtx<'a> {
-    pub fn new(ast: AstFactory<'a>, options: EncodeOptions) -> Self {
+    pub fn new(fname: String, ast: AstFactory<'a>, options: EncodeOptions) -> Self {
         Self {
             ast,
             stack: vec![],
@@ -41,6 +43,8 @@ impl<'a> ViperEncodeCtx<'a> {
             while_counter: 0,
             iarray: IArrayHelper::new(ast),
             options,
+            fname,
+            var_map: HashMap::new(),
         }
     }
 
@@ -54,6 +58,8 @@ impl<'a> ViperEncodeCtx<'a> {
             while_counter: self.while_counter,
             iarray: self.iarray,
             options: self.options,
+            fname: self.fname.clone(),
+            var_map: self.var_map.clone(),
         }
     }
 
@@ -92,8 +98,19 @@ impl<'a> ViperEncodeCtx<'a> {
         self.while_counter += 1;
     }
 
-    pub fn mangle_var(&self, var: &str) -> String {
-        format!("_{}", var)
+    pub fn new_scoped_var(&mut self, var: String) -> String {
+        let mangled = format!("__{}__{}__{}", &self.fname, var, self.fresh_counter);
+        self.fresh_counter += 1;
+
+        let prev = self.var_map.insert(var, mangled.clone());
+
+        mangled
+    }
+
+    pub fn mangle_var(&self, var: &str) -> &str {
+        self.var_map
+            .get(var)
+            .unwrap_or_else(|| panic!("Variable {} was not declared: \n{:?}", var, self.var_map))
     }
 
     pub fn mangle_fn(&self, fname: &str) -> String {
@@ -113,6 +130,14 @@ impl<'a> ViperEncodeCtx<'a> {
 
     pub fn heap_type(&self) -> viper::Type {
         self.iarray.get_type()
+    }
+
+    pub fn get_type(&self, var: &str) -> Shape {
+        self.type_map.get(self.mangle_var(var)).unwrap().to_owned()
+    }
+
+    pub fn set_type(&mut self, var: String, shape: Shape) {
+        self.type_map.insert(var, shape);
     }
 
     pub fn heap_var(&self) -> (viper::LocalVarDecl, viper::Expr) {

@@ -1,10 +1,6 @@
-use viper::{
-    BinOpBv,
-    BvSize::{self, BV64},
-    UnOpBv,
-};
+use viper::{BinOpBv, BvSize::BV64, UnOpBv};
 
-use crate::pancake::{self, Store, StoreBits};
+use crate::pancake;
 
 use super::{top::ToShape, ToViper, ViperEncodeCtx};
 
