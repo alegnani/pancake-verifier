@@ -2,7 +2,16 @@
 
 ## Dependencies
 
-Currently requires both the Viper toolchain to be installed (`VIPER_HOME` needs to be set) and the cakeML compiler to be on the `PATH`.
+ - JDK11 or higher
+ - Viper toolchain
+ - CakeML compiler
+
+`VIPER_HOME` needs to point to the the `backends` directory from the Viper toolchain installation. 
+If installed via the VS Code extension this can usually be found under `~/.config/Code/User/globalStorage/viper-admin.viper/Stable/ViperTools/backends`.
+
+`libjvm.so` is needed for the JNI between the Viper Server and the transpiler to work.
+
+The `cakeML` compiler needs to either be in the `PATH` or pointed to by the `CAKE_ML` environment variable.
 
 ## How to run
 
