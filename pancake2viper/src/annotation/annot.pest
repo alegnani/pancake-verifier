@@ -1,0 +1,48 @@
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+
+integer = @{ ASCII_DIGIT+ }
+ident = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_" )* }
+
+type = _{ int_t | bool_t | iarray_t }
+    int_t = { "Int" }
+    bool_t = { "Bool" }
+    iarray_t = { "IArray" }
+decl = { ident ~ ":" ~ type }
+
+int_lit = @{ "-"? ~ integer}
+
+bin_op = _{ add | sub | mul | div | modulo | imp | iff | eq | neq | gt | gte | lt | lte }
+    add = { "+" }
+    sub = { "-" }
+    mul = { "*" }
+    div = { "/" }
+    modulo = { "%" }
+    imp = { "==>" }
+    iff = { "<==>" }
+    eq = { "==" }
+    neq = { "!=" }
+    gt = { ">" }
+    gte = { ">=" }
+    lt = { "<" }
+    lte = { "<=" }
+
+// expr = { prefix? ~ primary ~ postfix? ~ (infix ~ prefix? ~ primary ~ postfix? )* }
+expr = { prefix? ~ primary ~ (infix ~ prefix? ~ primary )* }
+    infix = _{ bin_op }
+    prefix = _{ neg | minus }
+        neg = { "!" }
+        minus = { "-" }
+    postfix = _{ "!" }
+    primary = _ { int_lit | quantified | f_call | ident }
+        quantified = { (forall | exists) ~ decl ~ ("," ~ decl)* ~ "::" ~ expr }
+            forall = { "forall" }
+            exists = { "exists" }
+        f_call = {ident ~ "(" ~ (expr ~ ("," ~ expr)* | "") ~ ")" }
+
+top_keywords = _{ pre | post | invariant | assertion }
+    pre = { "requires" }
+    post = { "ensures" }
+    invariant = { "invariant" }
+    assertion = { "assert" }
+
+top = {top_keywords ~ expr }
