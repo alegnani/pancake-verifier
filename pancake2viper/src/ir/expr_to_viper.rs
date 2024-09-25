@@ -1,17 +1,13 @@
-use viper::BinOpBv;
 use viper::BvSize::BV64;
+use viper::{BinOpBv, Viper};
 
-use crate::{
-    pancake::{self, Shape, ShiftType},
-    utils::ViperUtils,
-};
+use crate::{pancake::Shape, utils::ViperUtils};
 
-use super::{
-    context::ViperEncodeCtx,
-    top::{ToShape, ToViper, ToViperType},
-};
+use crate::ir;
 
-impl pancake::Expr {
+use crate::translation::{context::ViperEncodeCtx, ToShape, ToViper, ToViperType};
+
+impl ir::Expr {
     pub fn cond_to_viper<'a>(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
         let ast = ctx.ast;
         assert!(
@@ -33,68 +29,75 @@ impl pancake::Expr {
     }
 }
 
-impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Op {
-    fn to_viper(mut self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
-        assert!(!self.operands.is_empty());
+impl<'a> ToViper<'a, viper::Expr<'a>> for ir::UnOp {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
         let ast = ctx.ast;
+        let right = self.right.to_viper(ctx);
+        use ir::UnOpType::*;
+        match self.optype {
+            Minus => ast.minus(right),
+            Neg => ast.not(right),
+        }
+    }
+}
+
+impl<'a> ToViper<'a, viper::Expr<'a>> for ir::BinOp {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
+        let ast = ctx.ast;
+        let is_annot = ctx.options.is_annot;
         let translate_op = |optype, left, right| {
             let one = ast.int_lit(1);
             let zero = ast.int_lit(0);
+            use ir::BinOpType::*;
             match optype {
-                pancake::OpType::Add => ast.add(left, right),
-                pancake::OpType::Sub => ast.sub(left, right),
-                pancake::OpType::Mul => ast.mul(left, right),
-                pancake::OpType::NotEqual => ast.cond_exp(ast.ne_cmp(left, right), one, zero),
-                pancake::OpType::Equal => ast.cond_exp(ast.eq_cmp(left, right), one, zero),
-                pancake::OpType::Less => ast.cond_exp(ast.lt_cmp(left, right), one, zero),
-                pancake::OpType::NotLess => ast.cond_exp(ast.ge_cmp(left, right), one, zero),
+                Add => ast.add(left, right),
+                Sub => ast.sub(left, right),
+                Mul => ast.mul(left, right),
+                Div => ast.div(left, right),
+                Modulo => ast.module(left, right),
+                Imp => ast.implies(left, right),
+                Iff => ast.eq_cmp(left, right),
+                PancakeNotEqual if is_annot => ast.ne_cmp(left, right),
+                PancakeNotEqual => ast.cond_exp(ast.ne_cmp(left, right), one, zero),
+                PancakeEqual if is_annot => ast.eq_cmp(left, right),
+                PancakeEqual => ast.cond_exp(ast.eq_cmp(left, right), one, zero),
+                ViperNotEqual => ast.ne_cmp(left, right),
+                ViperEqual => ast.eq_cmp(left, right),
+                Lt => ast.cond_exp(ast.lt_cmp(left, right), one, zero),
+                Lte => ast.cond_exp(ast.le_cmp(left, right), one, zero),
+                Gt => ast.cond_exp(ast.gt_cmp(left, right), one, zero),
+                Gte => ast.cond_exp(ast.ge_cmp(left, right), one, zero),
+                BoolAnd => ast.and(left, right),
+                BoolOr => ast.or(left, right),
                 x => {
                     let lbv = ast.int_to_backend_bv(BV64, left);
                     let rbv = ast.int_to_backend_bv(BV64, right);
                     let bvop = match x {
-                        pancake::OpType::And => ast.bv_binop(BinOpBv::BitAnd, BV64, lbv, rbv),
-                        pancake::OpType::Or => ast.bv_binop(BinOpBv::BitOr, BV64, lbv, rbv),
-                        pancake::OpType::Xor => ast.bv_binop(BinOpBv::BitXor, BV64, lbv, rbv),
-                        _ => panic!("This is impossible"),
+                        BitAnd => ast.bv_binop(BinOpBv::BitAnd, BV64, lbv, rbv),
+                        BitOr => ast.bv_binop(BinOpBv::BitOr, BV64, lbv, rbv),
+                        BitXor => ast.bv_binop(BinOpBv::BitXor, BV64, lbv, rbv),
+                        _ => unreachable!(),
                     };
                     ast.backend_bv_to_int(BV64, bvop)
                 }
             }
         };
-
-        let init = self.operands.remove(0).to_viper(ctx);
-
-        self.operands
-            .into_iter()
-            .fold((ctx, init), move |(ctx, acc), expr| {
-                if ctx.options.expr_unrolling {
-                    let typ = ast.int_type();
-                    let fresh = ctx.fresh_var();
-                    let (var_decl, var) = ast.new_var(&fresh, typ);
-                    ctx.set_type(fresh, Shape::Simple);
-                    let right = expr.to_viper(ctx);
-                    let rhs = translate_op(self.optype, acc, right);
-                    let ass = ast.local_var_assign(var, rhs);
-                    ctx.declarations.push(var_decl);
-                    ctx.stack.push(ass);
-
-                    (ctx, var)
-                } else {
-                    let new_expr = translate_op(self.optype, acc, expr.to_viper(ctx));
-                    (ctx, new_expr)
-                }
-            })
-            .1
+        translate_op(
+            self.optype,
+            self.left.to_viper(ctx),
+            self.right.to_viper(ctx),
+        )
     }
 }
 
-impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Shift {
+impl<'a> ToViper<'a, viper::Expr<'a>> for ir::Shift {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
         let ast = ctx.ast;
+        use ir::ShiftType::*;
         let shift_type = match self.shifttype {
-            ShiftType::Lsl => BinOpBv::BvShl,
-            ShiftType::Asr => BinOpBv::BvAShr,
-            ShiftType::Lsr => BinOpBv::BvLShr,
+            Lsl => BinOpBv::BvShl,
+            Asr => BinOpBv::BvAShr,
+            Lsr => BinOpBv::BvLShr,
         };
         let value = ast.int_to_backend_bv(BV64, self.value.to_viper(ctx));
         let shift_amount = ast.int_to_backend_bv(BV64, ast.int_lit(self.amount as i64));
@@ -103,7 +106,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Shift {
     }
 }
 
-impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Load {
+impl<'a> ToViper<'a, viper::Expr<'a>> for ir::Load {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
         let ast = ctx.ast;
         let zero = ast.int_lit(0);
@@ -137,7 +140,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Load {
     }
 }
 
-impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::LoadByte {
+impl<'a> ToViper<'a, viper::Expr<'a>> for ir::LoadByte {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
         let ast = ctx.ast;
         let eight = ast.int_lit(8);
@@ -147,7 +150,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::LoadByte {
         let byte_mask = ast.backend_bv64_lit(255);
         let shift_amount = ast.int_to_backend_bv(BV64, ast.mul(eight, word_offset));
 
-        let load = pancake::Expr::Load(pancake::Load {
+        let load = ir::Expr::Load(ir::Load {
             shape: Shape::Simple,
             address: self.address,
             assert: false,
@@ -171,7 +174,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::LoadByte {
     }
 }
 
-impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Struct {
+impl<'a> ToViper<'a, viper::Expr<'a>> for ir::Struct {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
         let ast = ctx.ast;
         let len: usize = self.elements.iter().map(|e| e.shape(ctx).len()).sum();
@@ -203,7 +206,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Struct {
     }
 }
 
-impl<'a> ToShape<'a> for pancake::Struct {
+impl<'a> ToShape<'a> for ir::Struct {
     fn shape(&self, ctx: &ViperEncodeCtx<'a>) -> Shape {
         let inner_shapes = self
             .elements
@@ -214,7 +217,7 @@ impl<'a> ToShape<'a> for pancake::Struct {
     }
 }
 
-impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Field {
+impl<'a> ToViper<'a, viper::Expr<'a>> for ir::Field {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
         let ast = ctx.ast;
         let obj_shape = self.obj.shape(ctx);
@@ -247,7 +250,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Field {
     }
 }
 
-impl<'a> ToShape<'a> for pancake::Field {
+impl<'a> ToShape<'a> for ir::Field {
     fn shape(&self, ctx: &ViperEncodeCtx<'a>) -> Shape {
         let obj_shape = self.obj.shape(ctx);
         match obj_shape {
@@ -260,49 +263,104 @@ impl<'a> ToShape<'a> for pancake::Field {
     }
 }
 
-impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Expr {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
+impl<'a> ToViperType<'a> for ir::Type {
+    fn to_viper_type(&self, ctx: &ViperEncodeCtx<'a>) -> viper::Type<'a> {
         let ast = ctx.ast;
         match self {
-            pancake::Expr::Const(c) => ast.int_lit(c),
-            pancake::Expr::Var(name) => ast.local_var(
+            Self::Bool => ast.bool_type(),
+            Self::Int => ast.int_type(),
+            Self::IArray => ctx.iarray.get_type(),
+        }
+    }
+}
+
+impl<'a> ToViper<'a, viper::LocalVarDecl<'a>> for ir::QuantifiedDecl {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::LocalVarDecl<'a> {
+        let ast = ctx.ast;
+        ast.local_var_decl(&self.name, self.typ.to_viper_type(ctx))
+    }
+}
+
+impl<'a> ToViper<'a, viper::Expr<'a>> for ir::Quantified {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
+        let ast = ctx.ast;
+        let vars = self
+            .decls
+            .into_iter()
+            .map(|d| d.to_viper(ctx))
+            .collect::<Vec<_>>();
+        let triggers = self.triggers.to_viper(ctx);
+        ast.forall(&vars, &[ast.trigger(&triggers)], self.body.to_viper(ctx))
+    }
+}
+
+impl<'a> ToViper<'a, viper::Expr<'a>> for ir::FunctionCall {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
+        let ast = ctx.ast;
+        // FIXME: return type
+        ast.func_app(
+            &self.fname,
+            &self.args.to_viper(ctx),
+            ast.int_type(),
+            ast.no_position(),
+        )
+    }
+}
+
+impl<'a> ToViper<'a, viper::Expr<'a>> for ir::HeapAccess {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
+        let idx = self.idx.to_viper(ctx);
+        let heap = ctx.heap_var().1;
+        ctx.iarray.access(heap, idx)
+    }
+}
+
+impl<'a> ToViper<'a, viper::Expr<'a>> for ir::Expr {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
+        let ast = ctx.ast;
+        use ir::Expr::*;
+        match self {
+            Const(c) => ast.int_lit(c),
+            Var(name) => ast.local_var(
                 ctx.mangle_var(&name),
                 ctx.get_type(&name).to_viper_type(ctx),
             ),
-            pancake::Expr::Label(_) => panic!(), // XXX: not sure if we need this
-            pancake::Expr::Op(op) => op.to_viper(ctx),
-            pancake::Expr::Call(_) => panic!("Should only be possible as part of a DecCall"),
-            pancake::Expr::Shift(shift) => shift.to_viper(ctx),
-            pancake::Expr::Load(load) => load.to_viper(ctx),
-            pancake::Expr::LoadByte(load) => load.to_viper(ctx),
-            pancake::Expr::Field(field) => field.to_viper(ctx),
-            pancake::Expr::BaseAddr => ast.int_lit(0),
-            pancake::Expr::BytesInWord => ast.int_lit(64), // TODO: change this to actual word size
-            pancake::Expr::Struct(struc) => struc.to_viper(ctx),
+            Label(_) => panic!(), // XXX: not sure if we need this
+            UnOp(op) => op.to_viper(ctx),
+            BinOp(op) => op.to_viper(ctx),
+            FunctionCall(call) => call.to_viper(ctx),
+            MethodCall(_) => panic!("Should only be possible as part of a DecCall"),
+            Shift(shift) => shift.to_viper(ctx),
+            Load(load) => load.to_viper(ctx),
+            LoadByte(load) => load.to_viper(ctx),
+            Field(field) => field.to_viper(ctx),
+            BaseAddr => ast.int_lit(0),
+            BytesInWord => ast.int_lit(64), // TODO: change this to actual word size
+            Struct(struc) => struc.to_viper(ctx),
+            Quantified(quant) => quant.to_viper(ctx),
+            HeapAccess(heap) => heap.to_viper(ctx),
         }
     }
 }
 
-impl<'a> ToShape<'a> for pancake::Expr {
+impl<'a> ToShape<'a> for ir::Expr {
     fn shape(&self, ctx: &ViperEncodeCtx<'a>) -> Shape {
+        use ir::Expr::*;
         match self {
-            pancake::Expr::Const(_)
-            | pancake::Expr::Op(_)
-            | pancake::Expr::Shift(_)
-            | pancake::Expr::LoadByte(_)
-            | pancake::Expr::BaseAddr
-            | pancake::Expr::BytesInWord => Shape::Simple,
-            pancake::Expr::Var(var) => ctx.get_type(var),
-            pancake::Expr::Call(call) => call.rettype.clone(),
-            pancake::Expr::Label(_) => panic!("Should not be possible"),
-            pancake::Expr::Load(load) => load.shape.clone(),
-            pancake::Expr::Field(field) => field.shape(ctx),
-            pancake::Expr::Struct(struc) => struc.shape(ctx),
+            Const(_) | UnOp(_) | BinOp(_) | Shift(_) | LoadByte(_) | Quantified(_)
+            | HeapAccess(_) | BaseAddr | BytesInWord => Shape::Simple,
+            Var(var) => ctx.get_type(var),
+            MethodCall(call) => call.rettype.clone(),
+            FunctionCall(call) => todo!(),
+            Label(_) => panic!("Should not be possible"),
+            Load(load) => load.shape.clone(),
+            Field(field) => field.shape(ctx),
+            Struct(struc) => struc.shape(ctx),
         }
     }
 }
 
-impl<'a> ToViper<'a, Vec<viper::Expr<'a>>> for Vec<pancake::Expr> {
+impl<'a> ToViper<'a, Vec<viper::Expr<'a>>> for Vec<ir::Expr> {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Vec<viper::Expr<'a>> {
         self.into_iter()
             .map(|a| a.to_viper(ctx))

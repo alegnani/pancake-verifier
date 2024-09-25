@@ -21,6 +21,7 @@ pub struct ViperEncodeCtx<'a> {
 pub struct EncodeOptions {
     pub expr_unrolling: bool,
     pub assert_aligned_accesses: bool,
+    pub is_annot: bool,
 }
 
 impl Default for EncodeOptions {
@@ -28,17 +29,20 @@ impl Default for EncodeOptions {
         Self {
             expr_unrolling: false,
             assert_aligned_accesses: true,
+            is_annot: false,
         }
     }
 }
 
 impl<'a> ViperEncodeCtx<'a> {
     pub fn new(fname: String, ast: AstFactory<'a>, options: EncodeOptions) -> Self {
+        let mut type_map = HashMap::new();
+        type_map.insert("heap".into(), Shape::Simple);
         Self {
             ast,
             stack: vec![],
             declarations: vec![],
-            type_map: HashMap::new(),
+            type_map,
             fresh_counter: 0,
             while_counter: 0,
             iarray: IArrayHelper::new(ast),
@@ -108,6 +112,9 @@ impl<'a> ViperEncodeCtx<'a> {
     }
 
     pub fn mangle_var(&self, var: &str) -> &str {
+        if var == "heap" && self.options.is_annot {
+            return "heap";
+        }
         self.var_map
             .get(var)
             .unwrap_or_else(|| panic!("Variable {} was not declared: \n{:?}", var, self.var_map))

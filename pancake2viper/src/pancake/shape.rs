@@ -1,5 +1,7 @@
 use anyhow::anyhow;
 
+use crate::translation::{ToViperType, ViperEncodeCtx};
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Shape {
     Simple,
@@ -78,6 +80,15 @@ impl Shape {
             }
         } else {
             Err(anyhow!("Mismatched brackets"))
+        }
+    }
+}
+
+impl<'a> ToViperType<'a> for Shape {
+    fn to_viper_type(&self, ctx: &ViperEncodeCtx<'a>) -> viper::Type<'a> {
+        match self {
+            Self::Simple => ctx.ast.int_type(),
+            Self::Nested(_) => ctx.iarray.get_type(),
         }
     }
 }
