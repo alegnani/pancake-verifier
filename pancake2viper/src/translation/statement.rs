@@ -1,4 +1,4 @@
-use crate::{pancake, utils::ViperUtils};
+use crate::{annotation::parse_annot, pancake, utils::ViperUtils};
 
 use super::{
     context::ViperEncodeCtx,
@@ -11,7 +11,13 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Stmt {
         ctx.stack
             .insert(0, ast.comment(&format!("START: {:?}", &self)));
         let stmt = match self {
-            pancake::Stmt::Annotation(annot) => ast.comment(&annot.line),
+            // FIXME: remove this band-aid fix
+            pancake::Stmt::Annotation(annot) => {
+                ctx.options.is_annot = true;
+                let res = parse_annot(&annot.line).to_viper(ctx);
+                ctx.options.is_annot = false;
+                res
+            }
             pancake::Stmt::Skip => ast.comment("skip"),
             pancake::Stmt::Tick => ast.comment("tick"),
             pancake::Stmt::Declaration(dec) => dec.to_viper(ctx),
