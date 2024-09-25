@@ -8,7 +8,13 @@ fn t() {
 
 #[test]
 fn quantifier() {
-    let a = parse_annot("ensures forall i: Int :: i >= 0");
+    let a = parse_annot("ensures forall i: Int :: i == 0");
+    println!("{:?}", a);
+}
+
+#[test]
+fn trigger() {
+    let a = parse_annot("ensures forall i: Int :: {slot(i)} slot(i) <= 0");
     println!("{:?}", a);
 }
 

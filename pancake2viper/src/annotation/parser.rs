@@ -2,7 +2,7 @@ use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::PrattParser;
 use pest::Parser;
 
-use super::ast::*;
+use crate::ir::*;
 
 #[derive(pest_derive::Parser)]
 #[grammar = "annotation/annot.pest"]
@@ -15,6 +15,8 @@ lazy_static::lazy_static! {
             .op(Op::infix(Rule::imp, Right) | Op::infix(Rule::iff, Left))
             .op(Op::infix(Rule::eq, Left) | Op::infix(Rule::neq, Left))
             .op(Op::infix(Rule::gt, Left) | Op::infix(Rule::gte, Left) | Op::infix(Rule::lt, Left) | Op::infix(Rule::lte, Left))
+            .op(Op::infix(Rule::bool_or, Left))
+            .op(Op::infix(Rule::bool_and, Left))
             .op(Op::infix(Rule::add, Left) | Op::infix(Rule::sub, Left))
             .op(Op::infix(Rule::mul, Left) | Op::infix(Rule::div, Left))
             .op(Op::prefix(Rule::neg) | Op::prefix(Rule::minus))
@@ -43,20 +45,20 @@ pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
             Rule::quantified => Expr::Quantified(Quantified::from_pest(primary)),
             Rule::expr => parse_expr(primary.into_inner()),
             Rule::ident => Expr::Var(primary.as_str().to_owned()),
-            Rule::f_call => Expr::Call(Call::from_pest(primary)),
+            Rule::f_call => Expr::FunctionCall(FunctionCall::from_pest(primary)),
             x => panic!("primary: {:?}", x),
         })
         .map_prefix(|op, rhs| {
             Expr::UnOp(UnOp {
                 right: Box::new(rhs),
-                op: UnOperator::from_pest(op),
+                optype: UnOpType::from_pest(op),
             })
         })
         .map_infix(|lhs, op, rhs| {
             Expr::BinOp(BinOp {
-                lhs: Box::new(lhs),
-                rhs: Box::new(rhs),
-                op: BinOperator::from_pest(op),
+                optype: BinOpType::from_pest(op),
+                left: Box::new(lhs),
+                right: Box::new(rhs),
             })
         })
         .parse(pairs)
@@ -79,7 +81,7 @@ impl FromPestPair for AnnotationType {
     }
 }
 
-impl FromPestPair for UnOperator {
+impl FromPestPair for UnOpType {
     fn from_pest(pair: Pair<'_, Rule>) -> Self {
         match pair.as_rule() {
             Rule::neg => Self::Neg,
@@ -89,7 +91,7 @@ impl FromPestPair for UnOperator {
     }
 }
 
-impl FromPestPair for BinOperator {
+impl FromPestPair for BinOpType {
     fn from_pest(pair: Pair<'_, Rule>) -> Self {
         match pair.as_rule() {
             Rule::add => Self::Add,
@@ -99,8 +101,8 @@ impl FromPestPair for BinOperator {
             Rule::modulo => Self::Modulo,
             Rule::imp => Self::Imp,
             Rule::iff => Self::Iff,
-            Rule::eq => Self::Eq,
-            Rule::neq => Self::Neq,
+            Rule::eq => Self::Equal,
+            Rule::neq => Self::NotEqual,
             Rule::gt => Self::Gt,
             Rule::gte => Self::Gte,
             Rule::lt => Self::Lt,
@@ -121,7 +123,7 @@ impl FromPestPair for Type {
     }
 }
 
-impl FromPestPair for Decl {
+impl FromPestPair for QuantifiedDecl {
     fn from_pest(pair: Pair<'_, Rule>) -> Self {
         match pair.as_rule() {
             Rule::decl => {
@@ -132,7 +134,7 @@ impl FromPestPair for Decl {
                     x => panic!("Failed to parse Decl, got {:?}", x),
                 };
                 let typ = Type::from_pest(inner.next().unwrap());
-                Decl { name, typ }
+                Self { name, typ }
             }
             x => panic!("Failed to parse Decl, got {:?}", x),
         }
@@ -152,25 +154,33 @@ impl FromPestPair for Quantifier {
 impl FromPestPair for Quantified {
     fn from_pest(pair: Pair<'_, Rule>) -> Self {
         let mut pairs = pair.into_inner();
-        let decl_amount = pairs.len() - 2;
+        let decl_amount = pairs.len() - 3;
         assert!(decl_amount > 0);
         let quantifier = Quantifier::from_pest(pairs.next().unwrap());
         let decls = pairs
             .clone()
             .take(decl_amount)
-            .map(|d| Decl::from_pest(d))
+            .map(|d| QuantifiedDecl::from_pest(d))
             .collect();
-        let body = Box::new(parse_expr(Pairs::single(pairs.last().unwrap())));
+        let mut pairs = pairs.skip(decl_amount);
+        let triggers = pairs
+            .next()
+            .unwrap()
+            .into_inner()
+            .map(|e| parse_expr(Pairs::single(e)))
+            .collect::<Vec<_>>();
+        let body = Box::new(parse_expr(Pairs::single(pairs.next().unwrap())));
 
         Quantified {
             quantifier,
+            triggers,
             decls,
             body,
         }
     }
 }
 
-impl FromPestPair for Call {
+impl FromPestPair for FunctionCall {
     fn from_pest(pair: Pair<'_, Rule>) -> Self {
         let mut pairs = pair.into_inner();
         let fname = pairs.next().unwrap().as_str().to_owned();
