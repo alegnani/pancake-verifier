@@ -13,7 +13,7 @@ lazy_static::lazy_static! {
         use pest::pratt_parser::{Assoc::*, Op};
         PrattParser::new()
             .op(Op::infix(Rule::imp, Right) | Op::infix(Rule::iff, Left))
-            .op(Op::infix(Rule::eq, Left) | Op::infix(Rule::neq, Left))
+            .op(Op::infix(Rule::pancake_eq, Left) | Op::infix(Rule::pancake_neq, Left) | Op::infix(Rule::viper_eq, Left) | Op::infix(Rule::viper_neq, Left))
             .op(Op::infix(Rule::gt, Left) | Op::infix(Rule::gte, Left) | Op::infix(Rule::lt, Left) | Op::infix(Rule::lte, Left))
             .op(Op::infix(Rule::bool_or, Left))
             .op(Op::infix(Rule::bool_and, Left))
@@ -46,6 +46,7 @@ pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
             Rule::expr => parse_expr(primary.into_inner()),
             Rule::ident => Expr::Var(primary.as_str().to_owned()),
             Rule::f_call => Expr::FunctionCall(FunctionCall::from_pest(primary)),
+            Rule::heap => Expr::HeapAccess(HeapAccess::from_pest(primary)),
             x => panic!("primary: {:?}", x),
         })
         .map_prefix(|op, rhs| {
@@ -76,6 +77,8 @@ impl FromPestPair for AnnotationType {
             Rule::post => Self::Postcondition,
             Rule::assertion => Self::Assertion,
             Rule::invariant => Self::Invariant,
+            Rule::inhale => Self::Inhale,
+            Rule::exhale => Self::Exhale,
             x => panic!("Failed to parse AnnotationType, got {:?}", x),
         }
     }
@@ -101,8 +104,10 @@ impl FromPestPair for BinOpType {
             Rule::modulo => Self::Modulo,
             Rule::imp => Self::Imp,
             Rule::iff => Self::Iff,
-            Rule::eq => Self::Equal,
-            Rule::neq => Self::NotEqual,
+            Rule::viper_eq => Self::ViperEqual,
+            Rule::viper_neq => Self::ViperNotEqual,
+            Rule::pancake_eq => Self::PancakeEqual,
+            Rule::pancake_neq => Self::PancakeNotEqual,
             Rule::gt => Self::Gt,
             Rule::gte => Self::Gte,
             Rule::lt => Self::Lt,
@@ -186,5 +191,13 @@ impl FromPestPair for FunctionCall {
         let fname = pairs.next().unwrap().as_str().to_owned();
         let args = pairs.map(|a| parse_expr(Pairs::single(a))).collect();
         Self { fname, args }
+    }
+}
+
+impl FromPestPair for HeapAccess {
+    fn from_pest(pair: Pair<'_, Rule>) -> Self {
+        Self {
+            idx: Box::new(parse_expr(pair.into_inner())),
+        }
     }
 }

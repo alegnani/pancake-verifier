@@ -11,7 +11,7 @@ decl = { ident ~ ":" ~ type }
 
 int_lit = @{ "-"? ~ integer}
 
-bin_op = _{ add | sub | mul | div | modulo | imp | iff | eq | neq | gte | gt | lte | lt | bool_or | bool_and }
+bin_op = _{ add | sub | mul | div | modulo | imp | iff | viper_eq | viper_neq | pancake_eq | pancake_neq | gte | gt | lte | lt | bool_or | bool_and }
     add = { "+" }
     sub = { "-" }
     mul = { "*" }
@@ -19,8 +19,10 @@ bin_op = _{ add | sub | mul | div | modulo | imp | iff | eq | neq | gte | gt | l
     modulo = { "%" }
     imp = { "==>" }
     iff = { "<==>" }
-    eq = { "==" }
-    neq = { "!=" }
+    viper_eq = { "===" }
+    viper_neq = { "!==" }
+    pancake_eq = { "==" }
+    pancake_neq = { "!=" }
     gt = { ">" }
     gte = { ">=" }
     lt = { "<" }
@@ -35,17 +37,20 @@ expr = { prefix? ~ primary ~ (infix ~ prefix? ~ primary )* }
         neg = { "!" }
         minus = { "-" }
     postfix = _{ "!" }
-    primary = _ { int_lit | quantified | f_call | ident }
+    primary = _ { int_lit | quantified | f_call | heap | ident }
         quantified = { (forall | exists) ~ decl ~ ("," ~ decl)* ~ "::" ~ triggers ~ expr }
             forall = { "forall" }
             exists = { "exists" }
             triggers = { "{" ~ expr ~ ("," ~ expr)* ~ "}" | "" }
         f_call = {ident ~ "(" ~ (expr ~ ("," ~ expr)* | "") ~ ")" }
+        heap = { "heap[" ~ expr ~ "]" }
 
-top_keywords = _{ pre | post | invariant | assertion }
+top_keywords = _{ pre | post | invariant | assertion | inhale | exhale }
     pre = { "requires" }
     post = { "ensures" }
     invariant = { "invariant" }
     assertion = { "assert" }
+    inhale = { "inhale" }
+    exhale = { "exhale" }
 
 top = {top_keywords ~ expr }
