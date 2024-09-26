@@ -84,8 +84,8 @@ impl<'a> ToViper<'a, viper::Method<'a>> for pancake::FnDec {
             &ctx.mangle_fn(&self.fname),
             &args,
             &[ctx.return_var().0],
-            &[],
-            &[],
+            &ctx.pres,
+            &ctx.posts,
             Some(body),
         )
     }

@@ -8,16 +8,9 @@ use super::{
 impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Stmt {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
-        ctx.stack
-            .insert(0, ast.comment(&format!("START: {:?}", &self)));
         let stmt = match self {
             // FIXME: remove this band-aid fix
-            pancake::Stmt::Annotation(annot) => {
-                ctx.options.is_annot = true;
-                let res = parse_annot(&annot.line).to_viper(ctx);
-                ctx.options.is_annot = false;
-                res
-            }
+            pancake::Stmt::Annotation(annot) => annot.to_viper(ctx),
             pancake::Stmt::Skip => ast.comment("skip"),
             pancake::Stmt::Tick => ast.comment("tick"),
             pancake::Stmt::Declaration(dec) => dec.to_viper(ctx),
@@ -40,7 +33,6 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Stmt {
             pancake::Stmt::Raise(_) => todo!("Raise not implemented"),
         };
         ctx.stack.push(stmt);
-        ctx.stack.push(ast.comment(" END "));
 
         let decls = ctx
             .declarations
@@ -108,7 +100,8 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::While {
         body_seq.push(ast.label(&ctx.current_continue_label(), &[]));
         let body = ast.seqn(&body_seq, &[]);
 
-        ctx.stack.push(ast.while_stmt(cond, &[], body));
+        ctx.stack
+            .push(ast.while_stmt(cond, &body_ctx.invariants, body));
         ctx.stack.push(ast.label(&ctx.current_break_label(), &[]));
         let seq = ast.seqn(&ctx.stack, &decls);
         ctx.stack.clear();
@@ -168,8 +161,19 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Assign {
         let lhs_shape = ctx.get_type(&self.lhs);
         let name = ctx.mangle_var(&self.lhs);
         assert_eq!(lhs_shape, self.rhs.shape(ctx));
-        let var = ast.local_var(name, lhs_shape.to_viper_type(ctx));
-        let ass = ast.local_var_assign(var, self.rhs.to_viper(ctx));
+        let var = ast.new_var(name, lhs_shape.to_viper_type(ctx));
+        let ass = match self.rhs {
+            pancake::Expr::Call(call) => {
+                let mut args: Vec<viper::Expr> = call.args.to_viper(ctx);
+                args.insert(0, ctx.heap_var().1);
+                ast.method_call(
+                    &ctx.mangle_fn(&call.fname.label_to_viper()),
+                    &args,
+                    &[var.1],
+                )
+            }
+            other => ast.local_var_assign(var.1, other.to_viper(ctx)),
+        };
 
         let decls = ctx.pop_decls();
 
@@ -221,5 +225,36 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::TailCall {
         );
         let goto = ast.goto(ctx.return_label());
         ast.seqn(&[call, goto], &[])
+    }
+}
+
+impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Annotation {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+        let ast = ctx.ast;
+        let no_pos = ast.no_position();
+        let annot = parse_annot(&self.line);
+        ctx.options.is_annot = true;
+        ctx.options.no_mangle = match annot.typ {
+            Precondition | Postcondition => true,
+            Assertion | Inhale | Exhale | Invariant => false,
+        };
+        let body = annot.expr.to_viper(ctx);
+        ctx.options.no_mangle = false;
+        ctx.options.is_annot = false;
+        use crate::ir::AnnotationType::*;
+        match annot.typ {
+            Assertion => ast.assert(body, no_pos),
+            Inhale => ast.inhale(body, no_pos),
+            Exhale => ast.exhale(body, no_pos),
+            x => {
+                match x {
+                    Invariant => ctx.invariants.push(body),
+                    Precondition => ctx.pres.push(body),
+                    Postcondition => ctx.posts.push(body),
+                    _ => unreachable!(),
+                };
+                ast.comment("annotation pushed")
+            }
+        }
     }
 }

@@ -6,8 +6,6 @@ use crate::translation::{context::ViperEncodeCtx, ToShape, ToViper, ToViperType}
 impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Stmt {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
-        ctx.stack
-            .insert(0, ast.comment(&format!("START: {:?}", &self)));
         use ir::Stmt::*;
         let stmt = match self {
             Annotation(annot) => annot.to_viper(ctx),
@@ -31,7 +29,6 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Stmt {
             SharedLoadBits(load) => load.to_viper(ctx),
         };
         ctx.stack.push(stmt);
-        ctx.stack.push(ast.comment(" END "));
 
         let decls = ctx
             .declarations
@@ -46,9 +43,7 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Stmt {
 
 impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Annotation {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
-        // FIXME
-        let ast = ctx.ast;
-        ast.assert(self.expr.to_viper(ctx), ast.no_position())
+        todo!()
     }
 }
 

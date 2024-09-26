@@ -271,7 +271,9 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Expr {
             ),
             pancake::Expr::Label(_) => panic!(), // XXX: not sure if we need this
             pancake::Expr::Op(op) => op.to_viper(ctx),
-            pancake::Expr::Call(_) => panic!("Should only be possible as part of a DecCall"),
+            pancake::Expr::Call(_) => {
+                panic!("Should only be possible as part of a Declaration or Assignment")
+            }
             pancake::Expr::Shift(shift) => shift.to_viper(ctx),
             pancake::Expr::Load(load) => load.to_viper(ctx),
             pancake::Expr::LoadByte(load) => load.to_viper(ctx),
@@ -293,7 +295,7 @@ impl<'a> ToShape<'a> for pancake::Expr {
             | pancake::Expr::BaseAddr
             | pancake::Expr::BytesInWord => Shape::Simple,
             pancake::Expr::Var(var) => ctx.get_type(var),
-            pancake::Expr::Call(call) => call.rettype.clone(),
+            pancake::Expr::Call(call) => Shape::Simple, // FIXME
             pancake::Expr::Label(_) => panic!("Should not be possible"),
             pancake::Expr::Load(load) => load.shape.clone(),
             pancake::Expr::Field(field) => field.shape(ctx),

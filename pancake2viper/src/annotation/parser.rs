@@ -14,9 +14,9 @@ lazy_static::lazy_static! {
         PrattParser::new()
             .op(Op::infix(Rule::imp, Right) | Op::infix(Rule::iff, Left))
             .op(Op::infix(Rule::pancake_eq, Left) | Op::infix(Rule::pancake_neq, Left) | Op::infix(Rule::viper_eq, Left) | Op::infix(Rule::viper_neq, Left))
-            .op(Op::infix(Rule::gt, Left) | Op::infix(Rule::gte, Left) | Op::infix(Rule::lt, Left) | Op::infix(Rule::lte, Left))
             .op(Op::infix(Rule::bool_or, Left))
             .op(Op::infix(Rule::bool_and, Left))
+            .op(Op::infix(Rule::gt, Left) | Op::infix(Rule::gte, Left) | Op::infix(Rule::lt, Left) | Op::infix(Rule::lte, Left))
             .op(Op::infix(Rule::add, Left) | Op::infix(Rule::sub, Left))
             .op(Op::infix(Rule::mul, Left) | Op::infix(Rule::div, Left))
             .op(Op::prefix(Rule::neg) | Op::prefix(Rule::minus))
@@ -112,6 +112,8 @@ impl FromPestPair for BinOpType {
             Rule::gte => Self::Gte,
             Rule::lt => Self::Lt,
             Rule::lte => Self::Lte,
+            Rule::bool_and => Self::BoolAnd,
+            Rule::bool_or => Self::BoolOr,
             x => panic!("Failed to parse BinOperator, got {:?}", x),
         }
     }

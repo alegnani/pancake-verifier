@@ -57,19 +57,29 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for ir::BinOp {
                 Modulo => ast.module(left, right),
                 Imp => ast.implies(left, right),
                 Iff => ast.eq_cmp(left, right),
-                PancakeNotEqual if is_annot => ast.ne_cmp(left, right),
-                PancakeNotEqual => ast.cond_exp(ast.ne_cmp(left, right), one, zero),
-                PancakeEqual if is_annot => ast.eq_cmp(left, right),
-                PancakeEqual => ast.cond_exp(ast.eq_cmp(left, right), one, zero),
-                ViperNotEqual => ast.ne_cmp(left, right),
-                ViperEqual => ast.eq_cmp(left, right),
-                Lt => ast.cond_exp(ast.lt_cmp(left, right), one, zero),
-                Lte => ast.cond_exp(ast.le_cmp(left, right), one, zero),
-                Gt => ast.cond_exp(ast.gt_cmp(left, right), one, zero),
-                Gte => ast.cond_exp(ast.ge_cmp(left, right), one, zero),
                 BoolAnd => ast.and(left, right),
                 BoolOr => ast.or(left, right),
-                x => {
+                ViperNotEqual => ast.ne_cmp(left, right),
+                ViperEqual => ast.eq_cmp(left, right),
+
+                x @ (PancakeNotEqual | PancakeEqual | Lt | Lte | Gt | Gte) => {
+                    let cond = match x {
+                        PancakeNotEqual => ast.ne_cmp(left, right),
+                        PancakeEqual => ast.eq_cmp(left, right),
+                        Lt => ast.lt_cmp(left, right),
+                        Lte => ast.le_cmp(left, right),
+                        Gt => ast.gt_cmp(left, right),
+                        Gte => ast.ge_cmp(left, right),
+                        _ => unreachable!(),
+                    };
+                    if is_annot {
+                        cond
+                    } else {
+                        ast.cond_exp(cond, one, zero)
+                    }
+                }
+
+                x @ (BitAnd | BitOr | BitXor) => {
                     let lbv = ast.int_to_backend_bv(BV64, left);
                     let rbv = ast.int_to_backend_bv(BV64, right);
                     let bvop = match x {
@@ -277,6 +287,7 @@ impl<'a> ToViperType<'a> for ir::Type {
 impl<'a> ToViper<'a, viper::LocalVarDecl<'a>> for ir::QuantifiedDecl {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::LocalVarDecl<'a> {
         let ast = ctx.ast;
+        ctx.set_type(self.name.clone(), Shape::Simple);
         ast.local_var_decl(&self.name, self.typ.to_viper_type(ctx))
     }
 }
@@ -289,8 +300,12 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for ir::Quantified {
             .into_iter()
             .map(|d| d.to_viper(ctx))
             .collect::<Vec<_>>();
-        let triggers = self.triggers.to_viper(ctx);
-        ast.forall(&vars, &[ast.trigger(&triggers)], self.body.to_viper(ctx))
+        let triggers = if self.triggers.is_empty() {
+            vec![]
+        } else {
+            vec![ast.trigger(&self.triggers.to_viper(ctx))]
+        };
+        ast.forall(&vars, &triggers, self.body.to_viper(ctx))
     }
 }
 

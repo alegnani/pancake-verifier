@@ -143,7 +143,7 @@ pub fn parse_exp(s: &[SExpr]) -> anyhow::Result<Expr> {
         [Symbol(bytes)] if bytes == "BytesInWord" => Ok(Expr::BytesInWord),
         [Symbol(op), List(label), List(args), Symbol(ret)] if op == "call" => {
             Ok(Expr::Call(ExprCall {
-                rettype: Shape::parse(ret)?,
+                rettype: Shape::Simple,
                 fname: Box::new(parse_exp(label)?),
                 args: parse_exp_list(args)?,
             }))

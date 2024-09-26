@@ -14,13 +14,18 @@ pub struct ViperEncodeCtx<'a> {
     pub iarray: IArrayHelper<'a>,
     pub options: EncodeOptions,
     fname: String,
-    pub var_map: HashMap<String, String>,
+    var_map: HashMap<String, String>,
+
+    pub pres: Vec<viper::Expr<'a>>,
+    pub posts: Vec<viper::Expr<'a>>,
+    pub invariants: Vec<viper::Expr<'a>>,
 }
 
 #[derive(Clone, Copy)]
 pub struct EncodeOptions {
     pub expr_unrolling: bool,
     pub assert_aligned_accesses: bool,
+    pub no_mangle: bool,
     pub is_annot: bool,
 }
 
@@ -29,6 +34,7 @@ impl Default for EncodeOptions {
         Self {
             expr_unrolling: false,
             assert_aligned_accesses: true,
+            no_mangle: false,
             is_annot: false,
         }
     }
@@ -49,6 +55,9 @@ impl<'a> ViperEncodeCtx<'a> {
             options,
             fname,
             var_map: HashMap::new(),
+            pres: vec![],
+            posts: vec![],
+            invariants: vec![],
         }
     }
 
@@ -64,6 +73,9 @@ impl<'a> ViperEncodeCtx<'a> {
             options: self.options,
             fname: self.fname.clone(),
             var_map: self.var_map.clone(),
+            pres: self.pres.clone(),
+            posts: self.posts.clone(),
+            invariants: self.invariants.clone(),
         }
     }
 
@@ -103,6 +115,12 @@ impl<'a> ViperEncodeCtx<'a> {
     }
 
     pub fn new_scoped_var(&mut self, var: String) -> String {
+        if var == "heap" || var == "result" {
+            panic!(
+                "{}' is a reserved keyword and can't be used as an identifier",
+                &var
+            )
+        }
         let mangled = format!("__{}__{}__{}", &self.fname, var, self.fresh_counter);
         self.fresh_counter += 1;
 
@@ -111,13 +129,16 @@ impl<'a> ViperEncodeCtx<'a> {
         mangled
     }
 
-    pub fn mangle_var(&self, var: &str) -> &str {
-        if var == "heap" && self.options.is_annot {
+    pub fn mangle_var<'b>(&'b self, var: &'b str) -> &'b str {
+        if var == "heap" {
             return "heap";
         }
-        self.var_map
-            .get(var)
-            .unwrap_or_else(|| panic!("Variable {} was not declared: \n{:?}", var, self.var_map))
+        if self.options.no_mangle {
+            return var;
+        }
+        self.var_map.get(var).unwrap_or_else(move || {
+            panic!("Variable {} was not declared: \n{:?}", var, self.var_map)
+        })
     }
 
     pub fn mangle_fn(&self, fname: &str) -> String {
