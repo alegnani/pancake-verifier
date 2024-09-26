@@ -266,7 +266,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for pancake::Expr {
         match self {
             pancake::Expr::Const(c) => ast.int_lit(c),
             pancake::Expr::Var(name) => ast.local_var(
-                ctx.mangle_var(&name),
+                ctx.mangler.mangle_var(&name),
                 ctx.get_type(&name).to_viper_type(ctx),
             ),
             pancake::Expr::Label(_) => panic!(), // XXX: not sure if we need this

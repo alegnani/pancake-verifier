@@ -1,4 +1,6 @@
-use crate::{annotation::parse_annot, pancake, utils::ViperUtils};
+use crate::{
+    annotation::parse_annot, pancake, translation::context::TranslationMode, utils::ViperUtils,
+};
 
 use super::{
     context::ViperEncodeCtx,
@@ -125,7 +127,7 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Seq {
 impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Declaration {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
-        let name = ctx.new_scoped_var(self.lhs);
+        let name = ctx.mangler.new_scoped_var(self.lhs);
         let shape = self.rhs.shape(ctx);
         let var = ast.new_var(&name, shape.to_viper_type(ctx));
         ctx.declarations.push(var.0);
@@ -136,7 +138,7 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Declaration {
                 let mut args: Vec<viper::Expr> = call.args.to_viper(ctx);
                 args.insert(0, ctx.heap_var().1);
                 ast.method_call(
-                    &ctx.mangle_fn(&call.fname.label_to_viper()),
+                    &ctx.mangler.mangle_fn(&call.fname.label_to_viper()),
                     &args,
                     &[var.1],
                 )
@@ -159,7 +161,7 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Assign {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
         let lhs_shape = ctx.get_type(&self.lhs);
-        let name = ctx.mangle_var(&self.lhs);
+        let name = ctx.mangler.mangle_var(&self.lhs);
         assert_eq!(lhs_shape, self.rhs.shape(ctx));
         let var = ast.new_var(name, lhs_shape.to_viper_type(ctx));
         let ass = match self.rhs {
@@ -167,7 +169,7 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Assign {
                 let mut args: Vec<viper::Expr> = call.args.to_viper(ctx);
                 args.insert(0, ctx.heap_var().1);
                 ast.method_call(
-                    &ctx.mangle_fn(&call.fname.label_to_viper()),
+                    &ctx.mangler.mangle_fn(&call.fname.label_to_viper()),
                     &args,
                     &[var.1],
                 )
@@ -191,7 +193,11 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Call {
         let (decl, var) = ast.new_var("discard", ast.int_type());
         let mut args: Vec<viper::Expr> = self.args.to_viper(ctx);
         args.insert(0, ctx.heap_var().1);
-        let call = ast.method_call(&ctx.mangle_fn(&self.fname.label_to_viper()), &args, &[var]);
+        let call = ast.method_call(
+            &ctx.mangler.mangle_fn(&self.fname.label_to_viper()),
+            &args,
+            &[var],
+        );
         ast.seqn(&[call], &[decl.into()])
     }
 }
@@ -219,7 +225,7 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::TailCall {
         args.insert(0, ctx.heap_var().1);
         let ret = ctx.return_var();
         let call = ast.method_call(
-            &ctx.mangle_fn(&self.fname.label_to_viper()),
+            &ctx.mangler.mangle_fn(&self.fname.label_to_viper()),
             &args,
             &[ret.1],
         );
@@ -233,14 +239,10 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Annotation {
         let ast = ctx.ast;
         let no_pos = ast.no_position();
         let annot = parse_annot(&self.line);
-        ctx.options.is_annot = true;
-        ctx.options.no_mangle = match annot.typ {
-            Precondition | Postcondition => true,
-            Assertion | Inhale | Exhale | Invariant => false,
-        };
+        ctx.set_mode(annot.typ.into());
         let body = annot.expr.to_viper(ctx);
-        ctx.options.no_mangle = false;
-        ctx.options.is_annot = false;
+        ctx.set_mode(TranslationMode::Normal);
+        ctx.mangler.clear_annot_var();
         use crate::ir::AnnotationType::*;
         match annot.typ {
             Assertion => ast.assert(body, no_pos),

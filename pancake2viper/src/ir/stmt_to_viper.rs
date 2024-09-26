@@ -126,7 +126,7 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Seq {
 impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Definition {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
-        let name = ctx.new_scoped_var(self.lhs);
+        let name = ctx.mangler.new_scoped_var(self.lhs);
         let shape = self.rhs.shape(ctx);
         let var = ast.new_var(&name, shape.to_viper_type(ctx));
         ctx.declarations.push(var.0);
@@ -137,7 +137,7 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Definition {
                 let mut args: Vec<viper::Expr> = call.args.to_viper(ctx);
                 args.insert(0, ctx.heap_var().1);
                 ast.method_call(
-                    &ctx.mangle_fn(&call.fname.label_to_viper()),
+                    &ctx.mangler.mangle_fn(&call.fname.label_to_viper()),
                     &args,
                     &[var.1],
                 )
@@ -160,7 +160,7 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Assign {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
         let lhs_shape = ctx.get_type(&self.lhs);
-        let name = ctx.mangle_var(&self.lhs);
+        let name = ctx.mangler.mangle_var(&self.lhs);
         assert_eq!(lhs_shape, self.rhs.shape(ctx));
         let var = ast.local_var(name, lhs_shape.to_viper_type(ctx));
         let ass = ast.local_var_assign(var, self.rhs.to_viper(ctx));
@@ -181,7 +181,11 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Call {
         let (decl, var) = ast.new_var("discard", ast.int_type());
         let mut args: Vec<viper::Expr> = self.args.to_viper(ctx);
         args.insert(0, ctx.heap_var().1);
-        let call = ast.method_call(&ctx.mangle_fn(&self.fname.label_to_viper()), &args, &[var]);
+        let call = ast.method_call(
+            &ctx.mangler.mangle_fn(&self.fname.label_to_viper()),
+            &args,
+            &[var],
+        );
         ast.seqn(&[call], &[decl.into()])
     }
 }
@@ -209,7 +213,7 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::TailCall {
         args.insert(0, ctx.heap_var().1);
         let ret = ctx.return_var();
         let call = ast.method_call(
-            &ctx.mangle_fn(&self.fname.label_to_viper()),
+            &ctx.mangler.mangle_fn(&self.fname.label_to_viper()),
             &args,
             &[ret.1],
         );

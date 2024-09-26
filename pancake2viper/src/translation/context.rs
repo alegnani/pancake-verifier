@@ -2,19 +2,47 @@ use std::collections::HashMap;
 
 use viper::{AstFactory, Declaration, LocalVarDecl};
 
-use crate::{pancake::Shape, viper_prelude::IArrayHelper};
+use crate::{ir::AnnotationType, pancake::Shape, viper_prelude::IArrayHelper};
+
+use super::mangler::Mangler;
+
+#[derive(Debug, Clone, Copy, Default)]
+pub enum TranslationMode {
+    #[default]
+    Normal,
+    PrePost,
+    Assertion,
+}
+
+impl TranslationMode {
+    pub fn is_annot(&self) -> bool {
+        match self {
+            Self::Normal => false,
+            Self::Assertion | Self::PrePost => true,
+        }
+    }
+}
+
+impl From<AnnotationType> for TranslationMode {
+    fn from(value: AnnotationType) -> Self {
+        use AnnotationType::*;
+        match value {
+            Postcondition | Precondition => Self::PrePost,
+            _ => Self::Assertion,
+        }
+    }
+}
 
 pub struct ViperEncodeCtx<'a> {
+    mode: TranslationMode,
     pub ast: AstFactory<'a>,
     pub stack: Vec<viper::Stmt<'a>>,
     pub declarations: Vec<viper::LocalVarDecl<'a>>,
     type_map: HashMap<String, Shape>,
-    fresh_counter: u64,
     while_counter: u64,
     pub iarray: IArrayHelper<'a>,
     pub options: EncodeOptions,
-    fname: String,
-    var_map: HashMap<String, String>,
+    pub mangler: Mangler,
 
     pub pres: Vec<viper::Expr<'a>>,
     pub posts: Vec<viper::Expr<'a>>,
@@ -25,8 +53,6 @@ pub struct ViperEncodeCtx<'a> {
 pub struct EncodeOptions {
     pub expr_unrolling: bool,
     pub assert_aligned_accesses: bool,
-    pub no_mangle: bool,
-    pub is_annot: bool,
 }
 
 impl Default for EncodeOptions {
@@ -34,8 +60,6 @@ impl Default for EncodeOptions {
         Self {
             expr_unrolling: false,
             assert_aligned_accesses: true,
-            no_mangle: false,
-            is_annot: false,
         }
     }
 }
@@ -43,18 +67,19 @@ impl Default for EncodeOptions {
 impl<'a> ViperEncodeCtx<'a> {
     pub fn new(fname: String, ast: AstFactory<'a>, options: EncodeOptions) -> Self {
         let mut type_map = HashMap::new();
+        // FIXME: correctly set retval
         type_map.insert("heap".into(), Shape::Simple);
+        type_map.insert("retval".into(), Shape::Simple);
         Self {
+            mode: TranslationMode::Normal,
             ast,
             stack: vec![],
             declarations: vec![],
             type_map,
-            fresh_counter: 0,
             while_counter: 0,
             iarray: IArrayHelper::new(ast),
             options,
-            fname,
-            var_map: HashMap::new(),
+            mangler: Mangler::new(fname),
             pres: vec![],
             posts: vec![],
             invariants: vec![],
@@ -63,16 +88,15 @@ impl<'a> ViperEncodeCtx<'a> {
 
     pub fn child(&self) -> Self {
         Self {
+            mode: self.mode,
             ast: self.ast,
             stack: vec![],
             declarations: vec![],
             type_map: self.type_map.clone(),
-            fresh_counter: self.fresh_counter,
             while_counter: self.while_counter,
             iarray: self.iarray,
             options: self.options,
-            fname: self.fname.clone(),
-            var_map: self.var_map.clone(),
+            mangler: self.mangler.child(),
             pres: self.pres.clone(),
             posts: self.posts.clone(),
             invariants: self.invariants.clone(),
@@ -80,9 +104,7 @@ impl<'a> ViperEncodeCtx<'a> {
     }
 
     pub fn fresh_var(&mut self) -> String {
-        let fresh = format!("_fr{}", self.fresh_counter);
-        self.fresh_counter += 1;
-        fresh
+        self.mangler.fresh_var()
     }
 
     pub fn current_break_label(&self) -> String {
@@ -114,41 +136,6 @@ impl<'a> ViperEncodeCtx<'a> {
         self.while_counter += 1;
     }
 
-    pub fn new_scoped_var(&mut self, var: String) -> String {
-        if var == "heap" || var == "result" {
-            panic!(
-                "{}' is a reserved keyword and can't be used as an identifier",
-                &var
-            )
-        }
-        let mangled = format!("__{}__{}__{}", &self.fname, var, self.fresh_counter);
-        self.fresh_counter += 1;
-
-        let prev = self.var_map.insert(var, mangled.clone());
-
-        mangled
-    }
-
-    pub fn mangle_var<'b>(&'b self, var: &'b str) -> &'b str {
-        if var == "heap" {
-            return "heap";
-        }
-        if self.options.no_mangle {
-            return var;
-        }
-        self.var_map.get(var).unwrap_or_else(move || {
-            panic!("Variable {} was not declared: \n{:?}", var, self.var_map)
-        })
-    }
-
-    pub fn mangle_fn(&self, fname: &str) -> String {
-        format!("f_{}", fname)
-    }
-
-    pub fn mangle_arg(&self, arg: &str) -> String {
-        format!("arg_{}", arg)
-    }
-
     pub fn pop_decls(&mut self) -> Vec<Declaration<'a>> {
         self.declarations
             .drain(..)
@@ -161,7 +148,10 @@ impl<'a> ViperEncodeCtx<'a> {
     }
 
     pub fn get_type(&self, var: &str) -> Shape {
-        self.type_map.get(self.mangle_var(var)).unwrap().to_owned()
+        self.type_map
+            .get(self.mangler.mangle_var(var))
+            .unwrap_or_else(|| panic!("Type for '{}' has not been set", var))
+            .to_owned()
     }
 
     pub fn set_type(&mut self, var: String, shape: Shape) {
@@ -173,5 +163,14 @@ impl<'a> ViperEncodeCtx<'a> {
             self.ast.local_var_decl("heap", self.heap_type()),
             self.ast.local_var("heap", self.heap_type()),
         )
+    }
+
+    pub fn set_mode(&mut self, mode: TranslationMode) {
+        self.mode = mode;
+        self.mangler.mangle_mode(mode);
+    }
+
+    pub fn get_mode(&self) -> TranslationMode {
+        self.mode
     }
 }

@@ -1,11 +1,15 @@
-use viper::AstFactory;
+use viper::{AstFactory, Declaration};
 
 use crate::{
     pancake::{self, Shape},
+    utils::ViperUtils,
     viper_prelude::create_viper_prelude,
 };
 
-use super::context::{EncodeOptions, ViperEncodeCtx};
+use super::{
+    context::{EncodeOptions, ViperEncodeCtx},
+    mangler::Mangler,
+};
 
 pub trait ToViper<'a, T> {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> T;
@@ -23,8 +27,10 @@ pub trait ToShape<'a> {
 
 impl<'a> ToViper<'a, viper::LocalVarDecl<'a>> for pancake::Arg {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::LocalVarDecl<'a> {
+        let mangled_arg = ctx.mangler.new_arg(self.name.clone());
+        ctx.set_type(mangled_arg.clone(), self.shape.clone());
         ctx.ast
-            .local_var_decl(&ctx.mangle_arg(&self.name), self.shape.to_viper_type(ctx))
+            .local_var_decl(&mangled_arg, self.shape.to_viper_type(ctx))
     }
 }
 
@@ -39,50 +45,39 @@ impl<'a> ToViper<'a, viper::Method<'a>> for pancake::FnDec {
         let ast = ctx.ast;
 
         // Copy all the parameters as they are read-only in Viper
-        let copied_args = self
+        let mut args_local_decls = self
             .args
             .iter()
-            .map(|a| {
-                ast.local_var_decl(
-                    &ctx.new_scoped_var(a.name.clone()),
-                    a.shape.to_viper_type(ctx),
-                )
-                .into()
-            })
+            .map(|a| a.clone().to_viper(ctx))
             .collect::<Vec<_>>();
 
-        for arg in &self.args {
-            ctx.set_type(ctx.mangle_var(&arg.name).to_owned(), arg.shape.clone());
-            ctx.set_type(arg.name.clone(), arg.shape.clone());
-        }
-
-        let mut args_assigns = self
+        let (args_decls, mut args_assigns): (Vec<Declaration>, Vec<_>) = self
             .args
             .iter()
             .map(|a| {
                 let typ = a.shape.to_viper_type(ctx);
-                ast.local_var_assign(
-                    ast.local_var(ctx.mangle_var(&a.name), typ),
-                    ast.local_var(&ctx.mangle_arg(&a.name), typ),
+                let mangled_lhs = ctx.mangler.new_scoped_var(a.name.clone());
+                ctx.set_type(mangled_lhs.clone(), a.shape.clone());
+                let lhs = ast.new_var(&mangled_lhs, typ);
+                let decl: Declaration = lhs.0.into();
+                (
+                    decl,
+                    ctx.ast
+                        .local_var_assign(lhs.1, ast.local_var(&Mangler::mangle_arg(&a.name), typ)),
                 )
             })
-            .collect::<Vec<_>>();
+            .unzip();
 
         let body = self.body.to_viper(ctx);
 
-        let mut args = self
-            .args
-            .into_iter()
-            .map(|a| a.to_viper(ctx))
-            .collect::<Vec<_>>();
-        args.insert(0, ctx.heap_var().0);
+        args_local_decls.insert(0, ctx.heap_var().0);
 
         args_assigns.extend_from_slice(&[body, ast.label(ctx.return_label(), &[])]);
-        let body = ast.seqn(&args_assigns, &copied_args);
+        let body = ast.seqn(&args_assigns, &args_decls);
 
         ast.method(
-            &ctx.mangle_fn(&self.fname),
-            &args,
+            &ctx.mangler.mangle_fn(&self.fname),
+            &args_local_decls,
             &[ctx.return_var().0],
             &ctx.pres,
             &ctx.posts,

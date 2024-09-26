@@ -1,5 +1,5 @@
+use viper::BinOpBv;
 use viper::BvSize::BV64;
-use viper::{BinOpBv, Viper};
 
 use crate::{pancake::Shape, utils::ViperUtils};
 
@@ -44,7 +44,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for ir::UnOp {
 impl<'a> ToViper<'a, viper::Expr<'a>> for ir::BinOp {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
         let ast = ctx.ast;
-        let is_annot = ctx.options.is_annot;
+        let is_annot = ctx.get_mode().is_annot();
         let translate_op = |optype, left, right| {
             let one = ast.int_lit(1);
             let zero = ast.int_lit(0);
@@ -288,6 +288,7 @@ impl<'a> ToViper<'a, viper::LocalVarDecl<'a>> for ir::QuantifiedDecl {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::LocalVarDecl<'a> {
         let ast = ctx.ast;
         ctx.set_type(self.name.clone(), Shape::Simple);
+        ctx.mangler.insert_annot_var(self.name.clone());
         ast.local_var_decl(&self.name, self.typ.to_viper_type(ctx))
     }
 }
@@ -337,7 +338,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for ir::Expr {
         match self {
             Const(c) => ast.int_lit(c),
             Var(name) => ast.local_var(
-                ctx.mangle_var(&name),
+                ctx.mangler.mangle_var(&name),
                 ctx.get_type(&name).to_viper_type(ctx),
             ),
             Label(_) => panic!(), // XXX: not sure if we need this
