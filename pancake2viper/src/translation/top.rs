@@ -1,132 +1,107 @@
-use viper::{AstFactory, Declaration, LocalVarDecl};
+use viper::{AstFactory, Declaration};
 
-use crate::pancake;
+use crate::{
+    pancake::{self, Shape},
+    utils::ViperUtils,
+    viper_prelude::create_viper_prelude,
+};
 
-use super::bitvector::create_bv_domain;
-
-pub struct ViperEncodeCtx<'a> {
-    pub ast: AstFactory<'a>,
-    pub stack: Vec<viper::Stmt<'a>>,
-    pub declarations: Vec<viper::LocalVarDecl<'a>>,
-    fresh_counter: u64,
-    while_counter: u64,
-}
-
-impl<'a> ViperEncodeCtx<'a> {
-    pub fn new(ast: AstFactory<'a>) -> Self {
-        Self {
-            ast,
-            stack: vec![],
-            declarations: vec![],
-            fresh_counter: 0,
-            while_counter: 0,
-        }
-    }
-
-    pub fn child(&self) -> Self {
-        Self {
-            ast: self.ast,
-            stack: vec![],
-            declarations: vec![],
-            fresh_counter: self.fresh_counter,
-            while_counter: self.while_counter,
-        }
-    }
-
-    pub fn fresh_var(&mut self) -> String {
-        let fresh = format!("f_{}", self.fresh_counter);
-        self.fresh_counter += 1;
-        fresh
-    }
-
-    pub fn current_break_label(&self) -> String {
-        format!("break_label_{}", self.while_counter)
-    }
-
-    pub fn current_continue_label(&self) -> String {
-        format!("continue_label_{}", self.while_counter)
-    }
-
-    pub fn return_label(&self) -> &'static str {
-        "return_label"
-    }
-
-    fn return_var_name(&self) -> &'static str {
-        "retval"
-    }
-
-    pub fn return_decl(&self) -> viper::LocalVarDecl {
-        self.ast
-            .local_var_decl(self.return_var_name(), self.ast.int_type())
-    }
-
-    pub fn return_var(&self) -> viper::Expr {
-        self.ast
-            .local_var(self.return_var_name(), self.ast.int_type())
-    }
-
-    pub fn new_while_ctx(&mut self) {
-        self.while_counter += 1;
-    }
-
-    pub fn mangle_var(&self, var: &str) -> String {
-        format!("_{}", var)
-    }
-
-    pub fn pop_decls(&mut self) -> Vec<Declaration<'a>> {
-        self.declarations
-            .drain(..)
-            .map(LocalVarDecl::into)
-            .collect()
-    }
-}
+use super::{
+    context::{EncodeOptions, ViperEncodeCtx},
+    mangler::Mangler,
+};
 
 pub trait ToViper<'a, T> {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> T;
+    fn to_viper_with_pos(&self, ctx: &mut ViperEncodeCtx<'a>, pos: viper::Position) -> T {
+        todo!()
+    }
+}
+pub trait ToViperType<'a> {
+    fn to_viper_type(&self, ctx: &ViperEncodeCtx<'a>) -> viper::Type<'a>;
+}
+
+pub trait ToShape<'a> {
+    fn shape(&self, ctx: &ViperEncodeCtx<'a>) -> Shape;
 }
 
 impl<'a> ToViper<'a, viper::LocalVarDecl<'a>> for pancake::Arg {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::LocalVarDecl<'a> {
-        let ast = ctx.ast;
-        ast.local_var_decl(&ctx.mangle_var(&self.name), ast.int_type())
+        let mangled_arg = ctx.mangler.new_arg(self.name.clone());
+        ctx.set_type(mangled_arg.clone(), self.shape.clone());
+        ctx.ast
+            .local_var_decl(&mangled_arg, self.shape.to_viper_type(ctx))
+    }
+}
+
+impl<'a> ToShape<'a> for pancake::Arg {
+    fn shape(&self, _ctx: &ViperEncodeCtx<'a>) -> Shape {
+        self.shape.clone()
     }
 }
 
 impl<'a> ToViper<'a, viper::Method<'a>> for pancake::FnDec {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Method<'a> {
         let ast = ctx.ast;
-        // TODO: mangle arg names differently ("f_{}"), declare and assign to
-        // local variables as Viper args are immutable
-        let body = ast.seqn(
-            &[self.body.to_viper(ctx), ast.label(ctx.return_label(), &[])],
-            &[],
-        );
-        let args = self
+
+        // Copy all the parameters as they are read-only in Viper
+        let mut args_local_decls = self
             .args
-            .into_iter()
-            .map(|a| a.to_viper(ctx))
+            .iter()
+            .map(|a| a.clone().to_viper(ctx))
             .collect::<Vec<_>>();
+
+        let (args_decls, mut args_assigns): (Vec<Declaration>, Vec<_>) = self
+            .args
+            .iter()
+            .map(|a| {
+                let typ = a.shape.to_viper_type(ctx);
+                let mangled_lhs = ctx.mangler.new_scoped_var(a.name.clone());
+                ctx.set_type(mangled_lhs.clone(), a.shape.clone());
+                let lhs = ast.new_var(&mangled_lhs, typ);
+                let decl: Declaration = lhs.0.into();
+                (
+                    decl,
+                    ctx.ast
+                        .local_var_assign(lhs.1, ast.local_var(&Mangler::mangle_arg(&a.name), typ)),
+                )
+            })
+            .unzip();
+
+        let body = self.body.to_viper(ctx);
+
+        args_local_decls.insert(0, ctx.heap_var().0);
+
+        args_assigns.extend_from_slice(&[body, ast.label(ctx.return_label(), &[])]);
+        let body = ast.seqn(&args_assigns, &args_decls);
+
         ast.method(
-            &self.fname,
-            &args,
-            &[ctx.return_decl()],
-            &[],
-            &[],
+            &ctx.mangler.mangle_fn(&self.fname),
+            &args_local_decls,
+            &[ctx.return_var().0],
+            &ctx.pres,
+            &ctx.posts,
             Some(body),
         )
     }
 }
 
-impl<'a> ToViper<'a, viper::Program<'a>> for pancake::Program {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Program<'a> {
-        let ast = ctx.ast;
-        let functions = self
+pub trait ProgramToViper<'a> {
+    fn to_viper(self, ast: AstFactory<'a>, options: EncodeOptions) -> viper::Program<'a>;
+}
+
+impl<'a> ProgramToViper<'a> for pancake::Program {
+    fn to_viper(self, ast: AstFactory<'a>, options: EncodeOptions) -> viper::Program<'a> {
+        let program_methods = self
             .functions
             .into_iter()
-            .map(|f| f.to_viper(ctx))
+            .map(|f| {
+                let mut ctx = ViperEncodeCtx::new(f.fname.clone(), ast, options);
+                f.to_viper(&mut ctx)
+            })
             .collect::<Vec<_>>();
-
-        let dom = create_bv_domain(ast);
-        ast.program(&[dom], &[], &[], &[], &functions)
+        let (domains, fields, mut methods) = create_viper_prelude(ast);
+        methods.extend(program_methods.iter());
+        ast.program(&domains, &fields, &[], &[], &methods)
     }
 }

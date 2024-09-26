@@ -1,0 +1,158 @@
+/* IArray encoding */
+domain IArray {
+    function slot(a: IArray, i : Int): Ref
+    function len(a: IArray): Int
+    function first(r: Ref): IArray
+    function second(r: Ref): Int
+
+    axiom all_diff {
+        forall a: IArray, i: Int :: {slot(a, i) }
+        first(slot(a, i)) == a && second(slot(a, i)) == i
+    }
+
+    axiom len_nonneg {
+        forall a: IArray :: { len(a) }
+        len(a) >= 0
+    }
+
+    axiom inj {
+        forall a: IArray, j: Int, k: Int :: j != k ==> slot(a, j) != slot(a, k)
+    }
+}
+
+// function copy_slice(a: IArray, l: Int, h: Int): IArray
+//     requires 0 <= l <= h < len(a)
+//     requires forall j: Int :: l <= j < h <= len(a) ==> acc(slot(a, j).heap_elem)
+//     requires slice_access(a, l, h)
+//     ensures h - l == len(result)
+//     // ensures forall i: Int :: 0 <= i < (h - l) ==> acc(slot(result, i).heap_elem)
+//     // ensures forall i: Int :: 0 <= i < (h - l) ==> slot(result, i).heap_elem == slot(a, i + l).heap_elem
+
+field heap_elem: Int
+// field elems: IArray
+// field size: Int
+
+// predicate AList(this: Ref) {
+//     acc(this.elems) && acc(this.size) && 0 <= this.size && this.size <= len(this.elems)
+//     && 0 < len(this.elems) 
+//     && (forall i : Int :: 0 <= i < len(this.elems) ==> acc(slot(this.elems, i).heap_elem))
+// }
+
+// function AList_len(this: Ref): Int
+// requires acc(AList(this))
+// ensures 0 <= result
+// {
+//     unfolding acc(AList(this)) in this.size
+// }
+
+// function AList_at(this: Ref, idx: Int): Int
+// requires acc(AList(this))
+// requires 0 <= idx < AList_len(this)
+// {
+//     unfolding acc(AList(this)) in slot(this.elems, idx).heap_elem
+// }
+
+define full_access(a) forall j: Int :: 0 <= j && j < len(a) ==> acc(slot(a, j).heap_elem)
+define slice_access(a, l, h) forall j: Int :: l <= j < h <= len(a) ==> acc(slot(a, j).heap_elem)
+
+method main(a: IArray) returns (heap_elemue: Int) 
+    requires full_access(a)
+    requires len(a) == 100
+    ensures full_access(a)
+{
+    increment_slice(a, 1, 2)
+    assert forall j: Int :: 0 <= j < 1 ==> slot(a, j).heap_elem == old(slot(a, j).heap_elem)
+    assert forall j: Int :: 2<= j < len(a) ==> slot(a, j).heap_elem == old(slot(a, j).heap_elem)
+    refute false
+}
+
+method increment_slice(a: IArray, l: Int, h: Int) 
+    requires slice_access(a, l, h)
+    requires 0 <= l < h <= len(a)
+    ensures slice_access(a, l, h)
+{
+    var i: Int
+    i := l
+    var accu: Int
+    accu := 0
+
+    while (i < h) 
+        invariant slice_access(a, l, h)
+        invariant 0 <= l <= i 
+        invariant i <= h <= len(a)
+    {
+        slot(a, i).heap_elem := slot(a, i).heap_elem + 1
+        i := i + 1
+    }
+}
+
+// method boh(a: IArray, l: Int, m: Int, h: Int)
+//     requires slice_access(a, l, m)
+//     requires slice_access(a, m, h)
+//     requires 0 <= l <= m <= h < len(a)
+//     ensures slice_access(a, l, h)
+// {
+//     refute false
+// }
+
+// function copy_slice(a: IArray, l: Int, h: Int): IArray
+//     requires 0 <= l <= h < len(a)
+//     requires forall j: Int :: l <= j < h <= len(a) ==> acc(slot(a, j).heap_elem)
+//     requires slice_access(a, l, h)
+//     ensures h - l == len(result)
+//     // ensures forall i: Int :: 0 <= i < (h - l) ==> acc(slot(result, i).heap_elem)
+//     // ensures forall i: Int :: 0 <= i < (h - l) ==> slot(result, i).heap_elem == slot(a, i + l).heap_elem
+
+method copy_slice(src: IArray, l: Int, h: Int) returns  (dst: IArray)
+    requires 0 <= l <= h < len(src)
+    requires slice_access(src, l, h)
+
+    ensures len(dst) == h - l
+    ensures slice_access(src, l, h)
+    ensures forall i: Int :: l <= i < h ==> old(slot(src, i).heap_elem) == slot(src, i).heap_elem
+    ensures full_access(dst)
+    ensures forall i: Int :: 0 <= i < h - l ==> slot(src, l + i).heap_elem == slot(dst, i).heap_elem
+// {
+//     inhale len(dst) == h - l
+//     inhale full_access(dst)
+//     assert slice_access(src, l, h)
+
+//     var idx: Int
+//     idx := 0
+//     while (l + idx < h) 
+//         invariant l < h
+//         invariant idx < h - l
+//         invariant forall j: Int :: 0 <= j < idx ==> acc(slot(src, l + idx).heap_elem)
+
+//         invariant full_access(dst)
+//         invariant forall j: Int :: 0 <= j < idx ==> slot(dst, idx).heap_elem == slot(src, l + j).heap_elem 
+//     {
+//         slot(dst, idx).heap_elem := slot(src, l + idx).heap_elem
+//         idx := idx + 1
+//     }
+
+// }
+
+method access_field(a: IArray)
+    requires full_access(a)
+    requires len(a) == 100
+    ensures full_access(a)
+{
+    assume slot(a, 0).heap_elem == 12
+    assume slot(a, 1).heap_elem == 42
+    assume slot(a, 2).heap_elem == 50
+    assume slot(a, 3).heap_elem == 16
+
+    var struct: IArray
+    struct := copy_slice(a, 1, 3)
+    refute false
+    assert slot(struct, 0).heap_elem == slot(a, 1).heap_elem
+    assert slot(struct, 1).heap_elem == slot(a, 2).heap_elem
+    // HEAP: 12 42 50 16
+    // STRUCT: 42 50
+    slot(struct, 0).heap_elem := 70
+    assert slot(struct, 0).heap_elem != slot(a, 1).heap_elem
+    slot(a, 2).heap_elem := 40
+    assert slot(struct, 1).heap_elem != slot(a, 2).heap_elem
+    refute false
+}

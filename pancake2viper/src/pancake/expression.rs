@@ -4,7 +4,7 @@ use crate::parser::SExpr::{self, *};
 use anyhow::anyhow;
 use strum::EnumString;
 
-use super::shape::{parse_shape, Shape};
+use super::shape::Shape;
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -16,38 +16,37 @@ pub enum Expr {
     Load(Load),
     LoadByte(LoadByte),
     Op(Op),
-    Cmp(String, Box<Expr>, Box<Expr>),
+    // Cmp(String, Box<Expr>, Box<Expr>),
     Shift(Shift),
     BaseAddr,
+    BytesInWord,
     Call(ExprCall),
 }
 
 #[derive(Debug, Clone)]
-pub struct Struct(pub Vec<Expr>);
+pub struct Struct {
+    pub elements: Vec<Expr>,
+}
 
 impl Struct {
-    pub fn new(l: Vec<Expr>) -> Self {
-        Self(l)
-    }
-    pub fn flatten(&self) -> Vec<Expr> {
-        let mut result = Vec::new();
-        Self::flatten_helper(&self.0, &mut result);
-        result
+    pub fn new(elements: Vec<Expr>) -> Self {
+        Self { elements }
     }
 
-    fn flatten_helper(list: &[Expr], result: &mut Vec<Expr>) {
-        for expr in list {
-            match expr {
-                Expr::Struct(inner) => Self::flatten_helper(&inner.0, result),
-                x => result.push(x.to_owned()),
-            }
-        }
+    pub fn flatten(&self) -> Vec<Expr> {
+        self.elements
+            .iter()
+            .flat_map(|e| match e {
+                Expr::Struct(inner) => inner.flatten(),
+                x => vec![x.clone()],
+            })
+            .collect()
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Field {
-    pub field_idx: u64,
+    pub field_idx: usize,
     pub obj: Box<Expr>,
 }
 
@@ -55,6 +54,7 @@ pub struct Field {
 pub struct Load {
     pub shape: Shape,
     pub address: Box<Expr>,
+    pub assert: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -77,7 +77,7 @@ pub struct Shift {
 
 #[derive(Debug, Clone)]
 pub struct ExprCall {
-    pub rettype: String,
+    pub rettype: Shape,
     pub fname: Box<Expr>,
     pub args: Vec<Expr>,
 }
@@ -96,15 +96,6 @@ pub enum OpType {
     Xor,
 }
 
-impl OpType {
-    pub fn is_bool(&self) -> bool {
-        matches!(
-            self,
-            Self::NotEqual | Self::Equal | Self::Less | Self::NotLess
-        )
-    }
-}
-
 #[derive(Debug, EnumString, Clone, Copy)]
 pub enum ShiftType {
     Lsl,
@@ -115,7 +106,7 @@ pub enum ShiftType {
 pub fn parse_exp(s: &[SExpr]) -> anyhow::Result<Expr> {
     match s {
         [Symbol(cons), Symbol(word)] if cons == "Const" && word.starts_with("0x") => {
-            Ok(Expr::Const(i64::from_str_radix(&word[2..], 16)?))
+            Ok(Expr::Const(u64::from_str_radix(&word[2..], 16)? as i64))
         }
         [Symbol(var), Symbol(name)] if var == "Var" => Ok(Expr::Var(name.clone())),
         [Symbol(label), Symbol(name)] if label == "Label" => Ok(Expr::Label(name.clone())),
@@ -123,7 +114,7 @@ pub fn parse_exp(s: &[SExpr]) -> anyhow::Result<Expr> {
             Ok(Expr::Struct(Struct::new(parse_exp_list(exps)?)))
         }
         [Symbol(field), Int(idx), List(exp)] if field == "Field" => Ok(Expr::Field(Field {
-            field_idx: *idx,
+            field_idx: *idx as usize,
             obj: Box::new(parse_exp(exp)?),
         })),
         [Symbol(memloadbyte), List(exp)] if memloadbyte == "MemLoadByte" => {
@@ -133,13 +124,15 @@ pub fn parse_exp(s: &[SExpr]) -> anyhow::Result<Expr> {
         }
         [Symbol(memload), Symbol(shape), List(exp)] if memload == "MemLoad" => {
             Ok(Expr::Load(Load {
-                shape: parse_shape(shape)?,
+                shape: Shape::parse(shape)?,
                 address: Box::new(parse_exp(exp)?),
+                assert: true,
             }))
         }
         [Symbol(memload), Int(shape), List(exp)] if memload == "MemLoad" => Ok(Expr::Load(Load {
-            shape: parse_shape(&shape.to_string())?,
+            shape: Shape::parse(&shape.to_string())?,
             address: Box::new(parse_exp(exp)?),
+            assert: true,
         })),
         [Symbol(shift), List(exp), Int(num)] => Ok(Expr::Shift(Shift {
             shifttype: ShiftType::from_str(shift)?,
@@ -147,20 +140,19 @@ pub fn parse_exp(s: &[SExpr]) -> anyhow::Result<Expr> {
             amount: *num,
         })),
         [Symbol(base)] if base == "BaseAddr" => Ok(Expr::BaseAddr),
+        [Symbol(bytes)] if bytes == "BytesInWord" => Ok(Expr::BytesInWord),
         [Symbol(op), List(label), List(args), Symbol(ret)] if op == "call" => {
             Ok(Expr::Call(ExprCall {
-                rettype: "todo_call".into(),
+                rettype: Shape::Simple,
                 fname: Box::new(parse_exp(label)?),
                 args: parse_exp_list(args)?,
             }))
         }
-        [Symbol(op), List(label), List(args), Int(ret)] if op == "call" => {
-            Ok(Expr::Call(ExprCall {
-                rettype: "todo_call".into(),
-                fname: Box::new(parse_exp(label)?),
-                args: parse_exp_list(args)?,
-            }))
-        }
+        [Symbol(op), List(label), List(args), Int(_)] if op == "call" => Ok(Expr::Call(ExprCall {
+            rettype: Shape::Simple,
+            fname: Box::new(parse_exp(label)?),
+            args: parse_exp_list(args)?,
+        })),
         [Symbol(op), exps @ ..] => Ok(Expr::Op(Op {
             optype: OpType::from_str(op)?,
             operands: parse_exp_list(exps)?,

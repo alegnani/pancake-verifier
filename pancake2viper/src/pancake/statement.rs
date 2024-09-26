@@ -5,10 +5,15 @@ use anyhow::anyhow;
 #[derive(Debug, Clone)]
 pub enum Stmt {
     Skip,
+    Annotation(Annotation),
     Declaration(Declaration),
     Assign(Assign),
     Store(Store),
-    StoreByte(StoreByte),
+    StoreBits(StoreBits),
+    SharedStore(SharedStore),
+    SharedStoreBits(SharedStoreBits),
+    SharedLoad(SharedLoad),
+    SharedLoadBits(SharedLoadBits),
     Seq(Seq),
     If(If),
     While(While),
@@ -16,7 +21,6 @@ pub enum Stmt {
     Continue,
     Call(Call),
     TailCall(TailCall),
-    DecCall,
     ExtCall(ExtCall),
     Raise(Raise),
     Return(Return),
@@ -36,6 +40,23 @@ pub struct Assign {
     pub rhs: Expr,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum MemOpBytes {
+    Byte,
+    HalfWord,
+}
+
+impl MemOpBytes {
+    pub fn bits(&self) -> u32 {
+        match self {
+            Self::Byte => 8,
+            Self::HalfWord => 32,
+        }
+    }
+}
+
+// Stores
+
 #[derive(Debug, Clone)]
 pub struct Store {
     pub address: Expr,
@@ -43,9 +64,38 @@ pub struct Store {
 }
 
 #[derive(Debug, Clone)]
-pub struct StoreByte {
+pub struct StoreBits {
     pub address: Expr,
     pub value: Expr,
+    pub size: MemOpBytes,
+}
+
+#[derive(Debug, Clone)]
+pub struct SharedStore {
+    pub address: Expr,
+    pub value: Expr,
+}
+
+#[derive(Debug, Clone)]
+pub struct SharedStoreBits {
+    pub address: Expr,
+    pub value: Expr,
+    pub size: MemOpBytes,
+}
+
+// Shared loads
+
+#[derive(Debug, Clone)]
+pub struct SharedLoad {
+    pub address: Expr,
+    pub dst: Expr,
+}
+
+#[derive(Debug, Clone)]
+pub struct SharedLoadBits {
+    pub address: Expr,
+    pub dst: Expr,
+    pub size: MemOpBytes,
 }
 
 #[derive(Debug, Clone)]
@@ -96,6 +146,11 @@ pub struct Return {
     pub value: Expr,
 }
 
+#[derive(Debug, Clone)]
+pub struct Annotation {
+    pub line: String,
+}
+
 pub fn parse_stmt_symbol(symbol: &str) -> anyhow::Result<Stmt> {
     match symbol {
         "break" => Ok(Stmt::Break),
@@ -106,12 +161,19 @@ pub fn parse_stmt_symbol(symbol: &str) -> anyhow::Result<Stmt> {
     }
 }
 
-pub fn parse_stmt(s: &[SExpr]) -> anyhow::Result<Stmt> {
-    match s {
+pub fn parse_stmt(s: Vec<&SExpr>) -> anyhow::Result<Stmt> {
+    match &s[..] {
+        [Symbol(op), Symbol(at1), rem @ .., Symbol(at2)] if op == "annot" && at1 == at2 => {
+            let sl = rem.iter().map(|&s| sexpr_to_str(s)).collect::<Vec<_>>();
+            Ok(Stmt::Annotation(Annotation { line: sl.join(" ") }))
+        }
         [Symbol(op)] => parse_stmt_symbol(op),
         // Variable declaration
-        [Symbol(op), List(decl), List(rem)] if op == "dec" => parse_dec(decl, Some(rem)),
-        [Symbol(op), List(decl)] if op == "dec" => parse_dec(decl, None),
+        [Symbol(op), List(decl), List(rem)] if op == "dec" => parse_dec(
+            decl.iter().collect::<Vec<_>>(),
+            Some(rem.iter().collect::<Vec<_>>()),
+        ),
+        [Symbol(op), List(decl)] if op == "dec" => parse_dec(decl.iter().collect::<Vec<_>>(), None),
         [Symbol(var), Symbol(eq), List(exp)] if eq == ":=" => Ok(Stmt::Assign(Assign {
             lhs: var.clone(),
             rhs: parse_exp(exp)?,
@@ -125,39 +187,100 @@ pub fn parse_stmt(s: &[SExpr]) -> anyhow::Result<Stmt> {
         [Symbol(op), List(addr), Symbol(eq), Symbol(byte), List(exp)]
             if op == "mem" && eq == ":=" && byte == "byte" =>
         {
-            Ok(Stmt::StoreByte(StoreByte {
+            Ok(Stmt::StoreBits(StoreBits {
+                address: parse_exp(addr)?,
+                value: parse_exp(exp)?,
+                size: MemOpBytes::Byte,
+            }))
+        }
+
+        // Shared stores
+        [Symbol(op), Symbol(size), List(addr), List(exp)]
+            if op == "shared_mem_store" && size == "word" =>
+        {
+            Ok(Stmt::SharedStore(SharedStore {
                 address: parse_exp(addr)?,
                 value: parse_exp(exp)?,
             }))
         }
+
+        [Symbol(op), Symbol(size), List(addr), List(exp)]
+            if op == "shared_mem_store" && size == "byte" =>
+        {
+            Ok(Stmt::SharedStoreBits(SharedStoreBits {
+                address: parse_exp(addr)?,
+                value: parse_exp(exp)?,
+                size: MemOpBytes::Byte,
+            }))
+        }
+
+        [Symbol(op), Symbol(size), List(addr), List(exp)]
+            if op == "shared_mem_store" && size == "halfword" =>
+        {
+            Ok(Stmt::SharedStoreBits(SharedStoreBits {
+                address: parse_exp(addr)?,
+                value: parse_exp(exp)?,
+                size: MemOpBytes::Byte,
+            }))
+        }
+
+        // Shared loads
+        [Symbol(op), Symbol(size), Symbol(dst), List(exp)]
+            if op == "shared_mem_load" && size == "word" =>
+        {
+            Ok(Stmt::SharedLoad(SharedLoad {
+                address: parse_exp(exp)?,
+                dst: Expr::Var(dst.into()),
+            }))
+        }
+
+        [Symbol(op), Symbol(size), Symbol(dst), List(exp)]
+            if op == "shared_mem_load" && size == "byte" =>
+        {
+            Ok(Stmt::SharedLoadBits(SharedLoadBits {
+                address: parse_exp(exp)?,
+                dst: Expr::Var(dst.into()),
+                size: MemOpBytes::Byte,
+            }))
+        }
+
+        [Symbol(op), Symbol(size), Symbol(dst), List(exp)]
+            if op == "shared_mem_load" && size == "halfword" =>
+        {
+            Ok(Stmt::SharedLoadBits(SharedLoadBits {
+                address: parse_exp(exp)?,
+                dst: Expr::Var(dst.into()),
+                size: MemOpBytes::HalfWord,
+            }))
+        }
+
         [Symbol(op), stmts @ ..] if op == "seq" => parse_seq(stmts),
 
         // if
         [Symbol(op), List(cond), List(b1), List(b2)] if op == "if" => Ok(Stmt::If(If {
             cond: parse_exp(cond)?,
-            if_branch: Box::new(parse_stmt(b1)?),
-            else_branch: Box::new(parse_stmt(b2)?),
+            if_branch: Box::new(parse_stmt(b1.iter().collect::<Vec<_>>())?),
+            else_branch: Box::new(parse_stmt(b2.iter().collect::<Vec<_>>())?),
         })),
         [Symbol(op), List(cond), List(b1), Symbol(b2)] if op == "if" => Ok(Stmt::If(If {
             cond: parse_exp(cond)?,
-            if_branch: Box::new(parse_stmt(b1)?),
+            if_branch: Box::new(parse_stmt(b1.iter().collect::<Vec<_>>())?),
             else_branch: Box::new(parse_stmt_symbol(b2)?),
         })),
         [Symbol(op), List(cond), Symbol(b1), List(b2)] if op == "if" => Ok(Stmt::If(If {
             cond: parse_exp(cond)?,
             if_branch: Box::new(parse_stmt_symbol(b1)?),
-            else_branch: Box::new(parse_stmt(b2)?),
+            else_branch: Box::new(parse_stmt(b2.iter().collect::<Vec<_>>())?),
         })),
         [Symbol(op), List(cond), Symbol(b1), Symbol(b2)] if op == "if" => Ok(Stmt::If(If {
             cond: parse_exp(cond)?,
             if_branch: Box::new(parse_stmt_symbol(b1)?),
             else_branch: Box::new(parse_stmt_symbol(b2)?),
         })),
-
         // while
         [Symbol(op), List(cond), List(body)] if op == "while" => Ok(Stmt::While(While {
             cond: parse_exp(cond)?,
-            body: Box::new(parse_stmt(body)?),
+            body: Box::new(parse_stmt(body.iter().collect::<Vec<_>>())?),
         })),
         [Symbol(op), List(cond), Symbol(body)] if op == "while" => Ok(Stmt::While(While {
             cond: parse_exp(cond)?,
@@ -197,16 +320,17 @@ pub fn parse_stmt(s: &[SExpr]) -> anyhow::Result<Stmt> {
                 args: parse_exp_list(args)?,
             }))
         }
+        [List(stmt)] => parse_stmt(stmt.iter().collect::<Vec<_>>()),
         x => panic!("Could not parse stmt: {:?}", x),
     }
 }
 
-fn parse_dec(decl: &[SExpr], scope: Option<&[SExpr]>) -> anyhow::Result<Stmt> {
+fn parse_dec(decl: Vec<&SExpr>, scope: Option<Vec<&SExpr>>) -> anyhow::Result<Stmt> {
     let scope = match scope {
         Some(stmts) => parse_stmt(stmts)?,
         None => Stmt::Skip,
     };
-    match decl {
+    match &decl[..] {
         [Symbol(var), Symbol(eq), List(exp)] if eq == ":=" => Ok(Stmt::Declaration(Declaration {
             lhs: var.clone(),
             rhs: parse_exp(exp)?,
@@ -216,14 +340,43 @@ fn parse_dec(decl: &[SExpr], scope: Option<&[SExpr]>) -> anyhow::Result<Stmt> {
     }
 }
 
-fn parse_seq(s: &[SExpr]) -> anyhow::Result<Stmt> {
+fn parse_seq(s: &[&SExpr]) -> anyhow::Result<Stmt> {
+    // TODO: handle annotations or positional information correctly i don't remember
+    match s {
+        // this might be positional sequence
+        [List(pos), pstmt] => {
+            match &pos[..] {
+                [Symbol(loc), st @ ..] if loc == "annot" => {
+                    return parse_stmt(vec![pstmt]);
+                }
+                // [Symbol(loc), Symbol(start), Symbol(stop)] => panic!("{}->{}", start, stop),
+                _ => (),
+            }
+        }
+        _ => (),
+    }
     let mut stmts = vec![];
     for stmt in s {
         match stmt {
-            List(stmt) => stmts.push(parse_stmt(stmt)?),
+            List(stmt) => stmts.push(parse_stmt(stmt.iter().collect())?),
             Symbol(stmt) => stmts.push(parse_stmt_symbol(stmt)?),
             _ => return Err(anyhow!("Error whilst parsing sequence")),
         }
     }
     Ok(Stmt::Seq(Seq { stmts }))
+}
+
+// fn try_parse_annot
+
+fn sexpr_to_str(sexpr: &SExpr) -> String {
+    match sexpr {
+        SExpr::Int(i) => i.to_string(),
+        SExpr::SString(s) => s.to_owned(),
+        SExpr::Symbol(s) => s.to_owned(),
+        SExpr::List(l) => {
+            let sl: Vec<_> = l.iter().map(sexpr_to_str).collect();
+            format!("({})", sl.join(" "))
+        }
+        _ => todo!(),
+    }
 }

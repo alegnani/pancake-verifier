@@ -19,9 +19,19 @@ pub fn create_bv_domain(ast: AstFactory) -> Domain {
         Some("(_ bv2int 64)".into()),
     );
 
+    let not = ast.domain_func_with_interpretation(
+        "not",
+        &[ast.local_var_decl("a", bv64)],
+        bv64,
+        false,
+        "BitVectorDomain64",
+        Some("bvnot".into()),
+    );
+
     ast.domain_with_interpretation(
         "BitVectorDomain64",
         &[
+            not,
             create_bv_function(ast, "xor"),
             create_bv_function(ast, "and"),
             create_bv_function(ast, "or"),

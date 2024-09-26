@@ -1,82 +1,139 @@
-use pest::Parser;
-use pest_derive::Parser;
+use anyhow::anyhow;
 
-#[derive(Parser)]
-#[grammar = "shape.pest"]
-struct ShapeParser;
+use crate::translation::{ToViperType, ViperEncodeCtx};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Shape {
-    Simple(u64),
+    Simple,
     Nested(Vec<Shape>),
 }
 
-pub fn parse_shape(s: &str) -> anyhow::Result<Shape> {
-    // if s == "1" {
-    //     return Ok(Shape::Simple(1));
-    // }
-    // let mut counter = 0;
-    // let mut stack = vec![];
-    // for c in s.chars() {
-    //     match c {
-    //         '<' => {
-    //             counter = 0;
-    //             stack.push(vec![]);
-    //         }
-    //         '1' => counter += 1,
-    //         ',' => (),
-    //         '>' => ,
-    //         '_' => panic!(),
-    //     }
-    // }
-    // todo!()
-    let top = ShapeParser::parse(Rule::TOP, s)?;
-    let mut shape = traverse_shape(top);
-    reduce_shape(&mut shape);
-    Ok(shape)
-}
+impl Shape {
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Simple => 1,
+            Self::Nested(l) => l.iter().map(|e| e.len()).sum(),
+        }
+    }
 
-fn traverse_shape(pairs: pest::iterators::Pairs<Rule>) -> Shape {
-    let mut counter = 0;
-    // println!("Called traverse: {:?}", pairs);
-    let mut buf = vec![];
-    for pair in pairs {
-        match pair.as_rule() {
-            Rule::NESTED => {
-                if counter != 0 {
-                    buf.push(Shape::Simple(counter));
-                    counter = 0;
+    pub fn is_simple(&self) -> bool {
+        match self {
+            Self::Simple => true,
+            Self::Nested(_) => false,
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn access(&self, idx: usize) -> (usize, usize) {
+        match self {
+            Self::Simple => panic!("Can't acces field of shape '1'"),
+            Self::Nested(elems) => {
+                assert!(idx < elems.len());
+                let size = elems[idx].len();
+                let offset = elems.iter().take(idx).map(Self::len).sum();
+                (offset, size)
+            }
+        }
+    }
+
+    pub fn parse(s: &str) -> anyhow::Result<Self> {
+        if s == "1" {
+            return Ok(Shape::Simple);
+        }
+        let mut stack = vec![];
+        for c in s.chars() {
+            match c {
+                '<' => stack.push(vec![]),
+                '1' => stack
+                    .last_mut()
+                    .ok_or(anyhow!("Unexpected symbol '1'"))?
+                    .push(Shape::Simple),
+                ',' => (),
+                '>' => {
+                    let item = stack.pop().ok_or(anyhow!("Unexpected symbol '>'"))?;
+                    let shape = Shape::Nested(item);
+                    if let Some(last) = stack.last_mut() {
+                        last.push(shape);
+                    } else {
+                        stack.push(vec![shape]);
+                    }
+                    // let shape = match &item[..] {
+                    //     [Self::Simple] => Self::Simple,
+                    //     _ => Self::Nested(item),
+                    // };
+                    // match stack.last_mut() {
+                    //     Some(last) => last.push(shape),
+                    //     None => stack.push(vec![shape]),
+                    // }
                 }
-                let nested = traverse_shape(pair.into_inner());
-                buf.push(nested);
-            }
-            _ => {
-                counter += 1;
+                x => return Err(anyhow!("Unexpected symbol '{}'", x)),
             }
         }
-    }
-    if buf.is_empty() {
-        Shape::Simple(counter)
-    } else {
-        if counter != 0 {
-            buf.push(Shape::Simple(counter));
+        if stack.len() == 1 {
+            let item = stack.pop().unwrap();
+            match &item[..] {
+                [shape] => Ok(shape.clone()),
+                _ => Ok(Shape::Nested(item)),
+            }
+        } else {
+            Err(anyhow!("Mismatched brackets"))
         }
-        Shape::Nested(buf)
     }
 }
 
-fn reduce_shape(shape: &mut Shape) {
-    match shape {
-        Shape::Nested(vec) if vec.len() == 1 => {
-            if let Shape::Simple(x) = vec[0] {
-                *shape = Shape::Simple(x)
-            }
+impl<'a> ToViperType<'a> for Shape {
+    fn to_viper_type(&self, ctx: &ViperEncodeCtx<'a>) -> viper::Type<'a> {
+        match self {
+            Self::Simple => ctx.ast.int_type(),
+            Self::Nested(_) => ctx.iarray.get_type(),
         }
-        Shape::Nested(vec) => {
-            for entry in vec {
-                reduce_shape(entry);
-            }
-        }
-        _ => (),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Shape::{self, *};
+
+    #[test]
+    fn parse_simple() {
+        let s = "1";
+        let shape = Shape::parse(s).unwrap();
+        assert_eq!(shape, Shape::Simple);
+        assert_eq!(shape.len(), 1);
+    }
+
+    #[test]
+    fn parse_nested1() {
+        let s = "<1>";
+        let shape = Shape::parse(s).unwrap();
+        assert_eq!(shape, Nested(vec![Simple]));
+        assert_eq!(shape.len(), 1);
+    }
+
+    #[test]
+    fn parse_nested2() {
+        let s = "<1,<1,1>>";
+        let shape = Shape::parse(s).unwrap();
+        assert_eq!(shape, Nested(vec![Simple, Nested(vec![Simple, Simple])]));
+        assert_eq!(shape.len(), 3);
+    }
+
+    #[test]
+    fn parse_nested3() {
+        let s = "<1,<1,1,<1>>,<1,1>,1>";
+        let shape = Shape::parse(s).unwrap();
+        assert_eq!(
+            shape,
+            Nested(vec![
+                Simple,
+                Nested(vec![Simple, Simple, Nested(vec![Simple])]),
+                Nested(vec![Simple, Simple]),
+                Simple
+            ])
+        );
+        assert_eq!(shape.len(), 7);
     }
 }
