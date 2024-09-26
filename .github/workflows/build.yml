@@ -1,4 +1,4 @@
-name: Build Rust Application
+name: Build binaries
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -58,9 +58,9 @@ jobs:
           echo "Z3_EXE=${VIPER_INSTALL}/z3/bin/z3" >> $GITHUB_ENV
 
       - name: Build 
-        run: cargo build --release --verbose
+        run: cargo build --verbose
       - name: Run tests
-        run: cargo test --package pancake2viper --release --verbose
+        run: cargo test --package pancake2viper --verbose
 
       - name: Save pancake2viper
         uses: actions/upload-artifact@v4

@@ -17,18 +17,33 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact_name: pancake-language-server
-            asset_name: pancake-language-server-linux
-          - os: windows-latest
-            artifact_name: pancake-language-server.exe
-            asset_name: pancake-language-server-windows.exe
-          - os: macos-latest
-            artifact_name: pancake-language-server
-            assert_name: pancake-language-server-macos
+            asset_name: pancake-language-server
+          - os: ubuntu-latest
+            artifact_name: pancake2viper
+            asset_name: pancake2viper
+
+    env:
+      JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
+      LD_LIBRARY_PATH: /usr/lib/jvm/java-11-openjdk-amd64/lib/server
+      VIPER_INSTALL: ${{ github.workspace }}/ViperTools
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v4
       with:
         submodules: true
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          curl \
+          build-essential \
+          libssl-dev \
+          pkg-config \
+          unzip \
+          openjdk-11-jdk
+
     - name: Set up cargo cache
       uses: actions/cache@v3
       with:
@@ -39,6 +54,18 @@ jobs:
           ~/.cargo/git/db/
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Download and extract ViperTools
+      run: |
+        curl -L -o ViperToolsLinux.zip https://github.com/viperproject/viper-ide/releases/download/v4.3.1/ViperToolsLinux.zip
+        unzip -o ViperToolsLinux.zip -d ViperTools
+        rm ViperToolsLinux.zip
+
+    - name: Set VIPER_HOME and Z3_EXE environment variables
+      run: |
+        echo "VIPER_HOME=${VIPER_INSTALL}/backends" >> $GITHUB_ENV
+        echo "Z3_EXE=${VIPER_INSTALL}/z3/bin/z3" >> $GITHUB_ENV
+
     - name: Build
       run: cargo build --release --verbose
     - name: Upload binaries to release
