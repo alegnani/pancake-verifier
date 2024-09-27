@@ -53,4 +53,4 @@ top_keywords = _{ pre | post | invariant | assertion | inhale | exhale }
     inhale = { "inhale" }
     exhale = { "exhale" }
 
-top = {top_keywords ~ expr }
+top = {"@"? ~ WHITESPACE* ~ top_keywords ~ expr ~ WHITESPACE* ~ "@"? }
