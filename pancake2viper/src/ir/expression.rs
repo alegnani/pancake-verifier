@@ -18,6 +18,7 @@ pub enum Expr {
     FunctionCall(FunctionCall),
     Quantified(Quantified),
     HeapAccess(HeapAccess),
+    AccessPredicate(AccessPredicate),
 }
 
 #[derive(Debug, Clone)]
@@ -54,6 +55,20 @@ pub struct MethodCall {
 pub struct FunctionCall {
     pub fname: String,
     pub args: Vec<Expr>,
+}
+
+#[derive(Debug, Clone)]
+pub enum Permission {
+    Write,
+    Read,
+    Wildcard,
+    Fractional(i64, i64),
+}
+
+#[derive(Debug, Clone)]
+pub struct AccessPredicate {
+    pub field: Box<Expr>,
+    pub perm: Permission,
 }
 
 #[derive(Debug, Clone, Copy)]

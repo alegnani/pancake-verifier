@@ -3,7 +3,7 @@ use viper::BvSize::BV64;
 
 use crate::{pancake::Shape, utils::ViperUtils};
 
-use crate::ir;
+use crate::ir::{self};
 
 use crate::translation::{context::ViperEncodeCtx, ToShape, ToViper, ToViperType};
 
@@ -331,6 +331,22 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for ir::HeapAccess {
     }
 }
 
+impl<'a> ToViper<'a, viper::Expr<'a>> for ir::AccessPredicate {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
+        let ast = ctx.ast;
+        use super::Permission::*;
+        let perm = match self.perm {
+            Write => ast.full_perm(),
+            Read | Wildcard => ast.wildcard_perm(),
+            Fractional(numer, denom) => ast.fractional_perm(
+                ir::Expr::Const(numer).to_viper(ctx),
+                ir::Expr::Const(denom).to_viper(ctx),
+            ),
+        };
+        ast.field_access_predicate(self.field.to_viper(ctx), perm)
+    }
+}
+
 impl<'a> ToViper<'a, viper::Expr<'a>> for ir::Expr {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
         let ast = ctx.ast;
@@ -355,6 +371,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for ir::Expr {
             Struct(struc) => struc.to_viper(ctx),
             Quantified(quant) => quant.to_viper(ctx),
             HeapAccess(heap) => heap.to_viper(ctx),
+            AccessPredicate(acc) => acc.to_viper(ctx),
         }
     }
 }
@@ -364,7 +381,7 @@ impl<'a> ToShape<'a> for ir::Expr {
         use ir::Expr::*;
         match self {
             Const(_) | UnOp(_) | BinOp(_) | Shift(_) | LoadByte(_) | Quantified(_)
-            | HeapAccess(_) | BaseAddr | BytesInWord => Shape::Simple,
+            | HeapAccess(_) | AccessPredicate(_) | BaseAddr | BytesInWord => Shape::Simple,
             Var(var) => ctx.get_type(var),
             MethodCall(call) => call.rettype.clone(),
             FunctionCall(call) => todo!(),

@@ -6,7 +6,7 @@ use std::{
 use super::context::TranslationMode;
 
 lazy_static::lazy_static! {
-    static ref RESERVED: HashSet<String> = HashSet::from(["heap".into(), "retval".into()]);
+    pub static ref RESERVED: HashSet<&'static str> = HashSet::from(["heap", "retval", "read", "write", "wildcard", "acc", "alen"]);
 }
 
 static COUNTER: LazyLock<Mutex<u64>> = LazyLock::new(|| Mutex::new(0));
@@ -46,7 +46,7 @@ impl Mangler {
     }
 
     pub fn new_scoped_var(&mut self, var: String) -> String {
-        if RESERVED.contains(&var) {
+        if RESERVED.contains(var.as_str()) {
             panic!(
                 "'{}' is a reserved keyword and can't be used as an identifier",
                 &var
