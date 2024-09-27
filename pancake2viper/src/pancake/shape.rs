@@ -1,11 +1,9 @@
-use anyhow::anyhow;
-
 use crate::translation::{ToViperType, ViperEncodeCtx};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Shape {
     Simple,
-    Nested(Vec<Shape>),
+    Nested(Vec<Self>),
 }
 
 impl Shape {
@@ -36,50 +34,6 @@ impl Shape {
                 let offset = elems.iter().take(idx).map(Self::len).sum();
                 (offset, size)
             }
-        }
-    }
-
-    pub fn parse(s: &str) -> anyhow::Result<Self> {
-        if s == "1" {
-            return Ok(Shape::Simple);
-        }
-        let mut stack = vec![];
-        for c in s.chars() {
-            match c {
-                '<' => stack.push(vec![]),
-                '1' => stack
-                    .last_mut()
-                    .ok_or(anyhow!("Unexpected symbol '1'"))?
-                    .push(Shape::Simple),
-                ',' => (),
-                '>' => {
-                    let item = stack.pop().ok_or(anyhow!("Unexpected symbol '>'"))?;
-                    let shape = Shape::Nested(item);
-                    if let Some(last) = stack.last_mut() {
-                        last.push(shape);
-                    } else {
-                        stack.push(vec![shape]);
-                    }
-                    // let shape = match &item[..] {
-                    //     [Self::Simple] => Self::Simple,
-                    //     _ => Self::Nested(item),
-                    // };
-                    // match stack.last_mut() {
-                    //     Some(last) => last.push(shape),
-                    //     None => stack.push(vec![shape]),
-                    // }
-                }
-                x => return Err(anyhow!("Unexpected symbol '{}'", x)),
-            }
-        }
-        if stack.len() == 1 {
-            let item = stack.pop().unwrap();
-            match &item[..] {
-                [shape] => Ok(shape.clone()),
-                _ => Ok(Shape::Nested(item)),
-            }
-        } else {
-            Err(anyhow!("Mismatched brackets"))
         }
     }
 }
