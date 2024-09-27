@@ -17,6 +17,7 @@ jobs:
       JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
       LD_LIBRARY_PATH: /usr/lib/jvm/java-11-openjdk-amd64/lib/server
       VIPER_INSTALL: ${{ github.workspace }}/ViperTools
+      CAKE_ML_INSTALL: ${{ github.workspace }}/cake-x64-64
 
     steps:
       - name: Checkout code
@@ -48,7 +49,7 @@ jobs:
 
       - name: Download and extract ViperTools
         run: |
-          curl -L -o ViperToolsLinux.zip https://github.com/viperproject/viper-ide/releases/download/v4.3.1/ViperToolsLinux.zip
+          curl -L -o ViperToolsLinux.zip "https://github.com/viperproject/viper-ide/releases/download/$(cat viper-toolchain)/ViperToolsLinux.zip"
           unzip -o ViperToolsLinux.zip -d ViperTools
           rm ViperToolsLinux.zip
 
@@ -56,11 +57,24 @@ jobs:
         run: |
           echo "VIPER_HOME=${VIPER_INSTALL}/backends" >> $GITHUB_ENV
           echo "Z3_EXE=${VIPER_INSTALL}/z3/bin/z3" >> $GITHUB_ENV
+      
+      - name: Download and extract CakeML
+        run: |
+          curl -L -o cake-x64-64.tar.gz "https://cakeml.org/regression/artefacts/$(cat cake-toolchain)/cake-x64-64.tar.gz"
+          tar -xvzf cake-x64-64.tar.gz
+
+      - name: Build CakeML compiler
+        run: make -C cake-x64-64
+
+      - name: Set CAKE_ML environment variables
+        run: |
+          echo "CAKE_ML=${CAKE_ML_INSTALL}/cake" >> $GITHUB_ENV
 
       - name: Build 
         run: cargo build --release --verbose
+
       - name: Run tests
-        run: cargo test --package pancake2viper --release --verbose
+        run: cargo test -p pancake2viper --release --verbose -- --test-threads=1
 
       - name: Save pancake2viper
         uses: actions/upload-artifact@v4
