@@ -163,9 +163,10 @@ pub fn parse_stmt_symbol(symbol: &str) -> anyhow::Result<Stmt> {
 
 pub fn parse_stmt(s: Vec<&SExpr>) -> anyhow::Result<Stmt> {
     match &s[..] {
-        [Symbol(op), Symbol(at1), rem @ .., Symbol(at2)] if op == "annot" && at1 == at2 => {
-            let sl = rem.iter().map(|&s| sexpr_to_str(s)).collect::<Vec<_>>();
-            Ok(Stmt::Annotation(Annotation { line: sl.join(" ") }))
+        [Symbol(op), SString(at), SString(annot)] if op == "annot" && at == "@" => {
+            Ok(Stmt::Annotation(Annotation {
+                line: annot.to_owned(),
+            }))
         }
         [Symbol(op)] => parse_stmt_symbol(op),
         // Variable declaration
@@ -364,19 +365,4 @@ fn parse_seq(s: &[&SExpr]) -> anyhow::Result<Stmt> {
         }
     }
     Ok(Stmt::Seq(Seq { stmts }))
-}
-
-// fn try_parse_annot
-
-fn sexpr_to_str(sexpr: &SExpr) -> String {
-    match sexpr {
-        SExpr::Int(i) => i.to_string(),
-        SExpr::SString(s) => s.to_owned(),
-        SExpr::Symbol(s) => s.to_owned(),
-        SExpr::List(l) => {
-            let sl: Vec<_> = l.iter().map(sexpr_to_str).collect();
-            format!("({})", sl.join(" "))
-        }
-        _ => todo!(),
-    }
 }
