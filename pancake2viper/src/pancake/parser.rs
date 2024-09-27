@@ -3,6 +3,7 @@ use std::str::FromStr;
 
 use super::*;
 use crate::parser::SExpr::{self, *};
+
 impl Expr {
     pub fn parse(s: &[SExpr]) -> anyhow::Result<Self> {
         match s {
