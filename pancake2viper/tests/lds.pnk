@@ -1,0 +1,7 @@
+fun main() {
+    /*@ requires acc(heap[0]) @*/
+    /*@ requires acc(heap[1]) @*/
+    var x = lds {1} @base;
+    var y = lds 2 @base + 8;
+    return x.0 + y.1;
+}

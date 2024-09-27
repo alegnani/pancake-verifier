@@ -1,0 +1,13 @@
+fun sum(1 n) {
+    /*@ requires 0 <= n @*/
+    /*@ ensures retval == n * (n + 1) / 2 @*/
+    var i = 0;
+    var accu = 0;
+    while (i < n) {
+        /*@ invariant 0 <= i && i <= n @*/
+        /*@ invariant accu == (i - 1) * i / 2 @*/
+        accu = accu + i;
+        i = i + 1;
+    }
+    return accu + n;
+}
