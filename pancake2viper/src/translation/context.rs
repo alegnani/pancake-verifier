@@ -4,7 +4,7 @@ use viper::{AstFactory, Declaration, LocalVarDecl};
 
 use crate::{ir::AnnotationType, pancake::Shape, viper_prelude::IArrayHelper};
 
-use super::mangler::Mangler;
+use super::mangler::{Mangler, RESERVED};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum TranslationMode {
@@ -67,9 +67,10 @@ impl Default for EncodeOptions {
 impl<'a> ViperEncodeCtx<'a> {
     pub fn new(fname: String, ast: AstFactory<'a>, options: EncodeOptions) -> Self {
         let mut type_map = HashMap::new();
-        // FIXME: correctly set retval
-        type_map.insert("heap".into(), Shape::Simple);
-        type_map.insert("retval".into(), Shape::Simple);
+        for &keyword in RESERVED.iter() {
+            type_map.insert(keyword.into(), Shape::Simple);
+        }
+        type_map.insert("heap".into(), Shape::Nested(vec![])); // FIXME hack to have heap be of type IArray
         Self {
             mode: TranslationMode::Normal,
             ast,

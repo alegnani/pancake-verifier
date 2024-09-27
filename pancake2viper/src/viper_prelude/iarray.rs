@@ -25,7 +25,7 @@ impl<'a> IArrayHelper<'a> {
             false,
             domain_name,
         );
-        let len_f = ast.domain_func("len", &[a_decl], ast.int_type(), false, domain_name);
+        let len_f = ast.domain_func("alen", &[a_decl], ast.int_type(), false, domain_name);
         let first_f = ast.domain_func("first", &[r_decl], iarray_type, false, domain_name);
         let second_f = ast.domain_func("second", &[r_decl], ast.int_type(), false, domain_name);
         let functions = [slot_f, len_f, first_f, second_f];
@@ -67,18 +67,17 @@ impl<'a> IArrayHelper<'a> {
         }
     }
 
-    // TODO: maybe deprecated in favour of access() ???
     /// Encodes the following function application to access an element of an IArray
     /// ```viper
     /// slot(array, idx)
     /// ```
-    pub fn slot_f(&self, array: Expr, idx: Expr) -> Expr<'a> {
+    fn slot_f(&self, array: Expr, idx: Expr) -> Expr<'a> {
         self.ast.domain_func_app(self.slot_f, &[array, idx], &[])
     }
 
     /// Encodes the following function application to get the length of an IArray
     /// ```viper
-    /// len(array)
+    /// alen(array)
     /// ```
     pub fn len_f(&self, array: Expr) -> Expr<'a> {
         self.ast.domain_func_app(self.len_f, &[array], &[])
@@ -105,7 +104,7 @@ impl<'a> IArrayHelper<'a> {
     /// Encodes the following predicate for slice access of an IArray
     /// ```viper
     /// predicate slice_acc(src: IArray, idx: Int, length: Int) {
-    ///     forall j: Int :: 0 <= idx <= j < idx + length <= len(src) ==> acc(slot(src, j).heap_elem)
+    ///     forall j: Int :: 0 <= idx <= j < idx + length <= alen(src) ==> acc(slot(src, j).heap_elem)
     /// }
     /// ```
     pub fn slice_acc_def(&self) -> Predicate<'a> {
@@ -124,7 +123,7 @@ impl<'a> IArrayHelper<'a> {
     /// Encodes the following predicate for full access of an IArray
     /// ```viper
     /// predicate slice_acc(src: IArray, l: Int, h: Int) {
-    ///     forall j: Int ::0 <= j < len(src) ==> acc(slot(src, j).heap_elem)
+    ///     forall j: Int ::0 <= j < alen(src) ==> acc(slot(src, j).heap_elem)
     /// }
     /// ```
     pub fn full_acc_def(&self) -> Predicate<'a> {
@@ -142,7 +141,7 @@ impl<'a> IArrayHelper<'a> {
 
     /// Encodes the following expression for permissions of an IArray (slice)
     /// ```viper
-    ///     forall j: Int :: 0 <= idx <= j < idx + length <= len(src) ==> acc(slot(src, j).heap_elem)
+    ///     forall j: Int :: 0 <= idx <= j < idx + length <= alen(src) ==> acc(slot(src, j).heap_elem)
     /// ```
     pub fn array_acc_expr(&self, array: Expr, idx: Expr, length: Expr, perm: Expr) -> Expr<'a> {
         let ast = self.ast;
@@ -165,10 +164,10 @@ impl<'a> IArrayHelper<'a> {
     /// Encodes the following methods for copying and creating a slice of an IArray
     /// ```viper
     /// method copy_slice(src: IArray, src_idx: Int, dst: IArray, dst_idx: Int, length: Int)
-    ///     requires 0 <= src_idx <= len(src)
-    ///     requires 0 <= dst_idx <= len(dst)
-    ///     requires src_idx + length <= len(src)
-    ///     requires dst_idx + length <= len(dst)
+    ///     requires 0 <= src_idx <= alen(src)
+    ///     requires 0 <= dst_idx <= alen(dst)
+    ///     requires src_idx + length <= alen(src)
+    ///     requires dst_idx + length <= alen(dst)
     ///     requires slice_access(src, src_idx, length)
     ///     requires slice_access(dst, dst_idx, length)
     ///
@@ -181,10 +180,10 @@ impl<'a> IArrayHelper<'a> {
     ///
     ///
     /// method create_slice(src: IArray, src_idx: Int, dst: IArray, dst_idx: Int, length: Int)
-    ///     requires 0 <= src_idx <= len(src)
-    ///     requires 0 <= dst_idx <= len(dst)
-    ///     requires src_idx + length <= len(src)
-    ///     requires dst_idx + length <= len(dst)
+    ///     requires 0 <= src_idx <= alen(src)
+    ///     requires 0 <= dst_idx <= alen(dst)
+    ///     requires src_idx + length <= alen(src)
+    ///     requires dst_idx + length <= alen(dst)
     ///     requires slice_access(src, src_idx, length)
     ///     requires slice_access(dst, dst_idx, length)
     ///
@@ -209,17 +208,17 @@ impl<'a> IArrayHelper<'a> {
         let len_dst = self.len_f(dst);
 
         let pres = [
-            // requires 0 <= src_idx <= len(src)
+            // requires 0 <= src_idx <= alen(src)
             ast.le_cmp(zero, src_idx),
             ast.le_cmp(src_idx, len_src),
-            // requires src_idx + length <= len(src)
+            // requires src_idx + length <= alen(src)
             ast.le_cmp(ast.add(src_idx, length), len_src),
             // requires slice_access(src, src_idx, length, wildcard)
             self.array_acc_expr(src, src_idx, length, ast.wildcard_perm()),
-            // requires 0 <= dst_idx <= len(dst)
+            // requires 0 <= dst_idx <= alen(dst)
             ast.le_cmp(zero, dst_idx),
             ast.le_cmp(dst_idx, len_dst),
-            // requires dst_idx + length <= len(dst)
+            // requires dst_idx + length <= alen(dst)
             ast.le_cmp(ast.add(dst_idx, length), len_dst),
             // requires slice_access(dst, dst_idx, length, write)
             self.array_acc_expr(dst, dst_idx, length, ast.full_perm()),
@@ -258,7 +257,7 @@ impl<'a> IArrayHelper<'a> {
         let create_impl = ast.eq_cmp(self.access(src, src_idx_i), self.access(dst, i));
 
         let create_posts = [
-            // length == len(dst)
+            // length == alen(dst)
             ast.eq_cmp(length, len_dst),
             // ensures slice_access(src, src_idx, length)
             posts[0],
@@ -272,7 +271,7 @@ impl<'a> IArrayHelper<'a> {
 
         let body = ast.seqn(
             &[
-                // inhale len(dst) == length
+                // inhale alen(dst) == length
                 ast.inhale(ast.eq_cmp(length, len_dst), ast.no_position()),
                 // inhale full_access(dst, write)
                 ast.inhale(

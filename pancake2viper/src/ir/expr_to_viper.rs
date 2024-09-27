@@ -314,12 +314,18 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for ir::FunctionCall {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
         let ast = ctx.ast;
         // FIXME: return type
-        ast.func_app(
-            &self.fname,
-            &self.args.to_viper(ctx),
-            ast.int_type(),
-            ast.no_position(),
-        )
+        match self.fname.as_str() {
+            "alen" => {
+                let arr = self.args[0].clone().to_viper(ctx);
+                ctx.iarray.len_f(arr)
+            }
+            fname => ast.func_app(
+                fname,
+                &self.args.to_viper(ctx),
+                ast.int_type(),
+                ast.no_position(),
+            ),
+        }
     }
 }
 
