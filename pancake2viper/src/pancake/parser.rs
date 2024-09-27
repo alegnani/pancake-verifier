@@ -268,19 +268,16 @@ impl Stmt {
     }
 
     fn parse_seq(s: &[&SExpr]) -> anyhow::Result<Self> {
-        // TODO: handle annotations or positional information correctly i don't remember
-        match s {
-            // this might be positional sequence
-            [List(pos), pstmt] => {
-                match &pos[..] {
-                    [Symbol(loc), st @ ..] if loc == "annot" => {
-                        return Self::parse(vec![pstmt]);
-                    }
-                    // [Symbol(loc), Symbol(start), Symbol(stop)] => panic!("{}->{}", start, stop),
-                    _ => (),
+        if let [List(pos), pstmt] = s {
+            match &pos[..] {
+                [Symbol(annot), SString(loc), SString(position)]
+                    if annot == "annot" && loc == "location" =>
+                {
+                    // TODO: return wrapper
+                    return Self::parse(vec![pstmt]);
                 }
+                _ => (),
             }
-            _ => (),
         }
         let mut stmts = vec![];
         for stmt in s {

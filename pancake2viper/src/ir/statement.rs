@@ -20,9 +20,7 @@ pub enum Stmt {
     Call(Call),
     TailCall(TailCall),
     ExtCall(ExtCall),
-    // Raise(Raise),
     Return(Return),
-    // Tick,
 }
 
 #[derive(Debug, Clone)]
