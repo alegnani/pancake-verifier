@@ -122,7 +122,6 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Seq {
     }
 }
 
-// FIXME: fix shadowing of variables
 impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Definition {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;

@@ -11,7 +11,6 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Stmt {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
         let stmt = match self {
-            // FIXME: remove this band-aid fix
             pancake::Stmt::Annotation(annot) => annot.to_viper(ctx),
             pancake::Stmt::Skip => ast.comment("skip"),
             pancake::Stmt::Tick => ast.comment("tick"),
@@ -123,7 +122,6 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Seq {
     }
 }
 
-// FIXME: fix shadowing of variables
 impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Declaration {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
@@ -238,6 +236,7 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::Annotation {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
         let ast = ctx.ast;
         let no_pos = ast.no_position();
+        // FIXME: remove this band-aid fix
         let annot = parse_annot(&self.line);
         ctx.set_mode(annot.typ.into());
         let body = annot.expr.to_viper(ctx);
