@@ -47,6 +47,7 @@ pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
             Rule::ident => Expr::Var(primary.as_str().to_owned()),
             Rule::f_call => Expr::FunctionCall(FunctionCall::from_pest(primary)),
             Rule::heap => Expr::HeapAccess(HeapAccess::from_pest(primary)),
+            Rule::acc_pred => Expr::AccessPredicate(AccessPredicate::from_pest(primary)),
             x => panic!("primary: {:?}", x),
         })
         .map_prefix(|op, rhs| {
@@ -184,6 +185,33 @@ impl FromPestPair for Quantified {
             decls,
             body,
         }
+    }
+}
+
+impl FromPestPair for Permission {
+    fn from_pest(pair: Pair<'_, Rule>) -> Self {
+        match pair.as_rule() {
+            Rule::perm_write => Self::Write,
+            Rule::perm_read => Self::Read,
+            Rule::perm_wildcard => Self::Wildcard,
+            Rule::perm_frac => {
+                let inner = pair.into_inner();
+                todo!("Frac not implemented: {:?}", inner)
+            }
+            x => panic!("Failed to parse Permission, got {:?}", x),
+        }
+    }
+}
+
+impl FromPestPair for AccessPredicate {
+    fn from_pest(pair: Pair<'_, Rule>) -> Self {
+        let mut inner = pair.into_inner();
+        let field = Box::new(parse_expr(Pairs::single(inner.next().unwrap())));
+        let perm = inner
+            .next()
+            .map(Permission::from_pest)
+            .unwrap_or(Permission::Write);
+        Self { field, perm }
     }
 }
 

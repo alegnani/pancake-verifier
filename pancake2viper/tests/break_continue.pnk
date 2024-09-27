@@ -1,10 +1,10 @@
 fun nested() {
     /*@ ensures retval == 55 @*/
     var x = 0;
-    var acc = 0;
+    var accu = 0;
     while (x < 100) {
         // /*@ invariant 0 <= x && x <= 100 @*/
-        // /*@ invariant acc == x / 2 @*/
+        // /*@ invariant accu == x / 2 @*/
         if (x & 1 == 0) {
             continue;
         }
@@ -12,7 +12,7 @@ fun nested() {
         if (x == 50) {
             break;
         }
-        acc = acc + 1;
+        accu = accu + 1;
     }
-    return acc;
+    return accu;
 }

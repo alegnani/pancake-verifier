@@ -52,9 +52,15 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for pancake::StoreBits {
         let eight = ast.int_lit(8);
         let zero = ast.int_lit(0);
 
-        let assertion = if ctx.options.assert_aligned_accesses {
+        let assertion = if ctx.options.assert_aligned_accesses && self.size.bits() != 8 {
             ast.assert(
-                ast.eq_cmp(ast.module(self.address.clone().to_viper(ctx), eight), zero),
+                ast.eq_cmp(
+                    ast.module(
+                        self.address.clone().to_viper(ctx),
+                        ast.int_lit(bits as i64 / 8),
+                    ),
+                    zero,
+                ),
                 ast.no_position(),
             )
         } else {
