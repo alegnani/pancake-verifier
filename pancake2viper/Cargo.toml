@@ -2,6 +2,7 @@
 name = "pancake2viper"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 [dependencies]
 anyhow = "1.0.86"

@@ -1,0 +1,27 @@
+fun main() {
+    return 0;
+}
+
+fun foo(1 x) {
+    return x;
+}
+
+fun call() {
+    foo(2);
+    return 0;
+}
+
+fun tail_call() {
+    return foo(3);
+}
+
+fun ext_call() {
+    @print_int(0,0,0,1);
+    return 0;
+}
+
+fun dec_call() {
+    var 1 x = foo(2);
+    x = x + 2;
+    return x;
+}

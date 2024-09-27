@@ -1,0 +1,6 @@
+fun main() {
+    /*@ requires acc(heap[0]) @*/
+    var x = 0;
+    !ldw x, @base;
+    return 0;
+}
