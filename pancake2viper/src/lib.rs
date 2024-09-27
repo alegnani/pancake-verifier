@@ -1,5 +1,6 @@
 pub mod annotation;
 pub mod ir;
+pub mod ir_to_viper;
 pub mod pancake;
 pub mod parser;
 pub mod translation;

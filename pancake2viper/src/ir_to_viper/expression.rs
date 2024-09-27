@@ -340,7 +340,7 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for ir::HeapAccess {
 impl<'a> ToViper<'a, viper::Expr<'a>> for ir::AccessPredicate {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
         let ast = ctx.ast;
-        use super::Permission::*;
+        use crate::ir::Permission::*;
         let perm = match self.perm {
             Write => ast.full_perm(),
             Read | Wildcard => ast.wildcard_perm(),
