@@ -2,6 +2,7 @@ mod expression;
 mod parser;
 mod shape;
 mod statement;
+mod to_shape;
 mod top;
 mod utils;
 

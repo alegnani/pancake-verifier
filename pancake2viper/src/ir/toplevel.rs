@@ -1,5 +1,5 @@
-use super::{shape::Shape, Stmt};
-use crate::translation::ToShape;
+use super::Stmt;
+use crate::{pancake::Shape, translation::ToShape};
 
 #[derive(Debug, Clone)]
 pub struct FnDec {
@@ -10,9 +10,10 @@ pub struct FnDec {
 
 impl<'a> ToShape<'a> for FnDec {
     fn shape(&self, ctx: &crate::translation::ViperEncodeCtx<'a>) -> Shape {
-        let shapes = FnDec::collect_returns(&self.body, ctx);
+        // let shapes = FnDec::collect_returns(&self.body, ctx);
         // TODO: add check for types to be the same and non-empty
-        shapes[0].clone()
+        // shapes[0].clone()
+        Shape::Simple
     }
 }
 

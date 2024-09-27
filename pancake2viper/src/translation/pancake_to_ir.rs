@@ -330,6 +330,35 @@ impl From<pancake::Stmt> for ir::Stmt {
     }
 }
 
+impl From<pancake::Arg> for ir::Arg {
+    fn from(value: pancake::Arg) -> Self {
+        Self {
+            name: value.name,
+            shape: value.shape,
+        }
+    }
+}
+
+impl From<pancake::FnDec> for ir::FnDec {
+    fn from(value: pancake::FnDec) -> Self {
+        let args: Wrapper<ir::Arg> = value.args.into();
+        Self {
+            fname: value.fname,
+            args: args.0,
+            body: value.body.into(),
+        }
+    }
+}
+
+impl From<pancake::Program> for ir::Program {
+    fn from(value: pancake::Program) -> Self {
+        let functions: Wrapper<ir::FnDec> = value.functions.into();
+        Self {
+            functions: functions.0,
+        }
+    }
+}
+
 struct Wrapper<T>(Vec<T>);
 
 impl From<Vec<pancake::Expr>> for Wrapper<ir::Expr> {
@@ -340,6 +369,18 @@ impl From<Vec<pancake::Expr>> for Wrapper<ir::Expr> {
 
 impl From<Vec<pancake::Stmt>> for Wrapper<ir::Stmt> {
     fn from(value: Vec<pancake::Stmt>) -> Self {
+        Self(value.into_iter().map(|v| v.into()).collect())
+    }
+}
+
+impl From<Vec<pancake::Arg>> for Wrapper<ir::Arg> {
+    fn from(value: Vec<pancake::Arg>) -> Self {
+        Self(value.into_iter().map(|v| v.into()).collect())
+    }
+}
+
+impl From<Vec<pancake::FnDec>> for Wrapper<ir::FnDec> {
+    fn from(value: Vec<pancake::FnDec>) -> Self {
         Self(value.into_iter().map(|v| v.into()).collect())
     }
 }
