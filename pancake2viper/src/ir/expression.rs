@@ -1,4 +1,6 @@
-use crate::pancake::Shape;
+use strum::EnumString;
+
+use crate::shape::Shape;
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -114,7 +116,7 @@ pub struct UnOp {
     pub right: Box<Expr>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(EnumString, Debug, Clone, Copy)]
 pub enum ShiftType {
     Lsl,
     Asr,

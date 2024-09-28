@@ -1,32 +1,19 @@
 use viper::{AstFactory, Declaration};
 
 use crate::{
-    pancake::{self, Shape},
-    utils::ViperUtils,
-    viper_prelude::create_viper_prelude,
+    utils::ViperUtils, viper_prelude::create_viper_prelude, ProgramToViper, ToViper, ToViperType,
 };
+
+use crate::ir::*;
 
 use super::{
-    context::{EncodeOptions, ViperEncodeCtx},
-    mangler::Mangler,
+    utils::{EncodeOptions, Mangler},
+    ViperEncodeCtx,
 };
 
-pub trait ToViper<'a, T> {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> T;
-    fn to_viper_with_pos(&self, ctx: &mut ViperEncodeCtx<'a>, pos: viper::Position) -> T {
-        todo!()
-    }
-}
-pub trait ToViperType<'a> {
-    fn to_viper_type(&self, ctx: &ViperEncodeCtx<'a>) -> viper::Type<'a>;
-}
-
-pub trait ToShape<'a> {
-    fn shape(&self, ctx: &ViperEncodeCtx<'a>) -> Shape;
-}
-
-impl<'a> ToViper<'a, viper::LocalVarDecl<'a>> for pancake::Arg {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::LocalVarDecl<'a> {
+impl<'a> ToViper<'a> for Arg {
+    type Output = viper::LocalVarDecl<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let mangled_arg = ctx.mangler.new_arg(self.name.clone());
         ctx.set_type(mangled_arg.clone(), self.shape.clone());
         ctx.ast
@@ -34,14 +21,9 @@ impl<'a> ToViper<'a, viper::LocalVarDecl<'a>> for pancake::Arg {
     }
 }
 
-impl<'a> ToShape<'a> for pancake::Arg {
-    fn shape(&self, _ctx: &ViperEncodeCtx<'a>) -> Shape {
-        self.shape.clone()
-    }
-}
-
-impl<'a> ToViper<'a, viper::Method<'a>> for pancake::FnDec {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Method<'a> {
+impl<'a> ToViper<'a> for FnDec {
+    type Output = viper::Method<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
 
         // Copy all the parameters as they are read-only in Viper
@@ -86,11 +68,7 @@ impl<'a> ToViper<'a, viper::Method<'a>> for pancake::FnDec {
     }
 }
 
-pub trait ProgramToViper<'a> {
-    fn to_viper(self, ast: AstFactory<'a>, options: EncodeOptions) -> viper::Program<'a>;
-}
-
-impl<'a> ProgramToViper<'a> for pancake::Program {
+impl<'a> ProgramToViper<'a> for Program {
     fn to_viper(self, ast: AstFactory<'a>, options: EncodeOptions) -> viper::Program<'a> {
         let program_methods = self
             .functions

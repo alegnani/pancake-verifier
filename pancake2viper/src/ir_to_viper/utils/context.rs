@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use viper::{AstFactory, Declaration, LocalVarDecl};
 
-use crate::{ir::AnnotationType, pancake::Shape, viper_prelude::IArrayHelper};
+use crate::{ir::AnnotationType, shape::Shape, viper_prelude::IArrayHelper};
 
 use super::mangler::{Mangler, RESERVED};
 
