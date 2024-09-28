@@ -1,5 +1,6 @@
-use super::shape::Shape;
 use strum::EnumString;
+
+use crate::shape::Shape;
 
 #[derive(Debug, Clone)]
 pub enum Expr {

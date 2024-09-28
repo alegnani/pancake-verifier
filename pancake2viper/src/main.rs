@@ -1,7 +1,8 @@
 use pancake2viper::{
     ir::Program,
+    ir_to_viper::EncodeOptions,
     parser::{get_sexprs_from_file, SExprParser},
-    translation::{context::EncodeOptions, ProgramToViper},
+    ProgramToViper,
 };
 use std::env;
 

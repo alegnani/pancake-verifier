@@ -1,4 +1,4 @@
-use crate::translation::{ToViperType, ViperEncodeCtx};
+use crate::{ir_to_viper::ViperEncodeCtx, ToViperType};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Shape {

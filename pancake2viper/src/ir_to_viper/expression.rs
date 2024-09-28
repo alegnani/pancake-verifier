@@ -1,11 +1,14 @@
 use viper::BinOpBv;
 use viper::BvSize::BV64;
 
-use crate::{pancake::Shape, utils::ViperUtils};
+use crate::shape::Shape;
+use crate::utils::ViperUtils;
 
 use crate::ir::{self};
 
-use crate::translation::{context::ViperEncodeCtx, ToShape, ToViper, ToViperType};
+use crate::{ToShape, ToViper, ToViperType};
+
+use super::utils::ViperEncodeCtx;
 
 impl ir::Expr {
     pub fn cond_to_viper<'a>(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
@@ -92,6 +95,19 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for ir::BinOp {
                 }
             }
         };
+        //         if ctx.options.expr_unrolling {
+        //     let typ = ast.int_type();
+        //     let fresh = ctx.fresh_var();
+        //     let (var_decl, var) = ast.new_var(&fresh, typ);
+        //     ctx.set_type(fresh, Shape::Simple);
+        //     let right = expr.to_viper(ctx);
+        //     let rhs = translate_op(self.optype, acc, right);
+        //     let ass = ast.local_var_assign(var, rhs);
+        //     ctx.declarations.push(var_decl);
+        //     ctx.stack.push(ass);
+
+        //     (ctx, var)
+        // } else {
         translate_op(
             self.optype,
             self.left.to_viper(ctx),
@@ -113,74 +129,6 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for ir::Shift {
         let shift_amount = ast.int_to_backend_bv(BV64, ast.int_lit(self.amount as i64));
         let shift = ast.bv_binop(shift_type, BV64, value, shift_amount);
         ast.backend_bv_to_int(BV64, shift)
-    }
-}
-
-impl<'a> ToViper<'a, viper::Expr<'a>> for ir::Load {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
-        let ast = ctx.ast;
-        let zero = ast.int_lit(0);
-        let eight = ast.int_lit(8);
-        let iarray = ctx.iarray;
-        let addr_exp = self.address.to_viper(ctx);
-        let word_addr = ast.div(addr_exp, eight);
-
-        if self.assert && ctx.options.assert_aligned_accesses {
-            // assert addr % 8 == 0
-            let assertion = ast.assert(
-                ast.eq_cmp(ast.module(addr_exp, eight), zero),
-                ast.no_position(),
-            );
-            ctx.stack.push(assertion);
-        }
-
-        if self.shape.is_simple() {
-            iarray.access(ctx.heap_var().1, word_addr)
-        } else {
-            let fresh_str = ctx.fresh_var();
-            let (fresh_decl, fresh) = ast.new_var(&fresh_str, iarray.get_type());
-            let length = ast.int_lit(self.shape.len() as i64);
-            ctx.set_type(fresh_str, self.shape);
-
-            let slice = iarray.create_slice_m(ctx.heap_var().1, word_addr, length, fresh);
-            ctx.declarations.push(fresh_decl);
-            ctx.stack.push(slice);
-            fresh
-        }
-    }
-}
-
-impl<'a> ToViper<'a, viper::Expr<'a>> for ir::LoadByte {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
-        let ast = ctx.ast;
-        let eight = ast.int_lit(8);
-
-        let byte_address = self.address.clone().to_viper(ctx);
-        let word_offset = ast.module(byte_address, eight);
-        let byte_mask = ast.backend_bv64_lit(255);
-        let shift_amount = ast.int_to_backend_bv(BV64, ast.mul(eight, word_offset));
-
-        let load = ir::Expr::Load(ir::Load {
-            shape: Shape::Simple,
-            address: self.address,
-            assert: false,
-        })
-        .to_viper(ctx);
-
-        ast.backend_bv_to_int(
-            BV64,
-            ast.bv_binop(
-                BinOpBv::BitAnd,
-                BV64,
-                byte_mask,
-                ast.bv_binop(
-                    BinOpBv::BvLShr,
-                    BV64,
-                    ast.int_to_backend_bv(BV64, load),
-                    shift_amount,
-                ),
-            ),
-        )
     }
 }
 

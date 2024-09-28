@@ -2,7 +2,10 @@ use anyhow::anyhow;
 use std::str::FromStr;
 
 use super::*;
-use crate::parser::SExpr::{self, *};
+use crate::{
+    parser::SExpr::{self, *},
+    shape::Shape,
+};
 
 impl Expr {
     pub fn parse(s: &[SExpr]) -> anyhow::Result<Self> {

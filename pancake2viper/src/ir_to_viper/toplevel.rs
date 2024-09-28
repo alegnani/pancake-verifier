@@ -1,15 +1,15 @@
 use viper::{AstFactory, Declaration};
 
 use crate::{
-    translation::{
-        context::EncodeOptions, mangler::Mangler, ProgramToViper, ToViper, ToViperType,
-        ViperEncodeCtx,
-    },
-    utils::ViperUtils,
-    viper_prelude::create_viper_prelude,
+    utils::ViperUtils, viper_prelude::create_viper_prelude, ProgramToViper, ToViper, ToViperType,
 };
 
 use crate::ir::*;
+
+use super::{
+    utils::{EncodeOptions, Mangler},
+    ViperEncodeCtx,
+};
 
 impl<'a> ToViper<'a, viper::LocalVarDecl<'a>> for Arg {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::LocalVarDecl<'a> {

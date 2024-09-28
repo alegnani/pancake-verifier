@@ -1,9 +1,9 @@
 use std::env;
 
 use ir::Program;
+use ir_to_viper::EncodeOptions;
 use lazy_static::lazy_static;
 use parser::{get_sexprs_from_file, SExprParser};
-use translation::{context::EncodeOptions, ProgramToViper};
 
 use super::*;
 

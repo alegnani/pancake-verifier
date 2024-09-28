@@ -1,11 +1,9 @@
-pub mod context;
-pub mod mangler;
-pub mod pancake_to_ir;
-
-pub use context::{EncodeOptions, ViperEncodeCtx};
 use viper::AstFactory;
 
-use crate::pancake::Shape;
+use crate::{
+    ir_to_viper::{EncodeOptions, ViperEncodeCtx},
+    shape::Shape,
+};
 
 pub trait ToViper<'a, T> {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> T;

@@ -4,11 +4,7 @@ use anyhow::anyhow;
 use regex::Regex;
 use viper::{AstFactory, Expr, LocalVarDecl, Type, Viper};
 
-use crate::{
-    ir::Program,
-    pancake,
-    translation::{context::EncodeOptions, ProgramToViper},
-};
+use crate::{ir::Program, ir_to_viper::EncodeOptions, pancake, ProgramToViper};
 
 pub fn pretty_print(viper: &Viper, program: pancake::Program) -> anyhow::Result<String> {
     let vctx = viper.attach_current_thread();
