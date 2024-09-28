@@ -57,11 +57,18 @@ impl<'a> ToViper<'a> for FnDec {
         args_assigns.extend_from_slice(&[body, ast.label(ctx.return_label(), &[])]);
         let body = ast.seqn(&args_assigns, &args_decls);
 
+        let mut pres = self
+            .args
+            .iter()
+            .filter_map(|a| a.permission(ctx))
+            .collect::<Vec<_>>();
+        pres.extend(&ctx.pres);
+
         ast.method(
             &ctx.mangler.mangle_fn(&self.fname),
             &args_local_decls,
             &[ctx.return_var().0],
-            &ctx.pres,
+            &pres,
             &ctx.posts,
             Some(body),
         )
