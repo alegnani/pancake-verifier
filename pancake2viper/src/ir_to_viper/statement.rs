@@ -6,8 +6,9 @@ use crate::{ToShape, ToViper, ToViperType};
 
 use super::utils::ViperEncodeCtx;
 
-impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Stmt {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+impl<'a> ToViper<'a> for ir::Stmt {
+    type Output = viper::Stmt<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
         use ir::Stmt::*;
         let stmt = match self {
@@ -44,8 +45,9 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Stmt {
     }
 }
 
-impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Return {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+impl<'a> ToViper<'a> for ir::Return {
+    type Output = viper::Stmt<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
         let value = self.value.to_viper(ctx);
         let ass = ast.local_var_assign(ctx.return_var().1, value);
@@ -61,8 +63,9 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Return {
     }
 }
 
-impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::If {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+impl<'a> ToViper<'a> for ir::If {
+    type Output = viper::Stmt<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
 
         let cond = self.cond.cond_to_viper(ctx);
@@ -80,8 +83,9 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::If {
     }
 }
 
-impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::While {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+impl<'a> ToViper<'a> for ir::While {
+    type Output = viper::Stmt<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
 
         let cond = self.cond.cond_to_viper(ctx);
@@ -108,8 +112,9 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::While {
     }
 }
 
-impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Seq {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+impl<'a> ToViper<'a> for ir::Seq {
+    type Output = viper::Stmt<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
         let stmts = self
             .stmts
@@ -120,8 +125,9 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Seq {
     }
 }
 
-impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Definition {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+impl<'a> ToViper<'a> for ir::Definition {
+    type Output = viper::Stmt<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
         let name = ctx.mangler.new_scoped_var(self.lhs);
         let shape = self.rhs.shape(ctx);
@@ -153,8 +159,9 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Definition {
     }
 }
 
-impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Assign {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+impl<'a> ToViper<'a> for ir::Assign {
+    type Output = viper::Stmt<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
         let lhs_shape = ctx.get_type(&self.lhs);
         let name = ctx.mangler.mangle_var(&self.lhs);
@@ -182,8 +189,9 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Assign {
     }
 }
 
-impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Call {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+impl<'a> ToViper<'a> for ir::Call {
+    type Output = viper::Stmt<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
         // FIXME: use actual return type
         let (decl, var) = ast.new_var("discard", ast.int_type());
@@ -198,8 +206,9 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Call {
     }
 }
 
-impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::ExtCall {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+impl<'a> ToViper<'a> for ir::ExtCall {
+    type Output = viper::Stmt<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
         let args = self
             .args
@@ -210,8 +219,9 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::ExtCall {
     }
 }
 
-impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::TailCall {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+impl<'a> ToViper<'a> for ir::TailCall {
+    type Output = viper::Stmt<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
         let mut args = self
             .args
@@ -230,8 +240,9 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::TailCall {
     }
 }
 
-impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Annotation {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+impl<'a> ToViper<'a> for ir::Annotation {
+    type Output = viper::Stmt<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
         let no_pos = ast.no_position();
 

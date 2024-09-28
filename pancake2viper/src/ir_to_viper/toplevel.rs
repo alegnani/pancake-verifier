@@ -11,8 +11,9 @@ use super::{
     ViperEncodeCtx,
 };
 
-impl<'a> ToViper<'a, viper::LocalVarDecl<'a>> for Arg {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::LocalVarDecl<'a> {
+impl<'a> ToViper<'a> for Arg {
+    type Output = viper::LocalVarDecl<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let mangled_arg = ctx.mangler.new_arg(self.name.clone());
         ctx.set_type(mangled_arg.clone(), self.shape.clone());
         ctx.ast
@@ -20,8 +21,9 @@ impl<'a> ToViper<'a, viper::LocalVarDecl<'a>> for Arg {
     }
 }
 
-impl<'a> ToViper<'a, viper::Method<'a>> for FnDec {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Method<'a> {
+impl<'a> ToViper<'a> for FnDec {
+    type Output = viper::Method<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
 
         // Copy all the parameters as they are read-only in Viper

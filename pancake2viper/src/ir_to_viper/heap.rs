@@ -8,8 +8,9 @@ use crate::{ToShape, ToViper};
 
 use super::utils::ViperEncodeCtx;
 
-impl<'a> ToViper<'a, viper::Expr<'a>> for ir::Load {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
+impl<'a> ToViper<'a> for ir::Load {
+    type Output = viper::Expr<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
         let zero = ast.int_lit(0);
         let eight = ast.int_lit(8);
@@ -42,8 +43,9 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for ir::Load {
     }
 }
 
-impl<'a> ToViper<'a, viper::Expr<'a>> for ir::LoadByte {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Expr<'a> {
+impl<'a> ToViper<'a> for ir::LoadByte {
+    type Output = viper::Expr<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
         let eight = ast.int_lit(8);
 
@@ -76,8 +78,9 @@ impl<'a> ToViper<'a, viper::Expr<'a>> for ir::LoadByte {
     }
 }
 
-impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Store {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+impl<'a> ToViper<'a> for ir::Store {
+    type Output = viper::Stmt<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
         let zero = ast.int_lit(0);
         let eight = ast.int_lit(8);
@@ -116,8 +119,9 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::Store {
 }
 
 // FIXME: change this to match word size
-impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::StoreBits {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+impl<'a> ToViper<'a> for ir::StoreBits {
+    type Output = viper::Stmt<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let bits = self.size.bits();
         let ast = ctx.ast;
         let iarray = ctx.iarray;
@@ -168,8 +172,9 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::StoreBits {
 }
 
 // TODO: how to model shared memory?
-impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::SharedStore {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+impl<'a> ToViper<'a> for ir::SharedStore {
+    type Output = viper::Stmt<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
         ast.method_call(
             "shared_store",
@@ -180,8 +185,9 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::SharedStore {
 }
 
 // TODO: how to model shared memory?
-impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::SharedStoreBits {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+impl<'a> ToViper<'a> for ir::SharedStoreBits {
+    type Output = viper::Stmt<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
         ast.method_call(
             "shared_store",
@@ -191,8 +197,9 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::SharedStoreBits {
     }
 }
 
-impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::SharedLoad {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+impl<'a> ToViper<'a> for ir::SharedLoad {
+    type Output = viper::Stmt<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
         ast.method_call(
             "shared_load",
@@ -202,8 +209,9 @@ impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::SharedLoad {
     }
 }
 
-impl<'a> ToViper<'a, viper::Stmt<'a>> for ir::SharedLoadBits {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> viper::Stmt<'a> {
+impl<'a> ToViper<'a> for ir::SharedLoadBits {
+    type Output = viper::Stmt<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
         ast.method_call(
             "shared_load",

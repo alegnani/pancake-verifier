@@ -5,9 +5,14 @@ use crate::{
     shape::Shape,
 };
 
-pub trait ToViper<'a, T> {
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> T;
-    fn to_viper_with_pos(&self, ctx: &mut ViperEncodeCtx<'a>, pos: viper::Position) -> T {
+pub trait ToViper<'a> {
+    type Output;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output;
+    fn to_viper_with_pos(
+        &self,
+        ctx: &mut ViperEncodeCtx<'a>,
+        pos: viper::Position,
+    ) -> Self::Output {
         todo!()
     }
 }
