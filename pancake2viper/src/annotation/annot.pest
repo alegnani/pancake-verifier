@@ -30,14 +30,17 @@ bin_op = _{ add | sub | mul | div | modulo | imp | iff | viper_eq | viper_neq | 
     bool_and = { "&&" }
     bool_or = { "||" }
 
-expr = { prefix? ~ primary ~ (infix ~ prefix? ~ primary )* }
+expr = !{ prefix? ~ primary ~ postfix? ~ (infix ~ prefix? ~ primary ~ postfix?)* }
     infix = _{ bin_op }
     prefix = _{ neg | minus }
         neg = { "!" }
         minus = { "-" }
     
-    postfix = _{ "!" }
-    primary = _ { "(" ~ expr ~ ")" | int_lit | quantified | acc_pred | f_call | heap | ident }
+    postfix = _{ field_acc }
+        field_acc = @{ ("." ~ field_idx)+ }
+            field_idx = !{ integer }
+
+    primary = _{ "(" ~ expr ~ ")" | int_lit | quantified | acc_pred | f_call | heap | field_acc | ident }
 
         quantified = { (forall | exists) ~ decl ~ ("," ~ decl)* ~ "::" ~ triggers ~ expr }
             forall = { "forall" }
