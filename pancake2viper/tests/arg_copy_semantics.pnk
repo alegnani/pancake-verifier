@@ -1,0 +1,10 @@
+fun main(2 x) {
+    /*@ requires x.0 == 42 @*/
+    do_stuff(x);
+    return x.0;
+}
+
+fun do_stuff(2 x) {
+    x = < 0, 0 >;
+    return 0;
+}
