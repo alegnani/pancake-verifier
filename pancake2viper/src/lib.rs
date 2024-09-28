@@ -3,7 +3,6 @@ pub mod ir;
 pub mod ir_to_viper;
 pub mod pancake;
 pub mod pancake_to_ir;
-pub mod parser;
 pub mod shape;
 pub mod traits;
 pub mod utils;

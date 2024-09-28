@@ -1,9 +1,4 @@
-use pancake2viper::{
-    ir::Program,
-    ir_to_viper::EncodeOptions,
-    parser::{get_sexprs_from_file, SExprParser},
-    ProgramToViper,
-};
+use pancake2viper::{ir, ir_to_viper::EncodeOptions, pancake, ProgramToViper};
 use std::env;
 
 use viper::Viper;
@@ -12,8 +7,8 @@ fn main() -> anyhow::Result<()> {
     let args = env::args().collect::<Vec<_>>();
     // either use $CAKE_ML or search for cake on the PATH
     let cake = env::var("CAKE_ML").unwrap_or("cake".into());
-    let sexprs = get_sexprs_from_file(&args[1], &cake)?;
-    let program: Program = SExprParser::parse_program(sexprs)?.into();
+    let program = pancake::Program::parse_file(&args[1], &cake)?;
+    let program: ir::Program = program.into();
 
     let viper_home = env::var("VIPER_HOME")?;
     let viper = Viper::new_with_args(&viper_home, vec![]);

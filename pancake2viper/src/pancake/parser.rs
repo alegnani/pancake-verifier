@@ -1,14 +1,64 @@
 use anyhow::anyhow;
-use std::str::FromStr;
-
-use super::*;
-use crate::{
-    parser::SExpr::{self, *},
-    shape::Shape,
+use sexpr_parser::{Parser, SexprFactory};
+use std::{
+    fs,
+    io::Write,
+    process::{Command, Stdio},
+    str::FromStr,
 };
 
+use super::*;
+use crate::pancake;
+use crate::shape::Shape;
+use SExpr::*;
+
+/// S-expression definition for parsing of `cake`'s explore output
+#[derive(Debug, PartialEq)]
+enum SExpr {
+    Int(u64),
+    Float(f64),
+    Symbol(String),
+    SString(String),
+    Pair(Box<(SExpr, SExpr)>),
+    List(Vec<SExpr>),
+}
+
+struct SExprParser;
+
+impl SExprParser {}
+
+impl SexprFactory for SExprParser {
+    type Sexpr = SExpr;
+    type Integer = i64;
+    type Float = f64;
+
+    fn int(&mut self, x: i64) -> Self::Sexpr {
+        SExpr::Int(x as u64)
+    }
+
+    fn float(&mut self, x: f64) -> Self::Sexpr {
+        SExpr::Float(x)
+    }
+
+    fn symbol(&mut self, x: &str) -> Self::Sexpr {
+        SExpr::Symbol(x.to_string())
+    }
+
+    fn string(&mut self, x: &str) -> Self::Sexpr {
+        SExpr::SString(x.to_string())
+    }
+
+    fn list(&mut self, x: Vec<Self::Sexpr>) -> Self::Sexpr {
+        SExpr::List(x)
+    }
+
+    fn pair(&mut self, a: Self::Sexpr, b: Self::Sexpr) -> Self::Sexpr {
+        SExpr::Pair(Box::new((a, b)))
+    }
+}
+
 impl Expr {
-    pub fn parse(s: &[SExpr]) -> anyhow::Result<Self> {
+    fn parse(s: &[SExpr]) -> anyhow::Result<Self> {
         match s {
             [Symbol(cons), Symbol(word)] if cons == "Const" && word.starts_with("0x") => {
                 Ok(Self::Const(u64::from_str_radix(&word[2..], 16)? as i64))
@@ -85,7 +135,7 @@ impl Expr {
 }
 
 impl Stmt {
-    pub fn parse(s: Vec<&SExpr>) -> anyhow::Result<Self> {
+    fn parse(s: Vec<&SExpr>) -> anyhow::Result<Self> {
         match &s[..] {
             [Symbol(op), SString(at), SString(annot)] if op == "annot" && at == "@" => {
                 Ok(Self::Annotation(Annotation {
@@ -325,7 +375,7 @@ impl Arg {
 }
 
 impl FnDec {
-    pub fn parse(s: SExpr) -> anyhow::Result<Self> {
+    fn parse(s: SExpr) -> anyhow::Result<Self> {
         match s {
             List(l) => match &l[..] {
                 [Symbol(fun_dec), Symbol(name), List(args), List(body)] if fun_dec == "func" => {
@@ -379,4 +429,62 @@ impl Shape {
             Err(anyhow!("Mismatched brackets"))
         }
     }
+}
+
+impl Program {
+    pub fn parse_file(path: &str, cake_path: &str) -> anyhow::Result<Self> {
+        Self::parse_str(fs::read_to_string(path)?, cake_path)
+    }
+
+    pub fn parse_str(s: String, cake_path: &str) -> anyhow::Result<Self> {
+        let functions = get_sexprs(s, cake_path)?
+            .iter()
+            .map(|s| {
+                SExprParser
+                    .parse(s)
+                    .map_err(|e| anyhow!("{e}"))
+                    .and_then(FnDec::parse)
+            })
+            .collect::<anyhow::Result<_>>()?;
+        Ok(pancake::Program { functions })
+    }
+}
+
+fn get_sexprs(lines: String, cake_path: &str) -> anyhow::Result<Vec<String>> {
+    let mut preprocess = Command::new("cpp")
+        .arg("-P")
+        .arg("-C")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()?;
+
+    let explore = Command::new(cake_path)
+        .arg("--pancake")
+        .arg("--explore")
+        .stdin(Stdio::from(
+            preprocess.stdout.ok_or(anyhow!("Could not pipe command"))?,
+        ))
+        .stdout(Stdio::piped())
+        .spawn()?;
+
+    let mut stdin = preprocess
+        .stdin
+        .take()
+        .ok_or(anyhow!("Could not take stdin"))?;
+
+    std::thread::spawn(move || stdin.write_all(lines.as_bytes()));
+
+    let output_str = String::from_utf8(explore.wait_with_output()?.stdout)?;
+
+    let pancake_lines = output_str
+        .split('\n')
+        .skip(2)
+        .take_while(|l| !l.starts_with('#'))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    Ok(pancake_lines
+        .split("\n\n")
+        .map(|s| s.to_owned())
+        .collect::<Vec<_>>())
 }

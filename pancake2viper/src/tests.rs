@@ -1,9 +1,7 @@
 use std::env;
 
-use ir::Program;
 use ir_to_viper::EncodeOptions;
 use lazy_static::lazy_static;
-use parser::{get_sexprs_from_file, SExprParser};
 
 use super::*;
 
@@ -15,8 +13,7 @@ fn verify_file(path: &str) -> anyhow::Result<()> {
     let cake = env::var("CAKE_ML").unwrap_or("cake".into());
 
     // Parse Pancake program
-    let sexprs = get_sexprs_from_file(path, &cake)?;
-    let program: Program = SExprParser::parse_program(sexprs)?.into();
+    let program: ir::Program = pancake::Program::parse_file(path, &cake)?.into();
     // Create Viper context
     // let viper = Viper::new_with_args(&viper_home, vec![]);
     let ver_ctx = VIPER.attach_current_thread();

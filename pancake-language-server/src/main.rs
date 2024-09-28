@@ -11,8 +11,6 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 use tracing::{event, Level};
 
-use pancake2viper::parser::get_sexprs;
-
 // #[derive(Debug)]
 struct Backend {
     viper: Viper,
@@ -69,8 +67,7 @@ impl LanguageServer for Backend {
 impl Backend {
     async fn verify_file(&self, uri: Url) -> anyhow::Result<()> {
         let file_contents = self.file_map.get(uri.as_str()).unwrap().clone();
-        let sexprs = get_sexprs(file_contents, &self.cake_path)?;
-        let program = pancake2viper::parser::SExprParser::parse_program(sexprs)?;
+        let program = pancake2viper::pancake::Program::parse_str(file_contents, &self.cake_path)?;
 
         self.create_vpr_file(uri, pretty_print(&self.viper, program.clone())?)
             .await;
