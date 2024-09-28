@@ -1,5 +1,5 @@
 use super::Stmt;
-use crate::{shape::Shape, ToShape};
+use crate::shape::Shape;
 
 #[derive(Debug, Clone)]
 pub struct FnDec {
