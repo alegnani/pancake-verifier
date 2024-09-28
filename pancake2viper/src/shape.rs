@@ -10,7 +10,7 @@ impl Shape {
     pub fn len(&self) -> usize {
         match self {
             Self::Simple => 1,
-            Self::Nested(l) => l.iter().map(|e| e.len()).sum(),
+            Self::Nested(l) => l.iter().map(Self::len).sum(),
         }
     }
 

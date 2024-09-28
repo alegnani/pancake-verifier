@@ -20,6 +20,7 @@ lazy_static::lazy_static! {
             .op(Op::infix(Rule::add, Left) | Op::infix(Rule::sub, Left))
             .op(Op::infix(Rule::mul, Left) | Op::infix(Rule::div, Left))
             .op(Op::prefix(Rule::neg) | Op::prefix(Rule::minus))
+            .op(Op::postfix(Rule::field_acc))
     };
 }
 
@@ -62,6 +63,16 @@ pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
                 left: Box::new(lhs),
                 right: Box::new(rhs),
             })
+        })
+        .map_postfix(|lhs, op| match op.as_rule() {
+            Rule::field_acc => Expr::FieldAccessChain(FieldAccessChain {
+                obj: Box::new(lhs),
+                idxs: op
+                    .into_inner()
+                    .map(|i| i.as_str().parse().unwrap())
+                    .collect(),
+            }),
+            _ => panic!("Failed to parse postfix, got `{:?}`", op.into_inner()),
         })
         .parse(pairs)
 }

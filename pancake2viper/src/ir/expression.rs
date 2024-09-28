@@ -21,6 +21,7 @@ pub enum Expr {
     Quantified(Quantified),
     HeapAccess(HeapAccess),
     AccessPredicate(AccessPredicate),
+    FieldAccessChain(FieldAccessChain),
 }
 
 #[derive(Debug, Clone)]
@@ -160,4 +161,10 @@ pub struct Quantified {
 #[derive(Debug, Clone)]
 pub struct HeapAccess {
     pub idx: Box<Expr>,
+}
+
+#[derive(Debug, Clone)]
+pub struct FieldAccessChain {
+    pub obj: Box<Expr>,
+    pub idxs: Vec<usize>,
 }

@@ -311,6 +311,42 @@ impl<'a> ToViper<'a> for ir::AccessPredicate {
     }
 }
 
+impl<'a> ToViper<'a> for ir::FieldAccessChain {
+    type Output = viper::Expr<'a>;
+
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+        let ast = ctx.ast;
+        let obj_shape = self.obj.shape(ctx);
+
+        let (final_shape, offset) =
+            self.idxs
+                .iter()
+                .fold((obj_shape, 0), |(shape, padding), &idx| {
+                    assert!(idx < shape.len(), "Field access out of bounds");
+                    match &shape {
+                        Shape::Simple => panic!("Can't acces field of shape '1'"),
+                        Shape::Nested(elems) => {
+                            let inner_shape = elems[idx].clone();
+                            let offset = if inner_shape.is_simple() {
+                                idx
+                            } else {
+                                shape.access(idx).0
+                            };
+                            (inner_shape, padding + offset)
+                        }
+                    }
+                });
+        assert!(
+            matches!(final_shape, Shape::Simple),
+            "Can't access field not of shape `1` in annotation, got {:?}",
+            final_shape
+        );
+        let obj = self.obj.to_viper(ctx);
+        let offset_exp = ast.int_lit(offset as i64);
+        ctx.iarray.access(obj, offset_exp)
+    }
+}
+
 impl<'a> ToViper<'a> for ir::Expr {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
@@ -337,6 +373,7 @@ impl<'a> ToViper<'a> for ir::Expr {
             Quantified(quant) => quant.to_viper(ctx),
             HeapAccess(heap) => heap.to_viper(ctx),
             AccessPredicate(acc) => acc.to_viper(ctx),
+            FieldAccessChain(f) => f.to_viper(ctx),
         }
     }
 }
@@ -346,7 +383,9 @@ impl<'a> ToShape<'a> for ir::Expr {
         use ir::Expr::*;
         match self {
             Const(_) | UnOp(_) | BinOp(_) | Shift(_) | LoadByte(_) | Quantified(_)
-            | HeapAccess(_) | AccessPredicate(_) | BaseAddr | BytesInWord => Shape::Simple,
+            | HeapAccess(_) | AccessPredicate(_) | FieldAccessChain(_) | BaseAddr | BytesInWord => {
+                Shape::Simple
+            }
             Var(var) => ctx.get_type(var),
             MethodCall(call) => call.rettype.clone(),
             FunctionCall(call) => todo!(),
