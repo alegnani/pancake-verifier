@@ -57,7 +57,7 @@ impl Mangler {
         mangled
     }
 
-    pub fn insert_annot_var(&mut self, var: String) {
+    pub fn new_annot_var(&mut self, var: String) {
         assert!(
             self.annot_vars.insert(var.clone()),
             "Duplicated variable in annotation: '{}'\n{:?}",

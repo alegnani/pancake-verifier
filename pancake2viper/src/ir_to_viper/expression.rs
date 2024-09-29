@@ -237,12 +237,12 @@ impl<'a> ToViperType<'a> for ir::Type {
     }
 }
 
-impl<'a> ToViper<'a> for ir::QuantifiedDecl {
+impl<'a> ToViper<'a> for ir::Decl {
     type Output = viper::LocalVarDecl<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
         ctx.set_type(self.name.clone(), Shape::Simple);
-        ctx.mangler.insert_annot_var(self.name.clone());
+        ctx.mangler.new_annot_var(self.name.clone());
         ast.local_var_decl(&self.name, self.typ.to_viper_type(ctx))
     }
 }
@@ -432,21 +432,5 @@ impl<'a> ToShape<'a> for ir::Expr {
             Field(field) => field.shape(ctx),
             Struct(struc) => struc.shape(ctx),
         }
-    }
-}
-
-impl<'a> ToViper<'a> for Vec<ir::Expr> {
-    type Output = Vec<viper::Expr<'a>>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
-        self.into_iter()
-            .map(|a| a.to_viper(ctx))
-            .collect::<Vec<_>>()
-    }
-}
-
-impl<'a, const T: usize> ToViper<'a> for [ir::Expr; T] {
-    type Output = [viper::Expr<'a>; T];
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
-        self.map(|e| e.to_viper(ctx))
     }
 }

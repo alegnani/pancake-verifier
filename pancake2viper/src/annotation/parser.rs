@@ -142,7 +142,7 @@ impl FromPestPair for Type {
     }
 }
 
-impl FromPestPair for QuantifiedDecl {
+impl FromPestPair for Decl {
     fn from_pest(pair: Pair<'_, Rule>) -> Self {
         match pair.as_rule() {
             Rule::decl => {
@@ -179,7 +179,7 @@ impl FromPestPair for Quantified {
         let decls = pairs
             .clone()
             .take(decl_amount)
-            .map(|d| QuantifiedDecl::from_pest(d))
+            .map(|d| Decl::from_pest(d))
             .collect();
         let mut pairs = pairs.skip(decl_amount);
         let triggers = pairs

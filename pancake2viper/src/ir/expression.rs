@@ -139,7 +139,7 @@ pub enum Type {
 }
 
 #[derive(Debug, Clone)]
-pub struct QuantifiedDecl {
+pub struct Decl {
     pub name: String,
     pub typ: Type,
 }
@@ -153,7 +153,7 @@ pub enum Quantifier {
 #[derive(Debug, Clone)]
 pub struct Quantified {
     pub quantifier: Quantifier,
-    pub decls: Vec<QuantifiedDecl>,
+    pub decls: Vec<Decl>,
     pub triggers: Vec<Expr>,
     pub body: Box<Expr>,
 }
