@@ -18,7 +18,6 @@ pub enum Stmt {
     Break,
     Continue,
     Call(Call),
-    TailCall(TailCall),
     ExtCall(ExtCall),
     Return(Return),
 }
@@ -105,15 +104,7 @@ pub struct While {
 
 #[derive(Debug, Clone)]
 pub struct Call {
-    pub rettype: String,
-    pub fname: Expr,
-    pub args: Vec<Expr>,
-}
-
-#[derive(Debug, Clone)]
-pub struct TailCall {
-    pub fname: Expr,
-    pub args: Vec<Expr>,
+    pub call: Expr,
 }
 
 #[derive(Debug, Clone)]

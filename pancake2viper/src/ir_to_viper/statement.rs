@@ -24,7 +24,6 @@ impl<'a> ToViper<'a> for ir::Stmt {
             Seq(seq) => seq.to_viper(ctx),
             Call(call) => call.to_viper(ctx),
             ExtCall(ext) => ext.to_viper(ctx),
-            TailCall(tail) => tail.to_viper(ctx),
             Store(store) => store.to_viper(ctx),
             StoreBits(store) => store.to_viper(ctx),
             SharedStore(store) => store.to_viper(ctx),
@@ -135,18 +134,7 @@ impl<'a> ToViper<'a> for ir::Definition {
         ctx.declarations.push(var.0);
 
         ctx.set_type(name, shape);
-        let ass = match self.rhs {
-            ir::Expr::MethodCall(call) => {
-                let mut args: Vec<viper::Expr> = call.args.to_viper(ctx);
-                args.insert(0, ctx.heap_var().1);
-                ast.method_call(
-                    &ctx.mangler.mangle_fn(&call.fname.label_to_viper()),
-                    &args,
-                    &[var.1],
-                )
-            }
-            other => ast.local_var_assign(var.1, other.to_viper(ctx)),
-        };
+        let ass = ast.local_var_assign(var.1, self.rhs.to_viper(ctx));
         let scope = self.scope.to_viper(&mut ctx.child());
 
         let decls = ctx.pop_decls();
@@ -167,19 +155,8 @@ impl<'a> ToViper<'a> for ir::Assign {
         let name = ctx.mangler.mangle_var(&self.lhs);
         assert_eq!(lhs_shape, self.rhs.shape(ctx));
         let var = ast.new_var(name, lhs_shape.to_viper_type(ctx));
-        let ass = match self.rhs {
-            ir::Expr::MethodCall(call) => {
-                let mut args: Vec<viper::Expr> = call.args.to_viper(ctx);
-                args.insert(0, ctx.heap_var().1);
-                ast.method_call(
-                    &ctx.mangler.mangle_fn(&call.fname.label_to_viper()),
-                    &args,
-                    &[var.1],
-                )
-            }
-            other => ast.local_var_assign(var.1, other.to_viper(ctx)),
-        };
 
+        let ass = ast.local_var_assign(var.1, self.rhs.to_viper(ctx));
         let decls = ctx.pop_decls();
 
         ctx.stack.push(ass);
@@ -192,17 +169,12 @@ impl<'a> ToViper<'a> for ir::Assign {
 impl<'a> ToViper<'a> for ir::Call {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
-        let ast = ctx.ast;
-        // FIXME: use actual return type
-        let (decl, var) = ast.new_var("discard", ast.int_type());
-        let mut args: Vec<viper::Expr> = self.args.to_viper(ctx);
-        args.insert(0, ctx.heap_var().1);
-        let call = ast.method_call(
-            &ctx.mangler.mangle_fn(&self.fname.label_to_viper()),
-            &args,
-            &[var],
-        );
-        ast.seqn(&[call], &[decl.into()])
+        ir::Definition {
+            lhs: ctx.fresh_var(),
+            rhs: self.call,
+            scope: Box::new(ir::Stmt::Skip),
+        }
+        .to_viper(ctx)
     }
 }
 
@@ -212,23 +184,6 @@ impl<'a> ToViper<'a> for ir::ExtCall {
         let ast = ctx.ast;
         let args = self.args.to_viper(ctx);
         ast.method_call(&format!("ffi_{}", self.fname), &args, &[])
-    }
-}
-
-impl<'a> ToViper<'a> for ir::TailCall {
-    type Output = viper::Stmt<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
-        let ast = ctx.ast;
-        let mut args = self.args.to_viper(ctx);
-        args.insert(0, ctx.heap_var().1);
-        let ret = ctx.return_var();
-        let call = ast.method_call(
-            &ctx.mangler.mangle_fn(&self.fname.label_to_viper()),
-            &args,
-            &[ret.1],
-        );
-        let goto = ast.goto(ctx.return_label());
-        ast.seqn(&[call, goto], &[])
     }
 }
 
