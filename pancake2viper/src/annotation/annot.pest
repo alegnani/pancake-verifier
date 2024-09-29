@@ -60,13 +60,15 @@ expr = !{ prefix? ~ primary ~ postfix? ~ (infix ~ prefix? ~ primary ~ postfix?)*
 
 
 annotation = {"@"? ~ WHITESPACE* ~ annotation_keyword ~ expr ~ WHITESPACE* ~ "@"? }
-    annotation_keyword = _{ pre | post | invariant | assertion | inhale | exhale }
+    annotation_keyword = _{ pre | post | invariant | assertion | inhale | exhale | fold | unfold }
         pre = { "requires" }
         post = { "ensures" }
         invariant = { "invariant" }
         assertion = { "assert" }
         inhale = { "inhale" }
         exhale = { "exhale" }
+        fold = { "fold" }
+        unfold = { "unfold" }
 
 // TODO: change "/*" ~ "@" to "/*@" when Pancake parsing fixed
 predicate = { "/*" ~ "@" ~ "predicate" ~ ident ~ "(" ~ pred_args ~ ")" ~ pred_body ~ "@"? ~ "*/" }

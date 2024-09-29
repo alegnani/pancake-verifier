@@ -114,6 +114,8 @@ impl FromPestPair for AnnotationType {
             Rule::invariant => Self::Invariant,
             Rule::inhale => Self::Inhale,
             Rule::exhale => Self::Exhale,
+            Rule::fold => Self::Fold,
+            Rule::unfold => Self::Unfold,
             x => panic!("Failed to parse AnnotationType, got {:?}", x),
         }
     }

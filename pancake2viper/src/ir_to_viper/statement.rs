@@ -1,4 +1,4 @@
-use crate::ir;
+use crate::ir::{self, FunctionCall};
 use crate::ir_to_viper::TranslationMode;
 use crate::utils::ViperUtils;
 
@@ -191,25 +191,45 @@ impl<'a> ToViper<'a> for ir::Annotation {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
-        let no_pos = ast.no_position();
 
-        ctx.set_mode(self.typ.into());
-        let body = self.expr.to_viper(ctx);
-        ctx.set_mode(TranslationMode::Normal);
-        ctx.mangler.clear_annot_var();
         use crate::ir::AnnotationType::*;
         match self.typ {
-            Assertion => ast.assert(body, no_pos),
-            Inhale => ast.inhale(body, no_pos),
-            Exhale => ast.exhale(body, no_pos),
+            fold @ (Fold | Unfold) => match self.expr {
+                ir::Expr::FunctionCall(access) => {
+                    let ast_node = |e| match fold {
+                        Unfold => ast.unfold(e),
+                        Fold => ast.fold(e),
+                        _ => unreachable!(),
+                    };
+                    ast_node(ast.predicate_access(&access.args.to_viper(ctx), &access.fname))
+                }
+                _ => panic!(
+                    "Invalid Fold/Unfold. Expected predicate access, got {:?}",
+                    self.expr
+                ),
+            },
             x => {
+                let no_pos = ast.no_position();
+
+                ctx.set_mode(self.typ.into());
+                let body = self.expr.to_viper(ctx);
+                ctx.set_mode(TranslationMode::Normal);
+                ctx.mangler.clear_annot_var();
                 match x {
-                    Invariant => ctx.invariants.push(body),
-                    Precondition => ctx.pres.push(body),
-                    Postcondition => ctx.posts.push(body),
+                    Assertion => ast.assert(body, no_pos),
+                    Inhale => ast.inhale(body, no_pos),
+                    Exhale => ast.exhale(body, no_pos),
+                    x @ (Invariant | Precondition | Postcondition) => {
+                        match x {
+                            Invariant => ctx.invariants.push(body),
+                            Precondition => ctx.pres.push(body),
+                            Postcondition => ctx.posts.push(body),
+                            _ => unreachable!(),
+                        };
+                        ast.comment("annotation pushed")
+                    }
                     _ => unreachable!(),
-                };
-                ast.comment("annotation pushed")
+                }
             }
         }
     }
