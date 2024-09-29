@@ -210,11 +210,7 @@ impl<'a> ToViper<'a> for ir::ExtCall {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
-        let args = self
-            .args
-            .into_iter()
-            .map(|a| a.to_viper(ctx))
-            .collect::<Vec<_>>();
+        let args = self.args.to_viper(ctx);
         ast.method_call(&format!("ffi_{}", self.fname), &args, &[])
     }
 }
@@ -223,11 +219,7 @@ impl<'a> ToViper<'a> for ir::TailCall {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
-        let mut args = self
-            .args
-            .into_iter()
-            .map(|a| a.to_viper(ctx))
-            .collect::<Vec<_>>();
+        let mut args = self.args.to_viper(ctx);
         args.insert(0, ctx.heap_var().1);
         let ret = ctx.return_var();
         let call = ast.method_call(

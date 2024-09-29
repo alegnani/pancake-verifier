@@ -405,3 +405,10 @@ impl<'a> ToViper<'a> for Vec<ir::Expr> {
             .collect::<Vec<_>>()
     }
 }
+
+impl<'a, const T: usize> ToViper<'a> for [ir::Expr; T] {
+    type Output = [viper::Expr<'a>; T];
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+        self.map(|e| e.to_viper(ctx))
+    }
+}
