@@ -125,20 +125,24 @@ impl From<pancake::Call> for ir::Call {
     fn from(value: pancake::Call) -> Self {
         let args: Wrapper<ir::Expr> = value.args.into();
         Self {
-            rettype: value.rettype,
-            fname: value.fname.into(),
-            args: args.0,
+            call: ir::Expr::MethodCall(ir::MethodCall {
+                fname: Box::new(value.fname.into()),
+                rettype: crate::shape::Shape::Simple, // FIXME
+                args: args.0,
+            }),
         }
     }
 }
 
-// XXX: do we want this in our IR? -> call + return
-impl From<pancake::TailCall> for ir::TailCall {
+impl From<pancake::TailCall> for ir::Return {
     fn from(value: pancake::TailCall) -> Self {
         let args: Wrapper<ir::Expr> = value.args.into();
-        Self {
-            fname: value.fname.into(),
-            args: args.0,
+        ir::Return {
+            value: ir::Expr::MethodCall(ir::MethodCall {
+                fname: Box::new(value.fname.into()),
+                args: args.0,
+                rettype: crate::shape::Shape::Simple, // FIXME
+            }),
         }
     }
 }
@@ -181,7 +185,7 @@ impl From<pancake::Stmt> for ir::Stmt {
             Break => Self::Break,
             Continue => Self::Continue,
             Call(c) => Self::Call(c.into()),
-            TailCall(t) => Self::TailCall(t.into()),
+            TailCall(t) => Self::Return(t.into()),
             ExtCall(e) => Self::ExtCall(e.into()),
             Raise(_) | Tick => panic!("Raise and Tick are not implemented"),
             Return(r) => Self::Return(r.into()),

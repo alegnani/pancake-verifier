@@ -285,6 +285,44 @@ impl<'a> ToViper<'a> for ir::FunctionCall {
     }
 }
 
+impl<'a> ToViper<'a> for ir::MethodCall {
+    type Output = viper::Expr<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+        let ast = ctx.ast;
+        let ret = ast.new_var(&ctx.fresh_var(), self.rettype.to_viper_type(ctx));
+        let method_name = ctx.mangler.mangle_fn(&self.fname.label_to_viper());
+
+        let mut args = vec![];
+
+        for arg in self.args {
+            let arg = match arg.shape(ctx) {
+                Shape::Simple => arg.to_viper(ctx),
+                Shape::Nested(_) => {
+                    let fresh = ast.new_var(&ctx.fresh_var(), arg.shape(ctx).to_viper_type(ctx));
+                    let arg_len = arg.shape(ctx).len();
+                    let viper_arg = arg.to_viper(ctx);
+                    let copy_arg = ctx.iarray.create_slice_m(
+                        viper_arg,
+                        ast.int_lit(0),
+                        ast.int_lit(arg_len as i64),
+                        fresh.1,
+                    );
+                    ctx.declarations.push(fresh.0);
+                    ctx.stack.push(copy_arg);
+                    fresh.1
+                }
+            };
+            args.push(arg);
+        }
+        args.insert(0, ctx.heap_var().1);
+
+        let call = ast.method_call(&method_name, &args, &[ret.1]);
+        ctx.declarations.push(ret.0);
+        ctx.stack.push(call);
+        ret.1
+    }
+}
+
 impl<'a> ToViper<'a> for ir::HeapAccess {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
@@ -362,7 +400,7 @@ impl<'a> ToViper<'a> for ir::Expr {
             UnOp(op) => op.to_viper(ctx),
             BinOp(op) => op.to_viper(ctx),
             FunctionCall(call) => call.to_viper(ctx),
-            MethodCall(_) => panic!("Should only be possible as part of a DecCall"),
+            MethodCall(call) => call.to_viper(ctx),
             Shift(shift) => shift.to_viper(ctx),
             Load(load) => load.to_viper(ctx),
             LoadByte(load) => load.to_viper(ctx),
@@ -403,5 +441,12 @@ impl<'a> ToViper<'a> for Vec<ir::Expr> {
         self.into_iter()
             .map(|a| a.to_viper(ctx))
             .collect::<Vec<_>>()
+    }
+}
+
+impl<'a, const T: usize> ToViper<'a> for [ir::Expr; T] {
+    type Output = [viper::Expr<'a>; T];
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+        self.map(|e| e.to_viper(ctx))
     }
 }

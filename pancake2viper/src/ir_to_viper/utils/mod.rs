@@ -1,3 +1,4 @@
+mod auto;
 mod context;
 mod mangler;
 
