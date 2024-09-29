@@ -67,17 +67,17 @@ jobs:
         echo "VIPER_HOME=${VIPER_INSTALL}/backends" >> $GITHUB_ENV
         echo "Z3_EXE=${VIPER_INSTALL}/z3/bin/z3" >> $GITHUB_ENV
       
-      - name: Download and extract CakeML
-        run: |
-          curl -L -o cake-x64-64.tar.gz "https://cakeml.org/regression/artefacts/$(cat cake-toolchain)/cake-x64-64.tar.gz"
-          tar -xvzf cake-x64-64.tar.gz
+    - name: Download and extract CakeML
+      run: |
+        curl -L -o cake-x64-64.tar.gz "https://cakeml.org/regression/artefacts/$(cat cake-toolchain)/cake-x64-64.tar.gz"
+        tar -xvzf cake-x64-64.tar.gz
 
-      - name: Build CakeML compiler
-        run: make -C cake-x64-64
+    - name: Build CakeML compiler
+      run: make -C cake-x64-64
 
-      - name: Set CAKE_ML environment variables
-        run: |
-          echo "CAKE_ML=${CAKE_ML_INSTALL}/cake" >> $GITHUB_ENV
+    - name: Set CAKE_ML environment variables
+      run: |
+        echo "CAKE_ML=${CAKE_ML_INSTALL}/cake" >> $GITHUB_ENV
 
     - name: Build
       run: cargo build --release --verbose
