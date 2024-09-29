@@ -58,12 +58,17 @@ expr = !{ prefix? ~ primary ~ postfix? ~ (infix ~ prefix? ~ primary ~ postfix?)*
         f_call = {ident ~ "(" ~ (expr ~ ("," ~ expr)* | "") ~ ")" }
         heap = { "heap[" ~ expr ~ "]" }
 
-top_keywords = _{ pre | post | invariant | assertion | inhale | exhale }
-    pre = { "requires" }
-    post = { "ensures" }
-    invariant = { "invariant" }
-    assertion = { "assert" }
-    inhale = { "inhale" }
-    exhale = { "exhale" }
 
-top = {"@"? ~ WHITESPACE* ~ top_keywords ~ expr ~ WHITESPACE* ~ "@"? }
+annotation = {"@"? ~ WHITESPACE* ~ annotation_keyword ~ expr ~ WHITESPACE* ~ "@"? }
+    annotation_keyword = _{ pre | post | invariant | assertion | inhale | exhale }
+        pre = { "requires" }
+        post = { "ensures" }
+        invariant = { "invariant" }
+        assertion = { "assert" }
+        inhale = { "inhale" }
+        exhale = { "exhale" }
+
+// TODO: change "/*" ~ "@" to "/*@" when Pancake parsing fixed
+predicate = { "/*" ~ "@" ~ "predicate" ~ ident ~ "(" ~ pred_args ~ ")" ~ pred_body ~ "@"? ~ "*/" }
+    pred_args = { (decl ~ ("," ~ decl)*) | "" }
+    pred_body = { ("{" ~ expr ~ "}") | "" }

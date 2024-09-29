@@ -1,4 +1,4 @@
-use super::Stmt;
+use super::{Decl, Expr, Stmt};
 use crate::{ir_to_viper::ViperEncodeCtx, shape::Shape, ToShape};
 
 #[derive(Debug, Clone)]
@@ -24,6 +24,14 @@ pub struct Arg {
 }
 
 #[derive(Debug, Clone)]
+pub struct Predicate {
+    pub name: String,
+    pub args: Vec<Decl>,
+    pub body: Option<Expr>,
+}
+
+#[derive(Debug, Clone)]
 pub struct Program {
     pub functions: Vec<FnDec>,
+    pub predicates: Vec<Predicate>,
 }

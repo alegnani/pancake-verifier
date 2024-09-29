@@ -75,6 +75,18 @@ impl<'a> ToViper<'a> for FnDec {
     }
 }
 
+impl<'a> ToViper<'a> for Predicate {
+    type Output = viper::Predicate<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+        let ast = ctx.ast;
+        ast.predicate(
+            &self.name,
+            &self.args.to_viper(ctx),
+            self.body.map(|e| e.to_viper(ctx)),
+        )
+    }
+}
+
 impl<'a> ProgramToViper<'a> for Program {
     fn to_viper(self, ast: AstFactory<'a>, options: EncodeOptions) -> viper::Program<'a> {
         let program_methods = self
@@ -85,8 +97,17 @@ impl<'a> ProgramToViper<'a> for Program {
                 f.to_viper(&mut ctx)
             })
             .collect::<Vec<_>>();
+        let predicates = self
+            .predicates
+            .into_iter()
+            .map(|p| {
+                let mut ctx = ViperEncodeCtx::new(p.name.clone(), ast, options);
+                ctx.set_mode(super::TranslationMode::PrePost);
+                p.to_viper(&mut ctx)
+            })
+            .collect::<Vec<_>>();
         let (domains, fields, mut methods) = create_viper_prelude(ast);
         methods.extend(program_methods.iter());
-        ast.program(&domains, &fields, &[], &[], &methods)
+        ast.program(&domains, &fields, &[], &predicates, &methods)
     }
 }

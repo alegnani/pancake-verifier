@@ -25,7 +25,7 @@ lazy_static::lazy_static! {
 }
 
 pub fn parse_annot(annot: &str) -> Annotation {
-    match AnnotParser::parse(Rule::top, annot) {
+    match AnnotParser::parse(Rule::annotation, annot) {
         Ok(mut pairs) => {
             let mut pair = pairs.next().unwrap().into_inner();
             let typ = pair.next().unwrap();
@@ -34,6 +34,29 @@ pub fn parse_annot(annot: &str) -> Annotation {
                 typ: AnnotationType::from_pest(typ),
                 expr: parse_expr(Pairs::single(expr)),
             }
+        }
+        Err(e) => panic!("{:?}", e),
+    }
+}
+
+pub fn parse_predicate(pred: &str) -> Predicate {
+    match AnnotParser::parse(Rule::predicate, pred) {
+        Ok(mut pairs) => {
+            let mut pair = pairs.next().unwrap().into_inner();
+            let name = pair.next().unwrap().as_str().to_owned();
+            let args = pair
+                .next()
+                .unwrap()
+                .into_inner()
+                .map(Decl::from_pest)
+                .collect();
+            let body = pair.next().unwrap().into_inner();
+            let body = if body.len() == 0 {
+                None
+            } else {
+                Some(parse_expr(body))
+            };
+            Predicate { name, args, body }
         }
         Err(e) => panic!("{:?}", e),
     }
