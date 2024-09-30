@@ -81,11 +81,10 @@ impl<'a> ToViper<'a> for Predicate {
     type Output = viper::Predicate<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
-        ast.predicate(
-            &self.name,
-            &self.args.to_viper(ctx),
-            self.body.map(|e| e.to_viper(ctx)),
-        )
+        let mut args = self.args.to_viper(ctx);
+        let body = self.body.map(|e| e.to_viper(ctx));
+        args.insert(0, ctx.heap_var().0);
+        ast.predicate(&self.name, &args, body)
     }
 }
 

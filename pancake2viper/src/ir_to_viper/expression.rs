@@ -279,13 +279,14 @@ impl<'a> ToViper<'a> for ir::FunctionCall {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
-        let args = self.args.to_viper(ctx);
+        let mut args = self.args.to_viper(ctx);
         match self.fname.as_str() {
             "alen" => {
                 let arr = args[0];
                 ctx.iarray.len_f(arr)
             }
             pred if ctx.is_predicate(pred) => {
+                args.insert(0, ctx.heap_var().1);
                 ast.predicate_access_predicate(ast.predicate_access(&args, pred), ast.full_perm())
             }
             // FIXME: return type

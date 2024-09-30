@@ -201,8 +201,10 @@ impl<'a> ToViper<'a> for ir::Annotation {
                         Fold => ast.fold(e),
                         _ => unreachable!(),
                     };
+                    let mut args = access.args.to_viper(ctx);
+                    args.insert(0, ctx.heap_var().1);
                     ast_node(ast.predicate_access_predicate(
-                        ast.predicate_access(&access.args.to_viper(ctx), &access.fname),
+                        ast.predicate_access(&args, &access.fname),
                         ast.full_perm(),
                     ))
                 }
