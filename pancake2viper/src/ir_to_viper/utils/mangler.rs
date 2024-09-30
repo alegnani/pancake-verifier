@@ -88,6 +88,9 @@ impl Mangler {
     }
 
     pub fn mangle_var<'a>(&'a self, var: &'a str) -> &'a str {
+        if RESERVED.contains(var) {
+            return var;
+        }
         if let TranslationMode::PrePost = self.mode {
             if let Some(ret) = self.args.get(var) {
                 return ret;
@@ -95,9 +98,6 @@ impl Mangler {
         }
 
         if let TranslationMode::PrePost | TranslationMode::Assertion = self.mode {
-            if RESERVED.contains(var) {
-                return var;
-            }
             if let Some(ret) = self.annot_vars.get(var) {
                 return ret;
             }
