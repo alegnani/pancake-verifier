@@ -201,7 +201,10 @@ impl<'a> ToViper<'a> for ir::Annotation {
                         Fold => ast.fold(e),
                         _ => unreachable!(),
                     };
-                    ast_node(ast.predicate_access(&access.args.to_viper(ctx), &access.fname))
+                    ast_node(ast.predicate_access_predicate(
+                        ast.predicate_access(&access.args.to_viper(ctx), &access.fname),
+                        ast.full_perm(),
+                    ))
                 }
                 _ => panic!(
                     "Invalid Fold/Unfold. Expected predicate access, got {:?}",
