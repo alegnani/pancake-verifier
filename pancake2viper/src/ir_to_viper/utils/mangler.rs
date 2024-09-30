@@ -89,15 +89,15 @@ impl Mangler {
 
     pub fn mangle_var<'a>(&'a self, var: &'a str) -> &'a str {
         if let TranslationMode::PrePost = self.mode {
-            if RESERVED.contains(var) {
-                return var;
-            }
             if let Some(ret) = self.args.get(var) {
                 return ret;
             }
         }
 
         if let TranslationMode::PrePost | TranslationMode::Assertion = self.mode {
+            if RESERVED.contains(var) {
+                return var;
+            }
             if let Some(ret) = self.annot_vars.get(var) {
                 return ret;
             }
