@@ -1,6 +1,11 @@
+/* @ 
+    predicate full_acc(a: IArray) {
+        forall j: Int :: 0 <= j && j < alen(a) ==> acc(a[j])
+    } 
+@*/
 /* @ predicate P(a: Int) { a == 0 } @*/
 fun main(2 x) {
-    // /*@ fold full_acc(x) @*/
+    /*@ fold full_acc(x) @*/
     var y = 0;
     /*@ assert y == 0 @*/
     /*@ fold P(y) @*/
