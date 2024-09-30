@@ -1,9 +1,0 @@
-/* @ 
-    predicate full_access(a: IArray) {
-        forall j: Int :: 0 <= j && j < alen(a) ==> acc(a[j])
-    } 
-@*/
-fun main(2 x) {
-    /*@ fold full_access(x) @*/
-    return 0;
-}
