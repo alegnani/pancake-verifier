@@ -237,11 +237,21 @@ impl<'a> ToViperType<'a> for ir::Type {
     }
 }
 
+impl<'a> ToShape<'a> for ir::Type {
+    fn shape(&self, _ctx: &ViperEncodeCtx<'a>) -> Shape {
+        use ir::Type::*;
+        match self {
+            Bool | Int => Shape::Simple,
+            IArray => Shape::Nested(vec![]),
+        }
+    }
+}
+
 impl<'a> ToViper<'a> for ir::Decl {
     type Output = viper::LocalVarDecl<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
-        ctx.set_type(self.name.clone(), Shape::Simple);
+        ctx.set_type(self.name.clone(), self.typ.shape(ctx));
         ctx.mangler.new_annot_var(self.name.clone());
         ast.local_var_decl(&self.name, self.typ.to_viper_type(ctx))
     }
@@ -323,12 +333,12 @@ impl<'a> ToViper<'a> for ir::MethodCall {
     }
 }
 
-impl<'a> ToViper<'a> for ir::HeapAccess {
+impl<'a> ToViper<'a> for ir::ArrayAccess {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+        let obj = self.obj.to_viper(ctx);
         let idx = self.idx.to_viper(ctx);
-        let heap = ctx.heap_var().1;
-        ctx.iarray.access(heap, idx)
+        ctx.iarray.access(obj, idx)
     }
 }
 
@@ -409,7 +419,7 @@ impl<'a> ToViper<'a> for ir::Expr {
             BytesInWord => ast.int_lit(64), // TODO: change this to actual word size
             Struct(struc) => struc.to_viper(ctx),
             Quantified(quant) => quant.to_viper(ctx),
-            HeapAccess(heap) => heap.to_viper(ctx),
+            ArrayAccess(heap) => heap.to_viper(ctx),
             AccessPredicate(acc) => acc.to_viper(ctx),
             FieldAccessChain(f) => f.to_viper(ctx),
         }
@@ -421,9 +431,8 @@ impl<'a> ToShape<'a> for ir::Expr {
         use ir::Expr::*;
         match self {
             Const(_) | UnOp(_) | BinOp(_) | Shift(_) | LoadByte(_) | Quantified(_)
-            | HeapAccess(_) | AccessPredicate(_) | FieldAccessChain(_) | BaseAddr | BytesInWord => {
-                Shape::Simple
-            }
+            | ArrayAccess(_) | AccessPredicate(_) | FieldAccessChain(_) | BaseAddr
+            | BytesInWord => Shape::Simple,
             Var(var) => ctx.get_type(var),
             MethodCall(call) => call.rettype.clone(),
             FunctionCall(call) => todo!(),

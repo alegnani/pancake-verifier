@@ -21,6 +21,7 @@ lazy_static::lazy_static! {
             .op(Op::infix(Rule::mul, Left) | Op::infix(Rule::div, Left))
             .op(Op::prefix(Rule::neg) | Op::prefix(Rule::minus))
             .op(Op::postfix(Rule::field_acc))
+            .op(Op::postfix(Rule::arr_acc))
     };
 }
 
@@ -70,7 +71,6 @@ pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
             Rule::expr => parse_expr(primary.into_inner()),
             Rule::ident => Expr::Var(primary.as_str().to_owned()),
             Rule::f_call => Expr::FunctionCall(FunctionCall::from_pest(primary)),
-            Rule::heap => Expr::HeapAccess(HeapAccess::from_pest(primary)),
             Rule::acc_pred => Expr::AccessPredicate(AccessPredicate::from_pest(primary)),
             x => panic!("primary: {:?}", x),
         })
@@ -94,6 +94,10 @@ pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
                     .into_inner()
                     .map(|i| i.as_str().parse().unwrap())
                     .collect(),
+            }),
+            Rule::arr_acc => Expr::ArrayAccess(ArrayAccess {
+                obj: Box::new(lhs),
+                idx: Box::new(parse_expr(op.into_inner())),
             }),
             _ => panic!("Failed to parse postfix, got `{:?}`", op.into_inner()),
         })
@@ -260,9 +264,10 @@ impl FromPestPair for FunctionCall {
     }
 }
 
-impl FromPestPair for HeapAccess {
+impl FromPestPair for ArrayAccess {
     fn from_pest(pair: Pair<'_, Rule>) -> Self {
         Self {
+            obj: panic!("{:?}", pair),
             idx: Box::new(parse_expr(pair.into_inner())),
         }
     }

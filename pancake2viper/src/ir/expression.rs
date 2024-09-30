@@ -19,7 +19,7 @@ pub enum Expr {
     MethodCall(MethodCall),
     FunctionCall(FunctionCall),
     Quantified(Quantified),
-    HeapAccess(HeapAccess),
+    ArrayAccess(ArrayAccess),
     AccessPredicate(AccessPredicate),
     FieldAccessChain(FieldAccessChain),
 }
@@ -159,7 +159,8 @@ pub struct Quantified {
 }
 
 #[derive(Debug, Clone)]
-pub struct HeapAccess {
+pub struct ArrayAccess {
+    pub obj: Box<Expr>,
     pub idx: Box<Expr>,
 }
 
