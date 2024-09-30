@@ -22,6 +22,7 @@ pub enum Expr {
     ArrayAccess(ArrayAccess),
     AccessPredicate(AccessPredicate),
     FieldAccessChain(FieldAccessChain),
+    UnfoldingIn(UnfoldingIn),
 }
 
 #[derive(Debug, Clone)]
@@ -168,4 +169,10 @@ pub struct ArrayAccess {
 pub struct FieldAccessChain {
     pub obj: Box<Expr>,
     pub idxs: Vec<usize>,
+}
+
+#[derive(Debug, Clone)]
+pub struct UnfoldingIn {
+    pub pred: Box<Expr>,
+    pub expr: Box<Expr>,
 }

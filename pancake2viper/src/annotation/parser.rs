@@ -72,7 +72,8 @@ pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
             Rule::ident => Expr::Var(primary.as_str().to_owned()),
             Rule::f_call => Expr::FunctionCall(FunctionCall::from_pest(primary)),
             Rule::acc_pred => Expr::AccessPredicate(AccessPredicate::from_pest(primary)),
-            x => panic!("primary: {:?}", x),
+            Rule::unfolding => Expr::UnfoldingIn(UnfoldingIn::from_pest(primary)),
+            x => panic!("Unexpected annotation parsing rule: {:?}", x),
         })
         .map_prefix(|op, rhs| {
             Expr::UnOp(UnOp {
@@ -264,11 +265,14 @@ impl FromPestPair for FunctionCall {
     }
 }
 
-impl FromPestPair for ArrayAccess {
+impl FromPestPair for UnfoldingIn {
     fn from_pest(pair: Pair<'_, Rule>) -> Self {
+        let mut pairs = pair.into_inner();
+        let pred = FunctionCall::from_pest(pairs.next().unwrap());
+        let expr = parse_expr(Pairs::single(pairs.next().unwrap()));
         Self {
-            obj: panic!("{:?}", pair),
-            idx: Box::new(parse_expr(pair.into_inner())),
+            pred: Box::new(Expr::FunctionCall(pred)),
+            expr: Box::new(expr),
         }
     }
 }

@@ -41,7 +41,7 @@ expr = !{ prefix? ~ primary ~ postfix? ~ (infix ~ prefix? ~ primary ~ postfix?)*
             field_idx = !{ integer }
         arr_acc = @{ "[" ~ expr ~ "]" }
 
-    primary = _{ "(" ~ expr ~ ")" | int_lit | quantified | acc_pred | f_call | field_acc | ident }
+    primary = _{ "(" ~ expr ~ ")" | unfolding | int_lit | quantified | acc_pred | f_call | field_acc | ident }
 
         quantified = { (forall | exists) ~ decl ~ ("," ~ decl)* ~ "::" ~ triggers ~ expr }
             forall = { "forall" }
@@ -57,6 +57,7 @@ expr = !{ prefix? ~ primary ~ postfix? ~ (infix ~ prefix? ~ primary ~ postfix?)*
                 perm_var = { ident }
 
         f_call = {ident ~ "(" ~ (expr ~ ("," ~ expr)* | "") ~ ")" }
+        unfolding = { "unfolding" ~ f_call ~ "in" ~ expr }
 
 
 annotation = {"@"? ~ WHITESPACE* ~ annotation_keyword ~ expr ~ WHITESPACE* ~ "@"? }

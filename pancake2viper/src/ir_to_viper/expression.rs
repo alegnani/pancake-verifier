@@ -395,6 +395,14 @@ impl<'a> ToViper<'a> for ir::FieldAccessChain {
     }
 }
 
+impl<'a> ToViper<'a> for ir::UnfoldingIn {
+    type Output = viper::Expr<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+        let ast = ctx.ast;
+        ast.unfolding(self.pred.to_viper(ctx), self.expr.to_viper(ctx))
+    }
+}
+
 impl<'a> ToViper<'a> for ir::Expr {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
@@ -422,6 +430,7 @@ impl<'a> ToViper<'a> for ir::Expr {
             ArrayAccess(heap) => heap.to_viper(ctx),
             AccessPredicate(acc) => acc.to_viper(ctx),
             FieldAccessChain(f) => f.to_viper(ctx),
+            UnfoldingIn(u) => u.to_viper(ctx),
         }
     }
 }
@@ -440,6 +449,7 @@ impl<'a> ToShape<'a> for ir::Expr {
             Load(load) => load.shape.clone(),
             Field(field) => field.shape(ctx),
             Struct(struc) => struc.shape(ctx),
+            UnfoldingIn(unfold) => unfold.expr.shape(ctx),
         }
     }
 }

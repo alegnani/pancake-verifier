@@ -8,9 +8,9 @@ fun main() {
     /*@ requires unfolding IO() in heap[42] == 17 @*/
     /*@ ensures unfolding IO() in heap[42] == 1337 @*/
 
-    /*@ unfold IO(heap) @*/
+    /*@ unfold IO() @*/
     /*@ assert heap[42] == 17 @*/
     st @base + 42 * 8, 1337;
-    /*@ fold IO(heap) @*/
+    /*@ fold IO() @*/
     return 0;
 }
