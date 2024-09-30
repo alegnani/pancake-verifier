@@ -15,6 +15,12 @@ pub struct Arg {
 }
 
 #[derive(Debug, Clone)]
+pub struct Predicate {
+    pub text: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct Program {
     pub functions: Vec<FnDec>,
+    pub predicates: Vec<Predicate>,
 }

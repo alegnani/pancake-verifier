@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use viper::{AstFactory, Declaration, LocalVarDecl};
 
@@ -47,6 +47,7 @@ pub struct ViperEncodeCtx<'a> {
     pub pres: Vec<viper::Expr<'a>>,
     pub posts: Vec<viper::Expr<'a>>,
     pub invariants: Vec<viper::Expr<'a>>,
+    predicates: HashSet<String>,
 }
 
 #[derive(Clone, Copy)]
@@ -65,7 +66,12 @@ impl Default for EncodeOptions {
 }
 
 impl<'a> ViperEncodeCtx<'a> {
-    pub fn new(fname: String, ast: AstFactory<'a>, options: EncodeOptions) -> Self {
+    pub fn new(
+        fname: String,
+        predicates: HashSet<String>,
+        ast: AstFactory<'a>,
+        options: EncodeOptions,
+    ) -> Self {
         let mut type_map = HashMap::new();
         for &keyword in RESERVED.iter() {
             type_map.insert(keyword.into(), Shape::Simple);
@@ -84,6 +90,7 @@ impl<'a> ViperEncodeCtx<'a> {
             pres: vec![],
             posts: vec![],
             invariants: vec![],
+            predicates,
         }
     }
 
@@ -101,6 +108,7 @@ impl<'a> ViperEncodeCtx<'a> {
             pres: self.pres.clone(),
             posts: self.posts.clone(),
             invariants: self.invariants.clone(),
+            predicates: self.predicates.clone(),
         }
     }
 
@@ -173,5 +181,9 @@ impl<'a> ViperEncodeCtx<'a> {
 
     pub fn get_mode(&self) -> TranslationMode {
         self.mode
+    }
+
+    pub fn is_predicate(&self, ident: &str) -> bool {
+        self.predicates.contains(ident)
     }
 }

@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use regex::Regex;
 use sexpr_parser::{Parser, SexprFactory};
 use std::{
     fs,
@@ -437,6 +438,7 @@ impl Program {
     }
 
     pub fn parse_str(s: String, cake_path: &str) -> anyhow::Result<Self> {
+        let predicates = Self::get_predicates(&s);
         let functions = get_sexprs(s, cake_path)?
             .iter()
             .map(|s| {
@@ -446,7 +448,21 @@ impl Program {
                     .and_then(FnDec::parse)
             })
             .collect::<anyhow::Result<_>>()?;
-        Ok(pancake::Program { functions })
+        Ok(pancake::Program {
+            functions,
+            predicates,
+        })
+    }
+
+    fn get_predicates(s: &str) -> Vec<Predicate> {
+        let re = Regex::new(r"(?s)/\* ?@\s*predicate\s*(.*?)\s*(?:@\*/|\*/)").unwrap();
+        // TODO: change this back after parsing error in Pancake is fixed
+        // let re = Regex::new(r"(?s)/\*@\s*predicate\s*(.*?)\s*(?:@\*/|\*/)").unwrap();
+        re.captures_iter(s)
+            .map(|capt| Predicate {
+                text: capt.get(0).unwrap().as_str().to_owned(),
+            })
+            .collect()
     }
 }
 

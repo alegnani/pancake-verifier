@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use viper::{AstFactory, Declaration};
 
 use crate::{
@@ -75,18 +77,42 @@ impl<'a> ToViper<'a> for FnDec {
     }
 }
 
+impl<'a> ToViper<'a> for Predicate {
+    type Output = viper::Predicate<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+        let ast = ctx.ast;
+        let mut args = self.args.to_viper(ctx);
+        let body = self.body.map(|e| e.to_viper(ctx));
+        args.insert(0, ctx.heap_var().0);
+        ast.predicate(&self.name, &args, body)
+    }
+}
+
 impl<'a> ProgramToViper<'a> for Program {
     fn to_viper(self, ast: AstFactory<'a>, options: EncodeOptions) -> viper::Program<'a> {
+        let (predicates, predicate_names): (Vec<_>, HashSet<_>) = self
+            .predicates
+            .into_iter()
+            .map(|p| {
+                let pred_name = p.name.clone();
+                let mut ctx = ViperEncodeCtx::new(pred_name.clone(), HashSet::new(), ast, options);
+                ctx.set_mode(super::TranslationMode::PrePost);
+
+                (p.to_viper(&mut ctx), pred_name)
+            })
+            .unzip();
+
         let program_methods = self
             .functions
             .into_iter()
             .map(|f| {
-                let mut ctx = ViperEncodeCtx::new(f.fname.clone(), ast, options);
+                let mut ctx =
+                    ViperEncodeCtx::new(f.fname.clone(), predicate_names.clone(), ast, options);
                 f.to_viper(&mut ctx)
             })
             .collect::<Vec<_>>();
         let (domains, fields, mut methods) = create_viper_prelude(ast);
         methods.extend(program_methods.iter());
-        ast.program(&domains, &fields, &[], &[], &methods)
+        ast.program(&domains, &fields, &[], &predicates, &methods)
     }
 }

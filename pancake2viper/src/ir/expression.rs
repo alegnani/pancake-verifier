@@ -19,9 +19,10 @@ pub enum Expr {
     MethodCall(MethodCall),
     FunctionCall(FunctionCall),
     Quantified(Quantified),
-    HeapAccess(HeapAccess),
+    ArrayAccess(ArrayAccess),
     AccessPredicate(AccessPredicate),
     FieldAccessChain(FieldAccessChain),
+    UnfoldingIn(UnfoldingIn),
 }
 
 #[derive(Debug, Clone)]
@@ -139,7 +140,7 @@ pub enum Type {
 }
 
 #[derive(Debug, Clone)]
-pub struct QuantifiedDecl {
+pub struct Decl {
     pub name: String,
     pub typ: Type,
 }
@@ -153,13 +154,14 @@ pub enum Quantifier {
 #[derive(Debug, Clone)]
 pub struct Quantified {
     pub quantifier: Quantifier,
-    pub decls: Vec<QuantifiedDecl>,
+    pub decls: Vec<Decl>,
     pub triggers: Vec<Expr>,
     pub body: Box<Expr>,
 }
 
 #[derive(Debug, Clone)]
-pub struct HeapAccess {
+pub struct ArrayAccess {
+    pub obj: Box<Expr>,
     pub idx: Box<Expr>,
 }
 
@@ -167,4 +169,10 @@ pub struct HeapAccess {
 pub struct FieldAccessChain {
     pub obj: Box<Expr>,
     pub idxs: Vec<usize>,
+}
+
+#[derive(Debug, Clone)]
+pub struct UnfoldingIn {
+    pub pred: Box<Expr>,
+    pub expr: Box<Expr>,
 }

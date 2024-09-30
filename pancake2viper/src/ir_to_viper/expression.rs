@@ -237,12 +237,22 @@ impl<'a> ToViperType<'a> for ir::Type {
     }
 }
 
-impl<'a> ToViper<'a> for ir::QuantifiedDecl {
+impl<'a> ToShape<'a> for ir::Type {
+    fn shape(&self, _ctx: &ViperEncodeCtx<'a>) -> Shape {
+        use ir::Type::*;
+        match self {
+            Bool | Int => Shape::Simple,
+            IArray => Shape::Nested(vec![]),
+        }
+    }
+}
+
+impl<'a> ToViper<'a> for ir::Decl {
     type Output = viper::LocalVarDecl<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
-        ctx.set_type(self.name.clone(), Shape::Simple);
-        ctx.mangler.insert_annot_var(self.name.clone());
+        ctx.set_type(self.name.clone(), self.typ.shape(ctx));
+        ctx.mangler.new_annot_var(self.name.clone());
         ast.local_var_decl(&self.name, self.typ.to_viper_type(ctx))
     }
 }
@@ -269,18 +279,18 @@ impl<'a> ToViper<'a> for ir::FunctionCall {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
-        // FIXME: return type
+        let mut args = self.args.to_viper(ctx);
         match self.fname.as_str() {
             "alen" => {
-                let arr = self.args[0].clone().to_viper(ctx);
+                let arr = args[0];
                 ctx.iarray.len_f(arr)
             }
-            fname => ast.func_app(
-                fname,
-                &self.args.to_viper(ctx),
-                ast.int_type(),
-                ast.no_position(),
-            ),
+            pred if ctx.is_predicate(pred) => {
+                args.insert(0, ctx.heap_var().1);
+                ast.predicate_access_predicate(ast.predicate_access(&args, pred), ast.full_perm())
+            }
+            // FIXME: return type
+            fname => ast.func_app(fname, &args, ast.int_type(), ast.no_position()),
         }
     }
 }
@@ -323,12 +333,12 @@ impl<'a> ToViper<'a> for ir::MethodCall {
     }
 }
 
-impl<'a> ToViper<'a> for ir::HeapAccess {
+impl<'a> ToViper<'a> for ir::ArrayAccess {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+        let obj = self.obj.to_viper(ctx);
         let idx = self.idx.to_viper(ctx);
-        let heap = ctx.heap_var().1;
-        ctx.iarray.access(heap, idx)
+        ctx.iarray.access(obj, idx)
     }
 }
 
@@ -385,6 +395,14 @@ impl<'a> ToViper<'a> for ir::FieldAccessChain {
     }
 }
 
+impl<'a> ToViper<'a> for ir::UnfoldingIn {
+    type Output = viper::Expr<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+        let ast = ctx.ast;
+        ast.unfolding(self.pred.to_viper(ctx), self.expr.to_viper(ctx))
+    }
+}
+
 impl<'a> ToViper<'a> for ir::Expr {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
@@ -409,9 +427,10 @@ impl<'a> ToViper<'a> for ir::Expr {
             BytesInWord => ast.int_lit(64), // TODO: change this to actual word size
             Struct(struc) => struc.to_viper(ctx),
             Quantified(quant) => quant.to_viper(ctx),
-            HeapAccess(heap) => heap.to_viper(ctx),
+            ArrayAccess(heap) => heap.to_viper(ctx),
             AccessPredicate(acc) => acc.to_viper(ctx),
             FieldAccessChain(f) => f.to_viper(ctx),
+            UnfoldingIn(u) => u.to_viper(ctx),
         }
     }
 }
@@ -421,9 +440,8 @@ impl<'a> ToShape<'a> for ir::Expr {
         use ir::Expr::*;
         match self {
             Const(_) | UnOp(_) | BinOp(_) | Shift(_) | LoadByte(_) | Quantified(_)
-            | HeapAccess(_) | AccessPredicate(_) | FieldAccessChain(_) | BaseAddr | BytesInWord => {
-                Shape::Simple
-            }
+            | ArrayAccess(_) | AccessPredicate(_) | FieldAccessChain(_) | BaseAddr
+            | BytesInWord => Shape::Simple,
             Var(var) => ctx.get_type(var),
             MethodCall(call) => call.rettype.clone(),
             FunctionCall(call) => todo!(),
@@ -431,22 +449,7 @@ impl<'a> ToShape<'a> for ir::Expr {
             Load(load) => load.shape.clone(),
             Field(field) => field.shape(ctx),
             Struct(struc) => struc.shape(ctx),
+            UnfoldingIn(unfold) => unfold.expr.shape(ctx),
         }
-    }
-}
-
-impl<'a> ToViper<'a> for Vec<ir::Expr> {
-    type Output = Vec<viper::Expr<'a>>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
-        self.into_iter()
-            .map(|a| a.to_viper(ctx))
-            .collect::<Vec<_>>()
-    }
-}
-
-impl<'a, const T: usize> ToViper<'a> for [ir::Expr; T] {
-    type Output = [viper::Expr<'a>; T];
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
-        self.map(|e| e.to_viper(ctx))
     }
 }

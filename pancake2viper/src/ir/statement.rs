@@ -126,6 +126,8 @@ pub enum AnnotationType {
     Invariant,
     Inhale,
     Exhale,
+    Fold,
+    Unfold,
 }
 
 #[derive(Debug, Clone)]

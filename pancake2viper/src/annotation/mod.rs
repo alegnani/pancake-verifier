@@ -2,4 +2,4 @@ mod parser;
 #[cfg(test)]
 mod tests;
 
-pub use parser::parse_annot;
+pub use parser::{parse_annot, parse_predicate};

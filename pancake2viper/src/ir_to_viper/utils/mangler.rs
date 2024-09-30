@@ -57,7 +57,7 @@ impl Mangler {
         mangled
     }
 
-    pub fn insert_annot_var(&mut self, var: String) {
+    pub fn new_annot_var(&mut self, var: String) {
         assert!(
             self.annot_vars.insert(var.clone()),
             "Duplicated variable in annotation: '{}'\n{:?}",
@@ -88,10 +88,10 @@ impl Mangler {
     }
 
     pub fn mangle_var<'a>(&'a self, var: &'a str) -> &'a str {
+        if RESERVED.contains(var) {
+            return var;
+        }
         if let TranslationMode::PrePost = self.mode {
-            if RESERVED.contains(var) {
-                return var;
-            }
             if let Some(ret) = self.args.get(var) {
                 return ret;
             }

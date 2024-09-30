@@ -21,11 +21,12 @@ lazy_static::lazy_static! {
             .op(Op::infix(Rule::mul, Left) | Op::infix(Rule::div, Left))
             .op(Op::prefix(Rule::neg) | Op::prefix(Rule::minus))
             .op(Op::postfix(Rule::field_acc))
+            .op(Op::postfix(Rule::arr_acc))
     };
 }
 
 pub fn parse_annot(annot: &str) -> Annotation {
-    match AnnotParser::parse(Rule::top, annot) {
+    match AnnotParser::parse(Rule::annotation, annot) {
         Ok(mut pairs) => {
             let mut pair = pairs.next().unwrap().into_inner();
             let typ = pair.next().unwrap();
@@ -39,6 +40,29 @@ pub fn parse_annot(annot: &str) -> Annotation {
     }
 }
 
+pub fn parse_predicate(pred: &str) -> Predicate {
+    match AnnotParser::parse(Rule::predicate, pred) {
+        Ok(mut pairs) => {
+            let mut pair = pairs.next().unwrap().into_inner();
+            let name = pair.next().unwrap().as_str().to_owned();
+            let args = pair
+                .next()
+                .unwrap()
+                .into_inner()
+                .map(Decl::from_pest)
+                .collect();
+            let body = pair.next().unwrap().into_inner();
+            let body = if body.len() == 0 {
+                None
+            } else {
+                Some(parse_expr(body))
+            };
+            Predicate { name, args, body }
+        }
+        Err(e) => panic!("{:?}", e),
+    }
+}
+
 pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
     PRATT_PARSER
         .map_primary(|primary| match primary.as_rule() {
@@ -47,9 +71,9 @@ pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
             Rule::expr => parse_expr(primary.into_inner()),
             Rule::ident => Expr::Var(primary.as_str().to_owned()),
             Rule::f_call => Expr::FunctionCall(FunctionCall::from_pest(primary)),
-            Rule::heap => Expr::HeapAccess(HeapAccess::from_pest(primary)),
             Rule::acc_pred => Expr::AccessPredicate(AccessPredicate::from_pest(primary)),
-            x => panic!("primary: {:?}", x),
+            Rule::unfolding => Expr::UnfoldingIn(UnfoldingIn::from_pest(primary)),
+            x => panic!("Unexpected annotation parsing rule: {:?}", x),
         })
         .map_prefix(|op, rhs| {
             Expr::UnOp(UnOp {
@@ -72,6 +96,10 @@ pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
                     .map(|i| i.as_str().parse().unwrap())
                     .collect(),
             }),
+            Rule::arr_acc => Expr::ArrayAccess(ArrayAccess {
+                obj: Box::new(lhs),
+                idx: Box::new(parse_expr(op.into_inner())),
+            }),
             _ => panic!("Failed to parse postfix, got `{:?}`", op.into_inner()),
         })
         .parse(pairs)
@@ -91,6 +119,8 @@ impl FromPestPair for AnnotationType {
             Rule::invariant => Self::Invariant,
             Rule::inhale => Self::Inhale,
             Rule::exhale => Self::Exhale,
+            Rule::fold => Self::Fold,
+            Rule::unfold => Self::Unfold,
             x => panic!("Failed to parse AnnotationType, got {:?}", x),
         }
     }
@@ -142,7 +172,7 @@ impl FromPestPair for Type {
     }
 }
 
-impl FromPestPair for QuantifiedDecl {
+impl FromPestPair for Decl {
     fn from_pest(pair: Pair<'_, Rule>) -> Self {
         match pair.as_rule() {
             Rule::decl => {
@@ -179,7 +209,7 @@ impl FromPestPair for Quantified {
         let decls = pairs
             .clone()
             .take(decl_amount)
-            .map(|d| QuantifiedDecl::from_pest(d))
+            .map(|d| Decl::from_pest(d))
             .collect();
         let mut pairs = pairs.skip(decl_amount);
         let triggers = pairs
@@ -235,10 +265,14 @@ impl FromPestPair for FunctionCall {
     }
 }
 
-impl FromPestPair for HeapAccess {
+impl FromPestPair for UnfoldingIn {
     fn from_pest(pair: Pair<'_, Rule>) -> Self {
+        let mut pairs = pair.into_inner();
+        let pred = FunctionCall::from_pest(pairs.next().unwrap());
+        let expr = parse_expr(Pairs::single(pairs.next().unwrap()));
         Self {
-            idx: Box::new(parse_expr(pair.into_inner())),
+            pred: Box::new(Expr::FunctionCall(pred)),
+            expr: Box::new(expr),
         }
     }
 }
