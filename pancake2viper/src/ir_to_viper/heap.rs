@@ -99,7 +99,7 @@ impl<'a> ToViper<'a> for ir::Store {
         };
 
         let word_addr = ast.div(addr_expr, eight);
-        let rhs_shape = self.value.shape(ctx);
+        let rhs_shape = self.value.to_shape(ctx);
         let rhs = self.value.to_viper(ctx);
 
         let store = if rhs_shape.is_simple() {

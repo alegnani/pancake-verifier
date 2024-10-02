@@ -9,7 +9,7 @@ pub struct FnDec {
 }
 
 impl<'a> ToShape<'a> for FnDec {
-    fn shape(&self, ctx: &ViperEncodeCtx<'a>) -> Shape {
+    fn to_shape(&self, ctx: &ViperEncodeCtx<'a>) -> Shape {
         // let shapes = FnDec::collect_returns(&self.body, ctx);
         // TODO: add check for types to be the same and non-empty
         // shapes[0].clone()

@@ -129,7 +129,7 @@ impl<'a> ToViper<'a> for ir::Definition {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
         let name = ctx.mangler.new_scoped_var(self.lhs);
-        let shape = self.rhs.shape(ctx);
+        let shape = self.rhs.to_shape(ctx);
         let var = ast.new_var(&name, shape.to_viper_type(ctx));
         ctx.declarations.push(var.0);
 
@@ -153,7 +153,7 @@ impl<'a> ToViper<'a> for ir::Assign {
         let ast = ctx.ast;
         let lhs_shape = ctx.get_type(&self.lhs);
         let name = ctx.mangler.mangle_var(&self.lhs);
-        assert_eq!(lhs_shape, self.rhs.shape(ctx));
+        assert_eq!(lhs_shape, self.rhs.to_shape(ctx));
         let var = ast.new_var(name, lhs_shape.to_viper_type(ctx));
 
         let ass = ast.local_var_assign(var.1, self.rhs.to_viper(ctx));

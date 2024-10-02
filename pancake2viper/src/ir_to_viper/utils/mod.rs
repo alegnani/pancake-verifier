@@ -1,6 +1,7 @@
 mod auto;
 mod context;
 mod mangler;
+mod to_shape;
 
 pub use context::*;
 pub use mangler::*;
