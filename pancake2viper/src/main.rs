@@ -18,14 +18,10 @@ fn main() -> anyhow::Result<()> {
         vec!["--logLevel=OFF".into()],
     );
 
-    let program = match options.input_path {
-        Some(path) => pancake::Program::parse_file(&path, &options.cake_path)?,
-        None => {
-            todo!()
-        }
-    };
+    let program_str = options.file.contents()?;
+    let program: pancake::Program = pancake::Program::parse_str(program_str, &options.cake_path)?;
     let program: ir::Program = program.into();
-    let program = program.to_viper(ast_factory, encode_options);
+    let program: viper::Program<'_> = program.to_viper(ast_factory, encode_options);
 
     let transpiled = ast_utils.pretty_print(program);
     if options.print_transpiled {
@@ -40,13 +36,13 @@ fn main() -> anyhow::Result<()> {
     if options.verify {
         use viper::VerificationResult::*;
         match verifier.verify(program) {
-            Success => println!("✔️Verification Successful✔️"),
+            Success => println!("️✅Verification Successful✅"),
             Failure(e) => {
-                let errors = e.iter().map(|e| format!("{:?}", e)).collect::<Vec<_>>();
-                println!("❌Verification Error❌\n{}", errors.join("\n"));
+                let errors = e.into_iter().map(|e| e.message).collect::<Vec<_>>();
+                println!("❌Verification Error❌\n\n{}", errors.join("\n\n"));
             }
-            ConsistencyErrors(e) => println!("❌Consistency Error❌\n{}", e.join("\n")),
-            JavaException(e) => println!("❌Java Exception❌\n{}", e),
+            ConsistencyErrors(e) => println!("❌Consistency Error❌\n\n{}", e.join("\n\n")),
+            JavaException(e) => println!("❌Java Exception❌\n\n{}", e),
         };
     }
 

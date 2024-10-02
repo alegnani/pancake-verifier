@@ -1,6 +1,7 @@
 use std::env;
 
 use clap::{Parser, ValueEnum};
+use clap_stdin::FileOrStdin;
 
 #[derive(Debug, Parser, Clone)]
 #[clap(version, about, rename_all = "kebab-case")]
@@ -38,8 +39,7 @@ pub struct CliOptions {
     )]
     pub viper_path: String,
 
-    #[arg(short, long, help = "Input Pancake file")]
-    pub input_path: Option<String>,
+    pub file: FileOrStdin<String>,
 
     #[arg(short, long, help = "Writes transpiled Viper to file")]
     pub output_path: Option<String>,
