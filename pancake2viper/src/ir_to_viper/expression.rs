@@ -424,7 +424,7 @@ impl<'a> ToViper<'a> for ir::Expr {
             LoadByte(load) => load.to_viper(ctx),
             Field(field) => field.to_viper(ctx),
             BaseAddr => ast.int_lit(0),
-            BytesInWord => ast.int_lit(64), // TODO: change this to actual word size
+            BytesInWord => ast.int_lit(ctx.options.word_size as i64 / 8),
             Struct(struc) => struc.to_viper(ctx),
             Quantified(quant) => quant.to_viper(ctx),
             ArrayAccess(heap) => heap.to_viper(ctx),
