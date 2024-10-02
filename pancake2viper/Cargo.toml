@@ -14,5 +14,6 @@ pest_derive = "2.7.11"
 regex = "1.10.6"
 sexpr_parser = "0.3.0"
 strum = { version = "0.26.3", features = ["derive"] }
+thiserror = "1.0.64"
 tracing = "0.1.40"
 viper = { path = "../prusti/viper" }
