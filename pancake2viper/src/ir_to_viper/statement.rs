@@ -222,8 +222,9 @@ impl<'a> ToViper<'a> for ir::Annotation {
                 ctx.mangler.clear_annot_var();
                 match x {
                     Assertion => ast.assert(body, no_pos),
-                    Inhale => ast.inhale(body, no_pos),
+                    Assumption | Inhale => ast.inhale(body, no_pos),
                     Exhale => ast.exhale(body, no_pos),
+                    Refutation => ast.refute(body, no_pos),
                     x @ (Invariant | Precondition | Postcondition) => {
                         match x {
                             Invariant => ctx.invariants.push(body),
