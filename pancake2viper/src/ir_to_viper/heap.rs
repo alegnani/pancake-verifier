@@ -1,21 +1,20 @@
 use viper::{BinOpBv, BvSize::BV64, UnOpBv};
 
-use crate::ir;
+use crate::{ir, ToViperError, TryToShape, TryToViper};
 
 use crate::shape::Shape;
 use crate::utils::ViperUtils;
-use crate::{ToShape, ToViper};
 
 use super::utils::ViperEncodeCtx;
 
-impl<'a> ToViper<'a> for ir::Load {
+impl<'a> TryToViper<'a> for ir::Load {
     type Output = viper::Expr<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let zero = ast.int_lit(0);
         let eight = ast.int_lit(8);
         let iarray = ctx.iarray;
-        let addr_exp = self.address.to_viper(ctx);
+        let addr_exp = self.address.to_viper(ctx)?;
         let word_addr = ast.div(addr_exp, eight);
 
         if self.assert && ctx.options.assert_aligned_accesses {
@@ -27,7 +26,7 @@ impl<'a> ToViper<'a> for ir::Load {
             ctx.stack.push(assertion);
         }
 
-        if self.shape.is_simple() {
+        Ok(if self.shape.is_simple() {
             iarray.access(ctx.heap_var().1, word_addr)
         } else {
             let fresh_str = ctx.fresh_var();
@@ -39,17 +38,17 @@ impl<'a> ToViper<'a> for ir::Load {
             ctx.declarations.push(fresh_decl);
             ctx.stack.push(slice);
             fresh
-        }
+        })
     }
 }
 
-impl<'a> ToViper<'a> for ir::LoadByte {
+impl<'a> TryToViper<'a> for ir::LoadByte {
     type Output = viper::Expr<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let eight = ast.int_lit(8);
 
-        let byte_address = self.address.clone().to_viper(ctx);
+        let byte_address = self.address.clone().to_viper(ctx)?;
         let word_offset = ast.module(byte_address, eight);
         let byte_mask = ast.backend_bv64_lit(255);
         let shift_amount = ast.int_to_backend_bv(BV64, ast.mul(eight, word_offset));
@@ -59,9 +58,9 @@ impl<'a> ToViper<'a> for ir::LoadByte {
             address: self.address,
             assert: false,
         })
-        .to_viper(ctx);
+        .to_viper(ctx)?;
 
-        ast.backend_bv_to_int(
+        Ok(ast.backend_bv_to_int(
             BV64,
             ast.bv_binop(
                 BinOpBv::BitAnd,
@@ -74,18 +73,18 @@ impl<'a> ToViper<'a> for ir::LoadByte {
                     shift_amount,
                 ),
             ),
-        )
+        ))
     }
 }
 
-impl<'a> ToViper<'a> for ir::Store {
+impl<'a> TryToViper<'a> for ir::Store {
     type Output = viper::Stmt<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let zero = ast.int_lit(0);
         let eight = ast.int_lit(8);
         let iarray = ctx.iarray;
-        let addr_expr = self.address.to_viper(ctx);
+        let addr_expr = self.address.to_viper(ctx)?;
 
         // FIXME: change this to match word size
         // assert addr % 8 == 0
@@ -99,8 +98,8 @@ impl<'a> ToViper<'a> for ir::Store {
         };
 
         let word_addr = ast.div(addr_expr, eight);
-        let rhs_shape = self.value.to_shape(ctx);
-        let rhs = self.value.to_viper(ctx);
+        let rhs_shape = self.value.to_shape(ctx)?;
+        let rhs = self.value.to_viper(ctx)?;
 
         let store = if rhs_shape.is_simple() {
             ast.field_assign(iarray.access(ctx.heap_var().1, word_addr), rhs)
@@ -114,14 +113,14 @@ impl<'a> ToViper<'a> for ir::Store {
             )
         };
 
-        ast.seqn(&[assertion, store], &[])
+        Ok(ast.seqn(&[assertion, store], &[]))
     }
 }
 
 // FIXME: change this to match word size
-impl<'a> ToViper<'a> for ir::StoreBits {
+impl<'a> TryToViper<'a> for ir::StoreBits {
     type Output = viper::Stmt<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let bits = self.size.bits();
         let ast = ctx.ast;
         let iarray = ctx.iarray;
@@ -132,7 +131,7 @@ impl<'a> ToViper<'a> for ir::StoreBits {
             ast.assert(
                 ast.eq_cmp(
                     ast.module(
-                        self.address.clone().to_viper(ctx),
+                        self.address.clone().to_viper(ctx)?,
                         ast.int_lit(bits as i64 / 8),
                     ),
                     zero,
@@ -143,7 +142,7 @@ impl<'a> ToViper<'a> for ir::StoreBits {
             ast.comment("skipping alignment assertion")
         };
 
-        let byte_address = self.address.to_viper(ctx);
+        let byte_address = self.address.to_viper(ctx)?;
         // TODO: this assumes that words are 64 bits (8 bytes)
         let word_offset = ast.module(byte_address, eight);
         let word_address = ast.sub(byte_address, word_offset);
@@ -155,7 +154,7 @@ impl<'a> ToViper<'a> for ir::StoreBits {
             BinOpBv::BitAnd,
             BV64,
             bit_mask,
-            ast.int_to_backend_bv(BV64, self.value.to_viper(ctx)),
+            ast.int_to_backend_bv(BV64, self.value.to_viper(ctx)?),
         );
         let value = ast.bv_binop(BinOpBv::BvShl, BV64, value, shift_amount);
         let old = ast.int_to_backend_bv(BV64, iarray.access(ctx.heap_var().1, word_address));
@@ -167,56 +166,56 @@ impl<'a> ToViper<'a> for ir::StoreBits {
         );
         let new = ast.backend_bv_to_int(BV64, new);
         let field_ass = ast.field_assign(iarray.access(ctx.heap_var().1, word_address), new);
-        ast.seqn(&[assertion, field_ass], &[])
+        Ok(ast.seqn(&[assertion, field_ass], &[]))
     }
 }
 
 // TODO: how to model shared memory?
-impl<'a> ToViper<'a> for ir::SharedStore {
+impl<'a> TryToViper<'a> for ir::SharedStore {
     type Output = viper::Stmt<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        ast.method_call(
+        Ok(ast.method_call(
             "shared_store",
-            &[self.address.to_viper(ctx), self.value.to_viper(ctx)],
+            &[self.address.to_viper(ctx)?, self.value.to_viper(ctx)?],
             &[],
-        )
+        ))
     }
 }
 
 // TODO: how to model shared memory?
-impl<'a> ToViper<'a> for ir::SharedStoreBits {
+impl<'a> TryToViper<'a> for ir::SharedStoreBits {
     type Output = viper::Stmt<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        ast.method_call(
+        Ok(ast.method_call(
             "shared_store",
-            &[self.address.to_viper(ctx), self.value.to_viper(ctx)],
+            &[self.address.to_viper(ctx)?, self.value.to_viper(ctx)?],
             &[],
-        )
+        ))
     }
 }
 
-impl<'a> ToViper<'a> for ir::SharedLoad {
+impl<'a> TryToViper<'a> for ir::SharedLoad {
     type Output = viper::Stmt<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        ast.method_call(
+        Ok(ast.method_call(
             "shared_load",
-            &[self.address.to_viper(ctx)],
-            &[self.dst.to_viper(ctx)],
-        )
+            &[self.address.to_viper(ctx)?],
+            &[self.dst.to_viper(ctx)?],
+        ))
     }
 }
 
-impl<'a> ToViper<'a> for ir::SharedLoadBits {
+impl<'a> TryToViper<'a> for ir::SharedLoadBits {
     type Output = viper::Stmt<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        ast.method_call(
+        Ok(ast.method_call(
             "shared_load",
-            &[self.address.to_viper(ctx)],
-            &[self.dst.to_viper(ctx)],
-        )
+            &[self.address.to_viper(ctx)?],
+            &[self.dst.to_viper(ctx)?],
+        ))
     }
 }

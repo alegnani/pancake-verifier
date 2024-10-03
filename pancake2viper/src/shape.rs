@@ -1,4 +1,4 @@
-use crate::{ir_to_viper::ViperEncodeCtx, ToViperType};
+use crate::{ir_to_viper::ViperEncodeCtx, ShapeError, ToViperType};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Shape {
@@ -25,14 +25,14 @@ impl Shape {
         self.len() == 0
     }
 
-    pub fn access(&self, idx: usize) -> (usize, usize) {
+    pub fn access(&self, idx: usize) -> Result<(usize, usize), ShapeError> {
         match self {
-            Self::Simple => panic!("Can't acces field of shape '1'"),
+            Self::Simple => Err(ShapeError::SimpleShapeAccess(self.clone())),
             Self::Nested(elems) => {
                 assert!(idx < elems.len());
                 let size = elems[idx].len();
                 let offset = elems.iter().take(idx).map(Self::len).sum();
-                (offset, size)
+                Ok((offset, size))
             }
         }
     }

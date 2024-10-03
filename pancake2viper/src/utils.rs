@@ -11,7 +11,7 @@ pub fn pretty_print(viper: &Viper, program: pancake::Program) -> anyhow::Result<
     let utils = vctx.new_ast_utils();
     let ast = vctx.new_ast_factory();
     let ir: Program = program.into();
-    Ok(utils.pretty_print(ir.to_viper(ast, EncodeOptions::default())))
+    Ok(utils.pretty_print(ir.to_viper(ast, EncodeOptions::default())?))
 }
 
 pub trait ViperUtils<'a> {

@@ -11,6 +11,14 @@ use crate::{
 pub enum ToViperError {
     #[error("Conversion to Shape failed")]
     ShapeError(#[from] ShapeError),
+    #[error("Field access in annotation can't yield non `1` shape, got {0:?}")]
+    FieldAccessChainShape(Shape),
+    #[error("Condition must be of shape `1`, got {0:?}")]
+    ConditionShape(Shape),
+    #[error("Invalid fold/unfold statement: Expression should be predicate access, got {0:?}")]
+    InvalidFold(ir::Expr),
+    #[error("Assignment shape mismatch: Lhs: {0:?}, Rhs: {1:?}")]
+    MismatchedShapes(Shape, Shape),
 }
 
 pub trait TryToViper<'a> {
@@ -41,6 +49,8 @@ pub trait ToShape<'a> {
 pub enum ShapeError {
     #[error("Invalid field access: {0:?} is of shape `1`")]
     SimpleShapeFieldAccess(ir::Expr),
+    #[error("Invalid access: {0:?} is of shape `1`")]
+    SimpleShapeAccess(Shape),
     #[error("Field access with index {0} out of bounds for struct of shape `{1:?}`")]
     OutOfBoundsFieldAccess(usize, Shape),
 }
@@ -50,5 +60,9 @@ pub trait TryToShape<'a> {
 }
 
 pub trait ProgramToViper<'a> {
-    fn to_viper(self, ast: AstFactory<'a>, options: EncodeOptions) -> viper::Program<'a>;
+    fn to_viper(
+        self,
+        ast: AstFactory<'a>,
+        options: EncodeOptions,
+    ) -> Result<viper::Program<'a>, ToViperError>;
 }

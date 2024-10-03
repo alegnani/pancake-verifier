@@ -117,9 +117,7 @@ impl Expr {
                 optype: OpType::from_str(op)?,
                 operands: Self::parse_slice(exps)?,
             })),
-            _ => {
-                panic!()
-            }
+            x => panic!("Could not parse expr: {:?}", x),
         }
     }
 

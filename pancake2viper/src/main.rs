@@ -18,10 +18,14 @@ fn main() -> anyhow::Result<()> {
         vec!["--logLevel=OFF".into()],
     );
 
+    print!("Parsing S-expr from cake...");
     let program_str = options.file.contents()?;
     let program: pancake::Program = pancake::Program::parse_str(program_str, &options.cake_path)?;
+    println!("DONE");
     let program: ir::Program = program.into();
-    let program: viper::Program<'_> = program.to_viper(ast_factory, encode_options);
+    print!("Transpiling to Viper...");
+    let program: viper::Program<'_> = program.to_viper(ast_factory, encode_options)?;
+    println!("DONE");
 
     let transpiled = ast_utils.pretty_print(program);
     if options.print_transpiled {
@@ -35,6 +39,7 @@ fn main() -> anyhow::Result<()> {
     }
     if options.verify {
         use viper::VerificationResult::*;
+        println!("Verifying...");
         match verifier.verify(program) {
             Success => println!("️✅Verification Successful✅"),
             Failure(e) => {

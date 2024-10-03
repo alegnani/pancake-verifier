@@ -6,7 +6,7 @@ use crate::{
     utils::ViperUtils, viper_prelude::create_viper_prelude, ProgramToViper, ToViper, ToViperType,
 };
 
-use crate::ir::*;
+use crate::{ir::*, ToViperError, TryToViper};
 
 use super::{
     utils::{EncodeOptions, Mangler},
@@ -23,9 +23,9 @@ impl<'a> ToViper<'a> for Arg {
     }
 }
 
-impl<'a> ToViper<'a> for FnDec {
+impl<'a> TryToViper<'a> for FnDec {
     type Output = viper::Method<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
 
         // Copy all the parameters as they are read-only in Viper
@@ -52,7 +52,7 @@ impl<'a> ToViper<'a> for FnDec {
             })
             .unzip();
 
-        let body = self.body.to_viper(ctx);
+        let body = self.body.to_viper(ctx)?;
 
         args_local_decls.insert(0, ctx.heap_var().0);
 
@@ -66,30 +66,34 @@ impl<'a> ToViper<'a> for FnDec {
             .collect::<Vec<_>>();
         pres.extend(&ctx.pres);
 
-        ast.method(
+        Ok(ast.method(
             &ctx.mangler.mangle_fn(&self.fname),
             &args_local_decls,
             &[ctx.return_var().0],
             &pres,
             &ctx.posts,
             Some(body),
-        )
+        ))
     }
 }
 
-impl<'a> ToViper<'a> for Predicate {
+impl<'a> TryToViper<'a> for Predicate {
     type Output = viper::Predicate<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let mut args = self.args.to_viper(ctx);
-        let body = self.body.map(|e| e.to_viper(ctx));
+        let body = self.body.map(|e| e.to_viper(ctx)).transpose()?;
         args.insert(0, ctx.heap_var().0);
-        ast.predicate(&self.name, &args, body)
+        Ok(ast.predicate(&self.name, &args, body))
     }
 }
 
 impl<'a> ProgramToViper<'a> for Program {
-    fn to_viper(self, ast: AstFactory<'a>, options: EncodeOptions) -> viper::Program<'a> {
+    fn to_viper(
+        self,
+        ast: AstFactory<'a>,
+        options: EncodeOptions,
+    ) -> Result<viper::Program<'a>, ToViperError> {
         let (predicates, predicate_names): (Vec<_>, HashSet<_>) = self
             .predicates
             .into_iter()
@@ -101,6 +105,7 @@ impl<'a> ProgramToViper<'a> for Program {
                 (p.to_viper(&mut ctx), pred_name)
             })
             .unzip();
+        let predicates = predicates.into_iter().collect::<Result<Vec<_>, _>>()?;
 
         let program_methods = self
             .functions
@@ -110,9 +115,9 @@ impl<'a> ProgramToViper<'a> for Program {
                     ViperEncodeCtx::new(f.fname.clone(), predicate_names.clone(), ast, options);
                 f.to_viper(&mut ctx)
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>, _>>()?;
         let (domains, fields, mut methods) = create_viper_prelude(ast);
         methods.extend(program_methods.iter());
-        ast.program(&domains, &fields, &[], &predicates, &methods)
+        Ok(ast.program(&domains, &fields, &[], &predicates, &methods))
     }
 }
