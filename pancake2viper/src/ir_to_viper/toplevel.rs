@@ -56,7 +56,11 @@ impl<'a> TryToViper<'a> for FnDec {
 
         args_local_decls.insert(0, ctx.heap_var().0);
 
-        args_assigns.extend_from_slice(&[body, ast.label(ctx.return_label(), &[])]);
+        args_assigns.extend_from_slice(&[
+            body,
+            ast.label(ctx.return_label(), &[]),
+            ast.refute(ast.false_lit(), ast.no_position()),
+        ]);
         let body = ast.seqn(&args_assigns, &args_decls);
 
         let mut pres = self
@@ -65,6 +69,14 @@ impl<'a> TryToViper<'a> for FnDec {
             .filter_map(|a| a.permission(ctx))
             .collect::<Vec<_>>();
         pres.extend(&ctx.pres);
+        // add precondition about heap size: `requires alen(heap) == HEAP_SIZE`
+        pres.insert(
+            0,
+            ast.eq_cmp(
+                ctx.iarray.len_f(ctx.heap_var().1),
+                ast.int_lit(ctx.options.heap_size as i64),
+            ),
+        );
 
         Ok(ast.method(
             &ctx.mangler.mangle_fn(&self.fname),
