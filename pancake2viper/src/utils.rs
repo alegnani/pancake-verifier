@@ -1,8 +1,11 @@
-use std::str::FromStr;
+use std::{path::PathBuf, str::FromStr};
 
 use anyhow::anyhow;
 use regex::Regex;
-use viper::{AstFactory, AstUtils, Expr, LocalVarDecl, Type, VerificationContext, Verifier, Viper};
+use viper::{
+    smt_manager::SmtManager, AstFactory, AstUtils, Expr, LocalVarDecl, Type, VerificationContext,
+    Verifier, Viper,
+};
 
 pub struct ViperHandle {
     pub viper: &'static Viper,
@@ -16,17 +19,25 @@ unsafe impl Sync for ViperHandle {}
 unsafe impl Send for ViperHandle {}
 
 impl ViperHandle {
-    pub fn new(viper_home: String) -> Self {
+    pub fn new(viper_home: String, z3_exe: String) -> Self {
         let viper = Box::new(Viper::new_with_args(&viper_home, vec![]));
         let viper = Box::leak(viper);
         let ver_ctx = viper.attach_current_thread();
         let ver_ctx = Box::leak(Box::new(ver_ctx));
         let ast = ver_ctx.new_ast_factory();
         let utils = ver_ctx.new_ast_utils();
-        let verifier = ver_ctx.new_verifier_with_default_smt_and_extra_args(
+        let verifier = ver_ctx.new_verifier(
             viper::VerificationBackend::Silicon,
             vec!["--logLevel=OFF".into()],
+            None,
+            z3_exe,
+            None,
+            SmtManager::default(),
         );
+        // let verifier = ver_ctx.new_verifier_with_default_smt_and_extra_args(
+        //     viper::VerificationBackend::Silicon,
+        //     vec!["--logLevel=OFF".into()],
+        // );
         Self {
             viper,
             ver_ctx,

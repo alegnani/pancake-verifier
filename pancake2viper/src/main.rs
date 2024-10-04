@@ -7,7 +7,7 @@ fn main() -> anyhow::Result<()> {
     let options = CliOptions::parse();
     let encode_options = options.clone().into();
 
-    let mut viper = ViperHandle::new(options.viper_path.clone());
+    let mut viper = ViperHandle::new(options.viper_path.clone(), options.z3_exe.clone());
 
     print!("Parsing S-expr from cake...");
     let program_str = options.file.contents()?;

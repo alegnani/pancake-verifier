@@ -39,6 +39,13 @@ pub struct CliOptions {
     )]
     pub viper_path: String,
 
+    #[arg(
+        long = "z3",
+        default_value_t = get_z3_path(),
+        help = "Path to z3, can be set via $Z3_EXE"
+    )]
+    pub z3_exe: String,
+
     pub file: FileOrStdin<String>,
 
     #[arg(short, long, help = "Writes transpiled Viper to file")]
@@ -60,6 +67,10 @@ fn get_viper_path() -> String {
 fn get_cake_path() -> String {
     env::var("CAKE_ML")
         .expect("Path to CakeML compiler is not provided, try setting it via $CAKE_ML or --cake")
+}
+
+fn get_z3_path() -> String {
+    env::var("Z3_EXE").expect("Path to z3 is not provided, try setting it via $Z3_EXE or --z3")
 }
 
 #[derive(ValueEnum, Debug, Clone, Copy)]
