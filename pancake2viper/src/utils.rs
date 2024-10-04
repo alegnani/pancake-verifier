@@ -2,16 +2,58 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 use regex::Regex;
-use viper::{AstFactory, Expr, LocalVarDecl, Type, Viper};
+use viper::{AstFactory, AstUtils, Expr, LocalVarDecl, Type, VerificationContext, Verifier, Viper};
 
-use crate::{ir::Program, ir_to_viper::EncodeOptions, pancake, ProgramToViper};
+pub struct ViperHandle {
+    pub viper: &'static Viper,
+    pub ver_ctx: &'static VerificationContext<'static>,
+    pub ast: AstFactory<'static>,
+    pub utils: AstUtils<'static>,
+    pub verifier: Verifier<'static>,
+}
 
-pub fn pretty_print(viper: &Viper, program: pancake::Program) -> anyhow::Result<String> {
-    let vctx = viper.attach_current_thread();
-    let utils = vctx.new_ast_utils();
-    let ast = vctx.new_ast_factory();
-    let ir: Program = program.into();
-    Ok(utils.pretty_print(ir.to_viper(ast, EncodeOptions::default())?))
+unsafe impl Sync for ViperHandle {}
+unsafe impl Send for ViperHandle {}
+
+impl ViperHandle {
+    pub fn new(viper_home: String) -> Self {
+        let viper = Box::new(Viper::new_with_args(&viper_home, vec![]));
+        let viper = Box::leak(viper);
+        let ver_ctx = viper.attach_current_thread();
+        let ver_ctx = Box::leak(Box::new(ver_ctx));
+        let ast = ver_ctx.new_ast_factory();
+        let utils = ver_ctx.new_ast_utils();
+        let verifier = ver_ctx.new_verifier_with_default_smt_and_extra_args(
+            viper::VerificationBackend::Silicon,
+            vec!["--logLevel=OFF".into()],
+        );
+        Self {
+            viper,
+            ver_ctx,
+            ast,
+            utils,
+            verifier,
+        }
+    }
+}
+
+impl ViperHandle {
+    pub fn verify(&mut self, program: viper::Program) -> String {
+        use viper::VerificationResult::*;
+        match self.verifier.verify(program) {
+            Success => "️✅Verification Successful✅".into(),
+            Failure(e) => {
+                let errors = e.into_iter().map(|e| e.message).collect::<Vec<_>>();
+                format!("❌Verification Error❌\n\n{}", errors.join("\n\n"))
+            }
+            ConsistencyErrors(e) => format!("❌Consistency Error❌\n\n{}", e.join("\n\n")),
+            JavaException(e) => format!("❌Java Exception❌\n\n{}", e),
+        }
+    }
+
+    pub fn pretty_print(&self, program: viper::Program) -> String {
+        self.utils.pretty_print(program)
+    }
 }
 
 pub trait ViperUtils<'a> {
