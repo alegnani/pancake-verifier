@@ -23,7 +23,7 @@ fn verify_file(path: &str) -> anyhow::Result<()> {
         vec!["--logLevel=OFF".into()],
     );
     // Tranpile to Viper and verify
-    let program = program.to_viper(ast_factory, EncodeOptions::default());
+    let program = program.to_viper(ast_factory, EncodeOptions::default())?;
     let res = verifier.verify(program);
     assert!(res.is_success(), "Verification error: {:?}", res);
 

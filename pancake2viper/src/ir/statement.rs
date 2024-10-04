@@ -110,7 +110,7 @@ pub struct Call {
 #[derive(Debug, Clone)]
 pub struct ExtCall {
     pub fname: String,
-    pub args: [Expr; 4],
+    pub args: Vec<Expr>,
 }
 
 #[derive(Debug, Clone)]
@@ -123,7 +123,9 @@ pub enum AnnotationType {
     Precondition,
     Postcondition,
     Assertion,
+    Refutation,
     Invariant,
+    Assumption,
     Inhale,
     Exhale,
     Fold,

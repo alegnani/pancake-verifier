@@ -18,7 +18,7 @@ lazy_static::lazy_static! {
             .op(Op::infix(Rule::bool_and, Left))
             .op(Op::infix(Rule::gt, Left) | Op::infix(Rule::gte, Left) | Op::infix(Rule::lt, Left) | Op::infix(Rule::lte, Left))
             .op(Op::infix(Rule::add, Left) | Op::infix(Rule::sub, Left))
-            .op(Op::infix(Rule::mul, Left) | Op::infix(Rule::div, Left))
+            .op(Op::infix(Rule::mul, Left) | Op::infix(Rule::div, Left) | Op::infix(Rule::modulo, Left))
             .op(Op::prefix(Rule::neg) | Op::prefix(Rule::minus))
             .op(Op::postfix(Rule::field_acc))
             .op(Op::postfix(Rule::arr_acc))
@@ -116,7 +116,9 @@ impl FromPestPair for AnnotationType {
             Rule::pre => Self::Precondition,
             Rule::post => Self::Postcondition,
             Rule::assertion => Self::Assertion,
+            Rule::refutation => Self::Refutation,
             Rule::invariant => Self::Invariant,
+            Rule::assumption => Self::Assumption,
             Rule::inhale => Self::Inhale,
             Rule::exhale => Self::Exhale,
             Rule::fold => Self::Fold,

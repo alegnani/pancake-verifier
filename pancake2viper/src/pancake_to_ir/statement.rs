@@ -149,7 +149,7 @@ impl From<pancake::TailCall> for ir::Return {
 
 impl From<pancake::ExtCall> for ir::ExtCall {
     fn from(value: pancake::ExtCall) -> Self {
-        let args = value.args.map(|a| a.into());
+        let args = value.args.map(|a| a.into()).to_vec();
         Self {
             fname: value.fname,
             args,

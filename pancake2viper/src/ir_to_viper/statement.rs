@@ -1,35 +1,38 @@
-use crate::ir::{self, FunctionCall};
+use crate::ir;
 use crate::ir_to_viper::TranslationMode;
 use crate::utils::ViperUtils;
 
-use crate::{ToShape, ToViper, ToViperType};
+use crate::{ToViperError, ToViperType, TryToShape, TryToViper};
 
 use super::utils::ViperEncodeCtx;
 
-impl<'a> ToViper<'a> for ir::Stmt {
+impl<'a> TryToViper<'a> for ir::Stmt {
     type Output = viper::Stmt<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         use ir::Stmt::*;
         let stmt = match self {
-            Annotation(annot) => annot.to_viper(ctx),
             Skip => ast.comment("skip"),
-            Definition(def) => def.to_viper(ctx),
-            Assign(ass) => ass.to_viper(ctx),
             Break => ast.goto(&ctx.current_break_label()),
             Continue => ast.goto(&ctx.current_continue_label()),
-            Return(ret) => ret.to_viper(ctx),
-            If(ifs) => ifs.to_viper(ctx),
-            While(whiles) => whiles.to_viper(ctx),
-            Seq(seq) => seq.to_viper(ctx),
-            Call(call) => call.to_viper(ctx),
-            ExtCall(ext) => ext.to_viper(ctx),
-            Store(store) => store.to_viper(ctx),
-            StoreBits(store) => store.to_viper(ctx),
-            SharedStore(store) => store.to_viper(ctx),
-            SharedStoreBits(store) => store.to_viper(ctx),
-            SharedLoad(load) => load.to_viper(ctx),
-            SharedLoadBits(load) => load.to_viper(ctx),
+            x => match x {
+                Annotation(annot) => annot.to_viper(ctx),
+                Definition(def) => def.to_viper(ctx),
+                Assign(ass) => ass.to_viper(ctx),
+                Return(ret) => ret.to_viper(ctx),
+                If(ifs) => ifs.to_viper(ctx),
+                While(whiles) => whiles.to_viper(ctx),
+                Seq(seq) => seq.to_viper(ctx),
+                Call(call) => call.to_viper(ctx),
+                ExtCall(ext) => ext.to_viper(ctx),
+                Store(store) => store.to_viper(ctx),
+                StoreBits(store) => store.to_viper(ctx),
+                SharedStore(store) => store.to_viper(ctx),
+                SharedStoreBits(store) => store.to_viper(ctx),
+                SharedLoad(load) => load.to_viper(ctx),
+                SharedLoadBits(load) => load.to_viper(ctx),
+                _ => unreachable!(),
+            }?,
         };
         ctx.stack.push(stmt);
 
@@ -40,15 +43,15 @@ impl<'a> ToViper<'a> for ir::Stmt {
             .collect::<Vec<_>>();
         let seq = ast.seqn(&ctx.stack, &decls);
         ctx.stack.clear();
-        seq
+        Ok(seq)
     }
 }
 
-impl<'a> ToViper<'a> for ir::Return {
+impl<'a> TryToViper<'a> for ir::Return {
     type Output = viper::Stmt<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let value = self.value.to_viper(ctx);
+        let value = self.value.to_viper(ctx)?;
         let ass = ast.local_var_assign(ctx.return_var().1, value);
         let goto = ast.goto(ctx.return_label());
 
@@ -58,38 +61,38 @@ impl<'a> ToViper<'a> for ir::Return {
         ctx.stack.push(goto);
         let seq = ast.seqn(&ctx.stack, &decls);
         ctx.stack.clear();
-        seq
+        Ok(seq)
     }
 }
 
-impl<'a> ToViper<'a> for ir::If {
+impl<'a> TryToViper<'a> for ir::If {
     type Output = viper::Stmt<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
 
-        let cond = self.cond.cond_to_viper(ctx);
+        let cond = self.cond.cond_to_viper(ctx)?;
         let mut then_ctx = ctx.child();
-        let then_body = self.if_branch.to_viper(&mut then_ctx);
+        let then_body = self.if_branch.to_viper(&mut then_ctx)?;
         let mut else_ctx = then_ctx.child();
-        let else_body = self.else_branch.to_viper(&mut else_ctx);
+        let else_body = self.else_branch.to_viper(&mut else_ctx)?;
 
         let decls = ctx.pop_decls();
 
         ctx.stack.push(ast.if_stmt(cond, then_body, else_body));
         let seq = ast.seqn(&ctx.stack, &decls);
         ctx.stack.clear();
-        seq
+        Ok(seq)
     }
 }
 
-impl<'a> ToViper<'a> for ir::While {
+impl<'a> TryToViper<'a> for ir::While {
     type Output = viper::Stmt<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
 
-        let cond = self.cond.cond_to_viper(ctx);
+        let cond = self.cond.cond_to_viper(ctx)?;
         let mut body_ctx = ctx.child();
-        let body = self.body.to_viper(&mut body_ctx);
+        let body = self.body.to_viper(&mut body_ctx)?;
 
         let decls = ctx
             .declarations
@@ -107,35 +110,35 @@ impl<'a> ToViper<'a> for ir::While {
         ctx.stack.push(ast.label(&ctx.current_break_label(), &[]));
         let seq = ast.seqn(&ctx.stack, &decls);
         ctx.stack.clear();
-        seq
+        Ok(seq)
     }
 }
 
-impl<'a> ToViper<'a> for ir::Seq {
+impl<'a> TryToViper<'a> for ir::Seq {
     type Output = viper::Stmt<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let stmts = self
             .stmts
             .into_iter()
             .map(|s| s.to_viper(ctx))
-            .collect::<Vec<_>>();
-        ast.seqn(&stmts, &[])
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(ast.seqn(&stmts, &[]))
     }
 }
 
-impl<'a> ToViper<'a> for ir::Definition {
+impl<'a> TryToViper<'a> for ir::Definition {
     type Output = viper::Stmt<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let name = ctx.mangler.new_scoped_var(self.lhs);
-        let shape = self.rhs.shape(ctx);
+        let shape = self.rhs.to_shape(ctx)?;
         let var = ast.new_var(&name, shape.to_viper_type(ctx));
         ctx.declarations.push(var.0);
 
         ctx.set_type(name, shape);
-        let ass = ast.local_var_assign(var.1, self.rhs.to_viper(ctx));
-        let scope = self.scope.to_viper(&mut ctx.child());
+        let ass = ast.local_var_assign(var.1, self.rhs.to_viper(ctx)?);
+        let scope = self.scope.to_viper(&mut ctx.child())?;
 
         let decls = ctx.pop_decls();
 
@@ -143,32 +146,35 @@ impl<'a> ToViper<'a> for ir::Definition {
         ctx.stack.push(scope);
         let seq = ast.seqn(&ctx.stack, &decls);
         ctx.stack.clear();
-        seq
+        Ok(seq)
     }
 }
 
-impl<'a> ToViper<'a> for ir::Assign {
+impl<'a> TryToViper<'a> for ir::Assign {
     type Output = viper::Stmt<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let lhs_shape = ctx.get_type(&self.lhs);
+        let rhs_shape = self.rhs.to_shape(ctx)?;
         let name = ctx.mangler.mangle_var(&self.lhs);
-        assert_eq!(lhs_shape, self.rhs.shape(ctx));
+        if lhs_shape != rhs_shape {
+            return Err(ToViperError::MismatchedShapes(lhs_shape, rhs_shape));
+        }
         let var = ast.new_var(name, lhs_shape.to_viper_type(ctx));
 
-        let ass = ast.local_var_assign(var.1, self.rhs.to_viper(ctx));
+        let ass = ast.local_var_assign(var.1, self.rhs.to_viper(ctx)?);
         let decls = ctx.pop_decls();
 
         ctx.stack.push(ass);
         let seq = ast.seqn(&ctx.stack, &decls);
         ctx.stack.clear();
-        seq
+        Ok(seq)
     }
 }
 
-impl<'a> ToViper<'a> for ir::Call {
+impl<'a> TryToViper<'a> for ir::Call {
     type Output = viper::Stmt<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         ir::Definition {
             lhs: ctx.fresh_var(),
             rhs: self.call,
@@ -178,18 +184,18 @@ impl<'a> ToViper<'a> for ir::Call {
     }
 }
 
-impl<'a> ToViper<'a> for ir::ExtCall {
+impl<'a> TryToViper<'a> for ir::ExtCall {
     type Output = viper::Stmt<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let args = self.args.to_viper(ctx);
-        ast.method_call(&format!("ffi_{}", self.fname), &args, &[])
+        let args = self.args.to_viper(ctx)?;
+        Ok(ast.method_call(&format!("ffi_{}", self.fname), &args, &[]))
     }
 }
 
-impl<'a> ToViper<'a> for ir::Annotation {
+impl<'a> TryToViper<'a> for ir::Annotation {
     type Output = viper::Stmt<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
 
         use crate::ir::AnnotationType::*;
@@ -201,29 +207,27 @@ impl<'a> ToViper<'a> for ir::Annotation {
                         Fold => ast.fold(e),
                         _ => unreachable!(),
                     };
-                    let mut args = access.args.to_viper(ctx);
+                    let mut args = access.args.to_viper(ctx)?;
                     args.insert(0, ctx.heap_var().1);
-                    ast_node(ast.predicate_access_predicate(
+                    Ok(ast_node(ast.predicate_access_predicate(
                         ast.predicate_access(&args, &access.fname),
                         ast.full_perm(),
-                    ))
+                    )))
                 }
-                _ => panic!(
-                    "Invalid Fold/Unfold. Expected predicate access, got {:?}",
-                    self.expr
-                ),
+                _ => return Err(ToViperError::InvalidFold(self.expr)),
             },
             x => {
                 let no_pos = ast.no_position();
 
                 ctx.set_mode(self.typ.into());
-                let body = self.expr.to_viper(ctx);
+                let body = self.expr.to_viper(ctx)?;
                 ctx.set_mode(TranslationMode::Normal);
                 ctx.mangler.clear_annot_var();
-                match x {
+                Ok(match x {
                     Assertion => ast.assert(body, no_pos),
-                    Inhale => ast.inhale(body, no_pos),
+                    Assumption | Inhale => ast.inhale(body, no_pos),
                     Exhale => ast.exhale(body, no_pos),
+                    Refutation => ast.refute(body, no_pos),
                     x @ (Invariant | Precondition | Postcondition) => {
                         match x {
                             Invariant => ctx.invariants.push(body),
@@ -234,7 +238,7 @@ impl<'a> ToViper<'a> for ir::Annotation {
                         ast.comment("annotation pushed")
                     }
                     _ => unreachable!(),
-                }
+                })
             }
         }
     }

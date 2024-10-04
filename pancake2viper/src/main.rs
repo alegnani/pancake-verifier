@@ -1,35 +1,37 @@
-use pancake2viper::{ir, ir_to_viper::EncodeOptions, pancake, ProgramToViper};
-use std::env;
-
-use viper::Viper;
+use anyhow::anyhow;
+use clap::Parser;
+use pancake2viper::{cli::CliOptions, ir, pancake, utils::ViperHandle, ProgramToViper};
+use std::{fs::File, io::Write};
 
 fn main() -> anyhow::Result<()> {
-    let args = env::args().collect::<Vec<_>>();
-    // either use $CAKE_ML or search for cake on the PATH
-    let cake = env::var("CAKE_ML").unwrap_or("cake".into());
-    let program = pancake::Program::parse_file(&args[1], &cake)?;
+    let options = CliOptions::parse();
+    let encode_options = options.clone().into();
+
+    let mut viper = ViperHandle::new(options.viper_path.clone(), options.z3_exe.clone());
+
+    print!("Parsing S-expr from cake...");
+    let program_str = options.file.contents()?;
+    let program: pancake::Program = pancake::Program::parse_str(program_str, &options.cake_path)?;
+    println!("DONE");
     let program: ir::Program = program.into();
+    print!("Transpiling to Viper...");
+    let program: viper::Program<'_> = program.to_viper(viper.ast, encode_options)?;
+    println!("DONE");
 
-    let viper_home = env::var("VIPER_HOME")?;
-    let viper = Viper::new_with_args(&viper_home, vec![]);
-    let ver_ctx = viper.attach_current_thread();
-    let ast_factory = ver_ctx.new_ast_factory();
-    let ast_utils = ver_ctx.new_ast_utils();
-    let program = program.to_viper(ast_factory, EncodeOptions::default());
-    let mut verifier = ver_ctx.new_verifier_with_default_smt_and_extra_args(
-        viper::VerificationBackend::Silicon,
-        vec!["--logLevel=OFF".into()],
-    );
-    let defines = "\
-        define full_access(a, pm) forall j: Int :: 0 <= j < len(a) ==> acc(slot(a, j).heap_elem, pm)\n\
-        define slice_access(a, idx, length, pm) forall j: Int :: 0 <= idx <= j < idx + length <= len(a) ==> acc(slot(a, j).heap_elem, pm)
-    ";
-    println!("// Defines\n{}", defines);
-    let s = ast_utils.pretty_print(program);
-    println!("{}", s);
-
-    // let res = verifier.verify(program);
-    // println!("Res: {:?}", res);
+    let transpiled = viper.pretty_print(program);
+    if options.print_transpiled {
+        println!("{}", transpiled);
+    }
+    if let Some(path) = options.output_path {
+        let mut file = File::create(path)
+            .map_err(|e| anyhow!(format!("Error: Could not open output file:\n{}", e)))?;
+        file.write_all(transpiled.as_bytes())
+            .map_err(|e| anyhow!(format!("Error: Could not write to output file:\n{}", e)))?;
+    }
+    if options.verify {
+        println!("Verifying...");
+        println!("{}", viper.verify(program));
+    }
 
     Ok(())
 }

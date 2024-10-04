@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use viper::{AstFactory, Declaration, LocalVarDecl};
 
-use crate::{ir::AnnotationType, shape::Shape, viper_prelude::IArrayHelper};
+use crate::{cli::CliOptions, ir::AnnotationType, shape::Shape, viper_prelude::IArrayHelper};
 
 use super::mangler::{Mangler, RESERVED};
 
@@ -54,6 +54,19 @@ pub struct ViperEncodeCtx<'a> {
 pub struct EncodeOptions {
     pub expr_unrolling: bool,
     pub assert_aligned_accesses: bool,
+    pub word_size: u64,
+    pub heap_size: u64,
+}
+
+impl From<CliOptions> for EncodeOptions {
+    fn from(value: CliOptions) -> Self {
+        Self {
+            expr_unrolling: value.tac,
+            assert_aligned_accesses: !value.disable_assert_alignment,
+            word_size: value.word_size.into(),
+            heap_size: value.heap_size,
+        }
+    }
 }
 
 impl Default for EncodeOptions {
@@ -61,6 +74,8 @@ impl Default for EncodeOptions {
         Self {
             expr_unrolling: false,
             assert_aligned_accesses: true,
+            word_size: 64,
+            heap_size: 16 * 1024,
         }
     }
 }
