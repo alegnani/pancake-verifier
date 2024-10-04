@@ -1,10 +1,18 @@
+use std::cell::RefCell;
+use std::env;
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use anyhow::anyhow;
 use dashmap::DashMap;
-use pancake2viper::utils::pretty_print;
+use expanduser::expanduser;
+use notification::ShowMessage;
+use pancake2viper::ir_to_viper::EncodeOptions;
+use pancake2viper::utils::ViperHandle;
+use pancake2viper::{ir, ProgramToViper};
 
-use pancake2viper::Viper;
+use serde_json::Value;
+use tokio::sync::Mutex;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
@@ -13,10 +21,11 @@ use tracing::{event, Level};
 
 // #[derive(Debug)]
 struct Backend {
-    viper: Viper,
+    viper: Mutex<ViperHandle>,
     client: Client,
-    file_map: DashMap<String, String>,
+    file_map: DashMap<String, ir::Program>,
     cake_path: String,
+    current_file: Mutex<RefCell<Option<Url>>>,
 }
 
 #[tower_lsp::async_trait]
@@ -45,37 +54,64 @@ impl LanguageServer for Backend {
 
     // #[instrument]
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        self.file_map.insert(
-            params.text_document.uri.to_string(),
-            params.text_document.text,
-        );
-        let _ = self.verify_file(params.text_document.uri).await;
+        let update = self
+            .update_ast(&params.text_document.uri, params.text_document.text)
+            .await;
+        if update.is_ok() {
+            let _ = self.transpile_file(params.text_document.uri).await;
+        }
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
-        self.file_map.insert(
-            params.text_document.uri.to_string(),
-            params.content_changes[0].text.to_owned(),
-        );
+        let _ = self
+            .update_ast(
+                &params.text_document.uri,
+                params.content_changes[0].text.to_owned(),
+            )
+            .await;
     }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
-        self.verify_file(params.text_document.uri).await.unwrap();
+        let uri = params.text_document.uri.clone();
+        self.current_file.lock().await.replace(Some(uri));
+        let _ = self.transpile_file(params.text_document.uri).await;
     }
 }
 
 impl Backend {
-    async fn verify_file(&self, uri: Url) -> anyhow::Result<()> {
-        let file_contents = self.file_map.get(uri.as_str()).unwrap().clone();
-        let program = pancake2viper::pancake::Program::parse_str(file_contents, &self.cake_path)?;
+    async fn update_ast(&self, uri: &Url, program: String) -> anyhow::Result<()> {
+        self.current_file.lock().await.replace(Some(uri.clone()));
+        let program = pancake2viper::pancake::Program::parse_str(program, &self.cake_path)?;
+        let program: ir::Program = program.into();
+        self.file_map.insert(uri.to_string(), program);
+        Ok(())
+    }
 
-        self.create_vpr_file(uri, pretty_print(&self.viper, program.clone())?)
-            .await;
+    async fn get_current_ast(&self) -> ir::Program {
+        self.file_map
+            .get(
+                self.current_file
+                    .lock()
+                    .await
+                    .borrow()
+                    .as_ref()
+                    .unwrap()
+                    .as_str(),
+            )
+            .unwrap()
+            .clone()
+    }
+
+    async fn transpile_file(&self, uri: Url) -> anyhow::Result<()> {
+        let program = self.file_map.get(uri.as_str()).unwrap().clone();
+        let viper = self.viper.lock().await;
+        let program = program.to_viper(viper.ast, EncodeOptions::default())?;
+
+        self.create_vpr_file(uri, viper.pretty_print(program)).await;
         Ok(())
     }
 
     async fn create_empty_file(&self, uri: Url) {
-        // event!(Level::DEBUG, "creating empty file {}", uri.to_string());
         let create_file = CreateFile {
             uri,
             options: None,
@@ -91,7 +127,6 @@ impl Backend {
     }
 
     async fn create_vpr_file(&self, uri: Url, text: String) {
-        event!(Level::DEBUG, "creating viper file {}", uri.to_string());
         // Create empty .vpr file
         let mut path = PathBuf::from_str(uri.path()).unwrap();
         path.set_extension("vpr");
@@ -129,26 +164,51 @@ impl Backend {
 
         self.client.apply_edit(workspace_edit).await.unwrap();
     }
+
+    async fn verify_command(&self) -> Result<Option<Value>> {
+        let mut viper = self.viper.lock().await;
+        let program = self
+            .get_current_ast()
+            .await
+            .to_viper(viper.ast, EncodeOptions::default())
+            .unwrap();
+        let ver = viper.verify(program);
+        let result = serde_json::json!({
+            "message": ver,
+        });
+        self.client
+            .send_notification::<ShowMessage>(ShowMessageParams {
+                typ: MessageType::INFO,
+                message: ver,
+            })
+            .await;
+        Ok(Some(result))
+    }
+}
+
+fn expand_home(s: &str) -> String {
+    expanduser(s).unwrap().to_str().unwrap().to_owned()
 }
 
 #[tokio::main]
 async fn main() {
-    let file_appender = tracing_appender::rolling::never(".", "lsp.log");
-    tracing_subscriber::fmt().with_writer(file_appender).init();
-
-    let cake_path = std::env::var("CAKE_ML").unwrap_or("cake".into());
+    let cake_path = expand_home(&env::var("CAKE_ML").unwrap_or("cake".into()));
+    let viper_home = expand_home(&env::var("VIPER_HOME").unwrap());
+    let z3 = expand_home(&env::var("Z3_EXE").unwrap());
 
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
 
-    let viper_home = std::env::var("VIPER_HOME").unwrap();
-    let viper = Viper::new(&viper_home);
+    let viper = Mutex::new(ViperHandle::new(viper_home, z3));
 
-    let (service, socket) = LspService::new(|client| Backend {
+    let (service, socket) = LspService::build(|client| Backend {
         viper,
         client,
         file_map: DashMap::new(),
         cake_path,
-    });
+        current_file: Mutex::new(RefCell::new(None)),
+    })
+    .custom_method("custom/pancakeVerify", Backend::verify_command)
+    .finish();
     Server::new(stdin, stdout, socket).serve(service).await;
 }
