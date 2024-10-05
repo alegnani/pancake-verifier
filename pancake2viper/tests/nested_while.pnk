@@ -1,4 +1,4 @@
-fun simple() {
+fun sum() {
     /*@ ensures retval == 50 @*/
     var x = 0;
     var accu = 0;
