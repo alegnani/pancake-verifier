@@ -127,6 +127,10 @@ impl<'a> ViperEncodeCtx<'a> {
         }
     }
 
+    pub fn enter_new_loop(&mut self) {
+        self.while_counter += 1;
+    }
+
     pub fn fresh_var(&mut self) -> String {
         self.mangler.fresh_var()
     }
@@ -137,6 +141,14 @@ impl<'a> ViperEncodeCtx<'a> {
 
     pub fn current_continue_label(&self) -> String {
         format!("continue_label_{}", self.while_counter)
+    }
+
+    pub fn outer_break_label(&self) -> String {
+        format!("break_label_{}", self.while_counter - 1)
+    }
+
+    pub fn outer_continue_label(&self) -> String {
+        format!("continue_label_{}", self.while_counter - 1)
     }
 
     pub fn return_label(&self) -> &'static str {

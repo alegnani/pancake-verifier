@@ -1,0 +1,17 @@
+fun double_while() {
+    var i = 0;
+    var j = 0;
+    while (i < 10) {
+        while (j < 10) {
+            j = j + 1;
+            if (j == 5) {
+                break;
+            }
+        }
+        i = i + 1;
+        if (i == 5) {
+            break;
+        }
+    }
+    return 0;
+}
