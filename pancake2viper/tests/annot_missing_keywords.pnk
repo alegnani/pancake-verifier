@@ -1,0 +1,14 @@
+fun access_ptr(1 ptr) {
+    /*@ requires ptr % 8 == 0 @*/
+    /*@ requires acc(heap[ptr/@biw]) @*/
+    /*@ ensures acc(heap[ptr/@biw]) @*/
+
+    st @base + ptr, 1337;
+    return 0;
+}
+
+fun t() {
+    /*@ assert @base == 0 @*/
+    /*@ assert (3 & 2) == 2 @*/
+    return 0;
+}

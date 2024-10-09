@@ -13,9 +13,12 @@ lazy_static::lazy_static! {
         use pest::pratt_parser::{Assoc::*, Op};
         PrattParser::new()
             .op(Op::infix(Rule::imp, Right) | Op::infix(Rule::iff, Left))
-            .op(Op::infix(Rule::pancake_eq, Left) | Op::infix(Rule::pancake_neq, Left) | Op::infix(Rule::viper_eq, Left) | Op::infix(Rule::viper_neq, Left))
             .op(Op::infix(Rule::bool_or, Left))
             .op(Op::infix(Rule::bool_and, Left))
+            .op(Op::infix(Rule::bit_or, Left))
+            .op(Op::infix(Rule::bit_xor, Left))
+            .op(Op::infix(Rule::bit_and, Left))
+            .op(Op::infix(Rule::pancake_eq, Left) | Op::infix(Rule::pancake_neq, Left) | Op::infix(Rule::viper_eq, Left) | Op::infix(Rule::viper_neq, Left))
             .op(Op::infix(Rule::gt, Left) | Op::infix(Rule::gte, Left) | Op::infix(Rule::lt, Left) | Op::infix(Rule::lte, Left))
             .op(Op::infix(Rule::add, Left) | Op::infix(Rule::sub, Left))
             .op(Op::infix(Rule::mul, Left) | Op::infix(Rule::div, Left) | Op::infix(Rule::modulo, Left))
@@ -119,6 +122,8 @@ pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
             Rule::f_call => Expr::FunctionCall(FunctionCall::from_pest(primary)),
             Rule::acc_pred => Expr::AccessPredicate(AccessPredicate::from_pest(primary)),
             Rule::unfolding => Expr::UnfoldingIn(UnfoldingIn::from_pest(primary)),
+            Rule::base => Expr::BaseAddr,
+            Rule::biw => Expr::BytesInWord,
             x => panic!("Unexpected annotation parsing rule: {:?}", x),
         })
         .map_prefix(|op, rhs| {
@@ -212,6 +217,9 @@ impl FromPestPair for BinOpType {
             Rule::lte => Self::Lte,
             Rule::bool_and => Self::BoolAnd,
             Rule::bool_or => Self::BoolOr,
+            Rule::bit_and => Self::BitAnd,
+            Rule::bit_or => Self::BitOr,
+            Rule::bit_xor => Self::BitXor,
             x => panic!("Failed to parse BinOperator, got {:?}", x),
         }
     }
