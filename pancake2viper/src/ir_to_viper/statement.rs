@@ -13,8 +13,8 @@ impl<'a> TryToViper<'a> for ir::Stmt {
         use ir::Stmt::*;
         let stmt = match self {
             Skip => ast.comment("skip"),
-            Break => ast.goto(&ctx.current_break_label()),
-            Continue => ast.goto(&ctx.current_continue_label()),
+            Break => ast.goto(&ctx.outer_break_label()),
+            Continue => ast.goto(&ctx.outer_continue_label()),
             x => match x {
                 Annotation(annot) => annot.to_viper(ctx),
                 Definition(def) => def.to_viper(ctx),
@@ -92,6 +92,7 @@ impl<'a> TryToViper<'a> for ir::While {
 
         let cond = self.cond.cond_to_viper(ctx)?;
         let mut body_ctx = ctx.child();
+        body_ctx.enter_new_loop();
         let body = self.body.to_viper(&mut body_ctx)?;
 
         let decls = ctx
@@ -214,7 +215,7 @@ impl<'a> TryToViper<'a> for ir::Annotation {
                         ast.full_perm(),
                     )))
                 }
-                _ => return Err(ToViperError::InvalidFold(self.expr)),
+                _ => Err(ToViperError::InvalidFold(self.expr)),
             },
             x => {
                 let no_pos = ast.no_position();
