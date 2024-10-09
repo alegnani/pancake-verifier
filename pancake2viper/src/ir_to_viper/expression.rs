@@ -375,6 +375,17 @@ impl<'a> TryToViper<'a> for ir::UnfoldingIn {
     }
 }
 
+impl<'a> TryToViper<'a> for ir::Ternary {
+    type Output = viper::Expr<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
+        let ast = ctx.ast;
+        let cond = self.cond.to_viper(ctx)?;
+        let left = self.left.to_viper(ctx)?;
+        let right = self.right.to_viper(ctx)?;
+        Ok(ast.cond_exp(cond, left, right))
+    }
+}
+
 impl<'a> TryToViper<'a> for ir::Expr {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
@@ -395,6 +406,7 @@ impl<'a> TryToViper<'a> for ir::Expr {
             UnfoldingIn(u) => u.to_viper(ctx),
             Load(load) => load.to_viper(ctx),
             LoadByte(load) => load.to_viper(ctx),
+            Ternary(ternary) => ternary.to_viper(ctx),
             x => Ok(match x {
                 Const(c) => ast.int_lit(c),
                 Var(name) => ast.local_var(
