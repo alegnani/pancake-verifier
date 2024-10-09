@@ -3,7 +3,7 @@
     requires base + len <= alen(heap)
     requires forall i: Int :: base <= i && i < base + len ==> acc(heap[i], read)
 {
-    (len == 0) ? 0 : (heap[base + len - 1] + sum(heap, base, len - 1))
+    len == 0 ? 0 : (heap[base + len - 1] + sum(heap, base, len - 1))
 } @*/
 
 fun array_sum(1 arr, 1 len) {
