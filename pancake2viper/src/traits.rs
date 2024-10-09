@@ -2,7 +2,7 @@ use thiserror::Error;
 use viper::AstFactory;
 
 use crate::{
-    ir,
+    ir::{self, Annotation},
     ir_to_viper::{EncodeOptions, ViperEncodeCtx},
     shape::Shape,
 };
@@ -19,6 +19,8 @@ pub enum ToViperError {
     InvalidFold(ir::Expr),
     #[error("Assignment shape mismatch: Lhs: {0:?}, Rhs: {1:?}")]
     MismatchedShapes(Shape, Shape),
+    #[error("Only preconditions and postconditions can be specified, got {0:?}")]
+    InvalidAnnotation(Vec<Annotation>),
 }
 
 pub trait TryToViper<'a> {

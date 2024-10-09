@@ -23,6 +23,7 @@ pub enum Expr {
     AccessPredicate(AccessPredicate),
     FieldAccessChain(FieldAccessChain),
     UnfoldingIn(UnfoldingIn),
+    Ternary(Ternary),
 }
 
 #[derive(Debug, Clone)]
@@ -175,4 +176,11 @@ pub struct FieldAccessChain {
 pub struct UnfoldingIn {
     pub pred: Box<Expr>,
     pub expr: Box<Expr>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Ternary {
+    pub cond: Box<Expr>,
+    pub left: Box<Expr>,
+    pub right: Box<Expr>,
 }

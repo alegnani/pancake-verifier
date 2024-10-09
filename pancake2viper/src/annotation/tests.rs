@@ -1,6 +1,6 @@
 use crate::ir::*;
 
-use super::parser::parse_annot;
+use super::{parse_function, parser::parse_annot};
 
 #[test]
 fn t() {
@@ -59,4 +59,21 @@ fn precedence() {
         }
         _ => panic!(),
     }
+}
+
+#[test]
+fn functions() {
+    let f = "/*@ function sum(heap: IArray, base: Int, len: Int): Int 
+    requires base >= 0 && len >= 0 
+    requires base + len <= alen(heap)
+    requires forall i: Int :: base <= i && i < base + len ==> acc(heap[i], read)
+    { 1 }
+    @*/";
+    println!("{:?}", parse_function(f));
+}
+
+#[test]
+fn ternary() {
+    let t = "assert x == y ? f(x) : f(h) + 1";
+    println!("{:?}", parse_annot(t));
 }

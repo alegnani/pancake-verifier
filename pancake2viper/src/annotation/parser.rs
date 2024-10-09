@@ -20,13 +20,14 @@ lazy_static::lazy_static! {
             .op(Op::infix(Rule::add, Left) | Op::infix(Rule::sub, Left))
             .op(Op::infix(Rule::mul, Left) | Op::infix(Rule::div, Left) | Op::infix(Rule::modulo, Left))
             .op(Op::prefix(Rule::neg) | Op::prefix(Rule::minus))
+            .op(Op::postfix(Rule::ternary))
             .op(Op::postfix(Rule::field_acc))
             .op(Op::postfix(Rule::arr_acc))
     };
 }
 
 pub fn parse_annot(annot: &str) -> Annotation {
-    match AnnotParser::parse(Rule::annotation, annot) {
+    match AnnotParser::parse(Rule::annotation_comment, annot) {
         Ok(mut pairs) => {
             let mut pair = pairs.next().unwrap().into_inner();
             let typ = pair.next().unwrap();
@@ -41,7 +42,58 @@ pub fn parse_annot(annot: &str) -> Annotation {
 }
 
 pub fn parse_predicate(pred: &str) -> Predicate {
-    match AnnotParser::parse(Rule::predicate, pred) {
+    let (name, args, mut pair) = parse_toplevel_common(pred, Rule::predicate);
+    let body = pair.next().unwrap().into_inner();
+    let body = if body.len() == 0 {
+        None
+    } else {
+        Some(parse_expr(body))
+    };
+    Predicate { name, args, body }
+}
+
+pub fn parse_function(func: &str) -> Function {
+    let (name, args, mut pair) = parse_toplevel_common(func, Rule::function);
+    let typ = Type::from_pest(pair.next().unwrap());
+    let preposts = pair.next().unwrap().into_inner();
+    let preposts = preposts
+        .into_iter()
+        .map(|e| parse_annot(e.as_str())) // XXX: this is stupid
+        .collect();
+    let body = pair.next().unwrap().into_inner();
+    let body = if body.len() == 0 {
+        None
+    } else {
+        Some(parse_expr(body))
+    };
+    Function {
+        name,
+        args,
+        typ,
+        preposts,
+        body,
+    }
+}
+
+pub fn parse_method(met: &str) -> AbstractMethod {
+    let (name, args, mut pair) = parse_toplevel_common(met, Rule::method);
+    let rettyps = pair.next().unwrap().into_inner();
+    let rettyps = rettyps.into_iter().map(|d| Decl::from_pest(d)).collect();
+    let preposts = pair.next().unwrap().into_inner();
+    let preposts = preposts
+        .into_iter()
+        .map(|e| parse_annot(e.as_str()))
+        .collect();
+    AbstractMethod {
+        name,
+        args,
+        rettyps,
+        preposts,
+    }
+}
+
+fn parse_toplevel_common(s: &str, rule: Rule) -> (String, Vec<Decl>, Pairs<Rule>) {
+    match AnnotParser::parse(rule, s) {
         Ok(mut pairs) => {
             let mut pair = pairs.next().unwrap().into_inner();
             let name = pair.next().unwrap().as_str().to_owned();
@@ -51,13 +103,7 @@ pub fn parse_predicate(pred: &str) -> Predicate {
                 .into_inner()
                 .map(Decl::from_pest)
                 .collect();
-            let body = pair.next().unwrap().into_inner();
-            let body = if body.len() == 0 {
-                None
-            } else {
-                Some(parse_expr(body))
-            };
-            Predicate { name, args, body }
+            (name, args, pair)
         }
         Err(e) => panic!("{:?}", e),
     }
@@ -100,6 +146,14 @@ pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
                 obj: Box::new(lhs),
                 idx: Box::new(parse_expr(op.into_inner())),
             }),
+            Rule::ternary => {
+                let mut pairs = op.into_inner();
+                Expr::Ternary(Ternary {
+                    cond: Box::new(lhs),
+                    left: Box::new(parse_expr(Pairs::single(pairs.next().unwrap()))),
+                    right: Box::new(parse_expr(Pairs::single(pairs.next().unwrap()))),
+                })
+            }
             _ => panic!("Failed to parse postfix, got `{:?}`", op.into_inner()),
         })
         .parse(pairs)

@@ -1,6 +1,6 @@
 use crate::{ir_to_viper::ViperEncodeCtx, shape::Shape, ShapeError, ToShape, TryToShape};
 
-use super::{Arg, Expr, Field, FnDec, Stmt, Struct};
+use super::{Arg, Expr, Field, FnDec, Function, Method, Predicate, Stmt, Struct};
 
 impl Struct {
     pub fn new(elements: Vec<Expr>) -> Self {
@@ -15,6 +15,24 @@ impl Struct {
                 x => vec![x.clone()],
             })
             .collect()
+    }
+}
+
+impl Predicate {
+    pub fn new(text: String) -> Self {
+        Self { text }
+    }
+}
+
+impl Function {
+    pub fn new(text: String) -> Self {
+        Self { text }
+    }
+}
+
+impl Method {
+    pub fn new(text: String) -> Self {
+        Self { text }
     }
 }
 

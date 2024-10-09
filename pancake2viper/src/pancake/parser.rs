@@ -436,7 +436,19 @@ impl Program {
     }
 
     pub fn parse_str(s: String, cake_path: &str) -> anyhow::Result<Self> {
-        let predicates = Self::get_predicates(&s);
+        let predicates = Self::get_toplevel_annotations(&s, "predicate")
+            .into_iter()
+            .map(Predicate::new)
+            .collect();
+        let viper_functions = Self::get_toplevel_annotations(&s, "function")
+            .into_iter()
+            .map(Function::new)
+            .collect();
+        let methods = Self::get_toplevel_annotations(&s, "method")
+            .into_iter()
+            .map(Method::new)
+            .collect();
+
         let functions = get_sexprs(s, cake_path)?
             .iter()
             .map(|s| {
@@ -449,17 +461,21 @@ impl Program {
         Ok(pancake::Program {
             functions,
             predicates,
+            viper_functions,
+            methods,
         })
     }
 
-    fn get_predicates(s: &str) -> Vec<Predicate> {
-        let re = Regex::new(r"(?s)/\* ?@\s*predicate\s*(.*?)\s*(?:@\*/|\*/)").unwrap();
+    fn get_toplevel_annotations(s: &str, toplevel_str: &str) -> Vec<String> {
+        let re = Regex::new(&format!(
+            "(?s)/\\* ?@\\s*{}\\s*(.*?)\\s*(?:@\\*/|\\*/)",
+            toplevel_str
+        ))
+        .unwrap();
         // TODO: change this back after parsing error in Pancake is fixed
         // let re = Regex::new(r"(?s)/\*@\s*predicate\s*(.*?)\s*(?:@\*/|\*/)").unwrap();
         re.captures_iter(s)
-            .map(|capt| Predicate {
-                text: capt.get(0).unwrap().as_str().to_owned(),
-            })
+            .map(|capt| capt.get(0).unwrap().as_str().to_owned())
             .collect()
     }
 }

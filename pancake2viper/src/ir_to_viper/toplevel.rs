@@ -100,6 +100,78 @@ impl<'a> TryToViper<'a> for Predicate {
     }
 }
 
+fn partition_annotation_types(
+    annotations: Vec<Annotation>,
+) -> (Vec<Annotation>, Vec<Annotation>, Vec<Annotation>) {
+    let (pres, others): (Vec<_>, Vec<_>) = annotations
+        .into_iter()
+        .partition(|e| matches!(e.typ, AnnotationType::Precondition));
+    let (posts, others): (Vec<_>, Vec<_>) = others
+        .into_iter()
+        .partition(|e| matches!(e.typ, AnnotationType::Postcondition));
+    (pres, posts, others)
+}
+
+impl<'a> TryToViper<'a> for Function {
+    type Output = viper::Function<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
+        let ast = ctx.ast;
+        let args = self.args.to_viper(ctx);
+
+        let (pres, posts, others) = partition_annotation_types(self.preposts);
+
+        if !others.is_empty() {
+            return Err(ToViperError::InvalidAnnotation(others));
+        }
+
+        let pres = pres
+            .into_iter()
+            .map(|e| e.expr.to_viper(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+        let posts = posts
+            .into_iter()
+            .map(|e| e.expr.to_viper(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+        let body = self.body.map(|b| b.to_viper(ctx)).transpose()?;
+
+        Ok(ast.function(
+            &self.name,
+            &args,
+            self.typ.to_viper_type(ctx),
+            &pres,
+            &posts,
+            ast.no_position(),
+            body,
+        ))
+    }
+}
+
+impl<'a> TryToViper<'a> for AbstractMethod {
+    type Output = viper::Method<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
+        let ast = ctx.ast;
+        let args = self.args.to_viper(ctx);
+        let rettyps = self.rettyps.to_viper(ctx);
+
+        let (pres, posts, others) = partition_annotation_types(self.preposts);
+
+        if !others.is_empty() {
+            return Err(ToViperError::InvalidAnnotation(others));
+        }
+
+        let pres = pres
+            .into_iter()
+            .map(|e| e.expr.to_viper(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+        let posts = posts
+            .into_iter()
+            .map(|e| e.expr.to_viper(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(ast.method(&self.name, &args, &rettyps, &pres, &posts, None))
+    }
+}
+
 impl<'a> ProgramToViper<'a> for Program {
     fn to_viper(
         self,
@@ -119,6 +191,28 @@ impl<'a> ProgramToViper<'a> for Program {
             .unzip();
         let predicates = predicates.into_iter().collect::<Result<Vec<_>, _>>()?;
 
+        let functions = self
+            .viper_functions
+            .into_iter()
+            .map(|f| {
+                let mut ctx =
+                    ViperEncodeCtx::new(f.name.clone(), predicate_names.clone(), ast, options);
+                ctx.set_mode(super::TranslationMode::PrePost);
+                f.to_viper(&mut ctx)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let abstract_methods = self
+            .methods
+            .into_iter()
+            .map(|m| {
+                let mut ctx =
+                    ViperEncodeCtx::new(m.name.clone(), predicate_names.clone(), ast, options);
+                ctx.set_mode(super::TranslationMode::PrePost);
+                m.to_viper(&mut ctx)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
         let program_methods = self
             .functions
             .into_iter()
@@ -129,7 +223,8 @@ impl<'a> ProgramToViper<'a> for Program {
             })
             .collect::<Result<Vec<_>, _>>()?;
         let (domains, fields, mut methods) = create_viper_prelude(ast);
+        methods.extend(abstract_methods.iter());
         methods.extend(program_methods.iter());
-        Ok(ast.program(&domains, &fields, &[], &predicates, &methods))
+        Ok(ast.program(&domains, &fields, &functions, &predicates, &methods))
     }
 }
