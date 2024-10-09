@@ -80,7 +80,7 @@ predicate = { "/*" ~ "@" ~ "predicate" ~ ident ~ "(" ~ pred_args ~ ")" ~ pred_bo
 
 preposts = { annotation* }
 
-function = { "/*" ~ "@" ~ "function" ~ ident ~ "(" ~ func_args ~ ")" ~ preposts ~ func_body ~ "@"? ~ "*/" }
+function = { "/*" ~ "@" ~ "function" ~ ident ~ "(" ~ func_args ~ ")" ~ ":" ~ type ~ preposts ~ func_body ~ "@"? ~ "*/" }
     func_args = { (decl ~ ("," ~ decl)*) | "" }
     func_body = { ("{" ~ expr ~ "}") | "" }
 
