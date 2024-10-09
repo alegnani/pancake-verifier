@@ -43,6 +43,7 @@ pub struct Function {
 pub struct AbstractMethod {
     pub name: String,
     pub args: Vec<Decl>,
+    pub rettyps: Vec<Decl>,
     pub preposts: Vec<Annotation>,
 }
 

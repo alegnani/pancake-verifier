@@ -84,5 +84,6 @@ function = { "/*" ~ "@" ~ "function" ~ ident ~ "(" ~ func_args ~ ")" ~ ":" ~ typ
     func_args = { (decl ~ ("," ~ decl)*) | "" }
     func_body = { ("{" ~ expr ~ "}") | "" }
 
-method = { "/*" ~ "@" ~ "method" ~ ident ~ "(" ~ method_args ~ ")" ~ preposts ~ "@"? ~ "*/" }
+method = { "/*" ~ "@" ~ "method" ~ ident ~ "(" ~ method_args ~ ")" ~ method_ret ~ preposts ~ "@"? ~ "*/" }
     method_args = { (decl ~ ("," ~ decl)*) | "" }
+    method_ret = { (":" ~ "(" ~ decl ~ ("," ~ decl)* ~ ")") | "" }

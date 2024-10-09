@@ -76,6 +76,8 @@ pub fn parse_function(func: &str) -> Function {
 
 pub fn parse_method(met: &str) -> AbstractMethod {
     let (name, args, mut pair) = parse_toplevel_common(met, Rule::method);
+    let rettyps = pair.next().unwrap().into_inner();
+    let rettyps = rettyps.into_iter().map(|d| Decl::from_pest(d)).collect();
     let preposts = pair.next().unwrap().into_inner();
     let preposts = preposts
         .into_iter()
@@ -84,6 +86,7 @@ pub fn parse_method(met: &str) -> AbstractMethod {
     AbstractMethod {
         name,
         args,
+        rettyps,
         preposts,
     }
 }
