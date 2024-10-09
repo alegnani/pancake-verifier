@@ -13,6 +13,7 @@ lazy_static::lazy_static! {
         use pest::pratt_parser::{Assoc::*, Op};
         PrattParser::new()
             .op(Op::infix(Rule::imp, Right) | Op::infix(Rule::iff, Left))
+            .op(Op::postfix(Rule::ternary))
             .op(Op::infix(Rule::bool_or, Left))
             .op(Op::infix(Rule::bool_and, Left))
             .op(Op::infix(Rule::bit_or, Left))
@@ -23,7 +24,6 @@ lazy_static::lazy_static! {
             .op(Op::infix(Rule::add, Left) | Op::infix(Rule::sub, Left))
             .op(Op::infix(Rule::mul, Left) | Op::infix(Rule::div, Left) | Op::infix(Rule::modulo, Left))
             .op(Op::prefix(Rule::neg) | Op::prefix(Rule::minus))
-            .op(Op::postfix(Rule::ternary))
             .op(Op::postfix(Rule::field_acc))
             .op(Op::postfix(Rule::arr_acc))
     };
