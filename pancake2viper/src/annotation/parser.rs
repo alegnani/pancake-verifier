@@ -20,6 +20,7 @@ lazy_static::lazy_static! {
             .op(Op::infix(Rule::add, Left) | Op::infix(Rule::sub, Left))
             .op(Op::infix(Rule::mul, Left) | Op::infix(Rule::div, Left) | Op::infix(Rule::modulo, Left))
             .op(Op::prefix(Rule::neg) | Op::prefix(Rule::minus))
+            .op(Op::postfix(Rule::ternary))
             .op(Op::postfix(Rule::field_acc))
             .op(Op::postfix(Rule::arr_acc))
     };
@@ -145,6 +146,14 @@ pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
                 obj: Box::new(lhs),
                 idx: Box::new(parse_expr(op.into_inner())),
             }),
+            Rule::ternary => {
+                let mut pairs = op.into_inner();
+                Expr::Ternary(Ternary {
+                    cond: Box::new(lhs),
+                    left: Box::new(parse_expr(Pairs::single(pairs.next().unwrap()))),
+                    right: Box::new(parse_expr(Pairs::single(pairs.next().unwrap()))),
+                })
+            }
             _ => panic!("Failed to parse postfix, got `{:?}`", op.into_inner()),
         })
         .parse(pairs)
