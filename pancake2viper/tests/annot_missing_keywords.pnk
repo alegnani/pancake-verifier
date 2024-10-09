@@ -10,5 +10,7 @@ fun access_ptr(1 ptr) {
 fun t() {
     /*@ assert @base == 0 @*/
     /*@ assert (3 & 2) == 2 @*/
+    /*@ assert (1337 >> 4) == (1337 >>> 4) @*/
+    /*@ assert (1024 >> 2) == (64 << 2) @*/
     return 0;
 }

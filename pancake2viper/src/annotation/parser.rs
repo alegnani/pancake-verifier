@@ -21,6 +21,7 @@ lazy_static::lazy_static! {
             .op(Op::infix(Rule::bit_and, Left))
             .op(Op::infix(Rule::pancake_eq, Left) | Op::infix(Rule::pancake_neq, Left) | Op::infix(Rule::viper_eq, Left) | Op::infix(Rule::viper_neq, Left))
             .op(Op::infix(Rule::gt, Left) | Op::infix(Rule::gte, Left) | Op::infix(Rule::lt, Left) | Op::infix(Rule::lte, Left))
+            .op(Op::postfix(Rule::shift))
             .op(Op::infix(Rule::add, Left) | Op::infix(Rule::sub, Left))
             .op(Op::infix(Rule::mul, Left) | Op::infix(Rule::div, Left) | Op::infix(Rule::modulo, Left))
             .op(Op::prefix(Rule::neg) | Op::prefix(Rule::minus))
@@ -159,6 +160,14 @@ pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
                     right: Box::new(parse_expr(Pairs::single(pairs.next().unwrap()))),
                 })
             }
+            Rule::shift => {
+                let mut pairs = op.into_inner();
+                Expr::Shift(Shift {
+                    shifttype: ShiftType::from_pest(pairs.next().unwrap()),
+                    value: Box::new(lhs),
+                    amount: pairs.next().unwrap().as_str().parse().unwrap(),
+                })
+            }
             _ => panic!("Failed to parse postfix, got `{:?}`", op.into_inner()),
         })
         .parse(pairs)
@@ -167,6 +176,17 @@ pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
 // Translates from parsing tree to AST
 pub trait FromPestPair {
     fn from_pest(pair: Pair<'_, Rule>) -> Self;
+}
+
+impl FromPestPair for ShiftType {
+    fn from_pest(pair: Pair<'_, Rule>) -> Self {
+        match pair.as_rule() {
+            Rule::lshl => Self::Lsl,
+            Rule::ashr => Self::Asr,
+            Rule::lshr => Self::Lsr,
+            x => panic!("Failed to parse ShiftType, got {:?}", x),
+        }
+    }
 }
 
 impl FromPestPair for AnnotationType {
