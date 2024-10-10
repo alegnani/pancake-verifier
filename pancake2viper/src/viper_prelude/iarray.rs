@@ -207,6 +207,7 @@ impl<'a> IArrayHelper<'a> {
         let zero = ast.int_lit(0);
         let len_src = self.len_f(src);
         let len_dst = self.len_f(dst);
+        let read_perm = ast.fractional_perm(ast.int_lit(1), ast.int_lit(2));
 
         let pres = [
             // requires 0 <= src_idx <= alen(src)
@@ -215,7 +216,7 @@ impl<'a> IArrayHelper<'a> {
             // requires src_idx + length <= alen(src)
             ast.le_cmp(ast.add(src_idx, length), len_src),
             // requires slice_access(src, src_idx, length, wildcard)
-            self.array_acc_expr(src, src_idx, length, ast.wildcard_perm()),
+            self.array_acc_expr(src, src_idx, length, read_perm),
             // requires 0 <= dst_idx <= alen(dst)
             ast.le_cmp(zero, dst_idx),
             ast.le_cmp(dst_idx, len_dst),
@@ -240,7 +241,7 @@ impl<'a> IArrayHelper<'a> {
 
         let posts = [
             // ensures slice_access(src, src_idx, length, wildcard)
-            self.array_acc_expr(src, src_idx, length, ast.wildcard_perm()),
+            self.array_acc_expr(src, src_idx, length, read_perm),
             // ensures slice_access(dst, dst_idx, length, write)
             self.array_acc_expr(dst, dst_idx, length, ast.full_perm()),
             // ensures forall i: Int :: src_idx <= i < src_idx + length ==> old(slot(src, i).heap_elem) == slot(src, i).heap_elem
