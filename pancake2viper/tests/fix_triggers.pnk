@@ -1,0 +1,17 @@
+fun test() {
+    /*@ requires acc(heap[@base]) @*/
+    /*@ requires acc(heap[@base + 1]) @*/
+    var x = lds {1, 1} @base;
+    var i = 0;
+    while (true) {
+        /*@ invariant acc(heap[@base]) @*/
+        /*@ invariant acc(heap[@base + 1]) @*/
+        x = lds {1, 1} @base;
+        st @base, x;
+        if (i == 10) {
+            break;
+        }
+        i = i + 1;
+    }
+    return 0;
+}

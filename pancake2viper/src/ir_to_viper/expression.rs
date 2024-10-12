@@ -170,8 +170,7 @@ impl<'a> TryToViper<'a> for ir::Struct {
             .enumerate()
             .map(|(idx, e)| {
                 let lhs = ctx.iarray.access(struct_var, ast.int_lit(idx as i64));
-                e.to_viper(ctx)
-                    .and_then(|rhs| Ok(ast.field_assign(lhs, rhs)))
+                e.to_viper(ctx).map(|rhs| ast.field_assign(lhs, rhs))
             })
             .collect::<Result<Vec<_>, _>>()?;
         assumptions.extend(assignments);
@@ -318,19 +317,26 @@ impl<'a> TryToViper<'a> for ir::ArrayAccess {
     }
 }
 
+impl<'a> ToViper<'a> for ir::Permission {
+    type Output = viper::Expr<'a>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+        let ast = ctx.ast;
+        match self {
+            Self::Write => ast.full_perm(),
+            Self::Read => Self::Fractional(1, 2).to_viper(ctx),
+            Self::Wildcard => ast.wildcard_perm(),
+            Self::Fractional(numer, denom) => {
+                ast.fractional_perm(ast.int_lit(numer), ast.int_lit(denom))
+            }
+        }
+    }
+}
+
 impl<'a> TryToViper<'a> for ir::AccessPredicate {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        use crate::ir::Permission::*;
-        let perm = match self.perm {
-            Write => ast.full_perm(),
-            Read | Wildcard => ast.wildcard_perm(),
-            Fractional(numer, denom) => ast.fractional_perm(
-                ir::Expr::Const(numer).to_viper(ctx)?,
-                ir::Expr::Const(denom).to_viper(ctx)?,
-            ),
-        };
+        let perm = self.perm.to_viper(ctx);
         Ok(ast.field_access_predicate(self.field.to_viper(ctx)?, perm))
     }
 }

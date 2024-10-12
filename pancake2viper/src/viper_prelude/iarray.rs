@@ -202,10 +202,12 @@ impl<'a> IArrayHelper<'a> {
         let (dst_idx_decl, dst_idx) = ast.new_var("dst_idx", ast.int_type());
         let (length_decl, length) = ast.new_var("length", ast.int_type());
         let (i_decl, i) = ast.new_var("i", ast.int_type());
+        let (j_decl, j) = ast.new_var("j", ast.int_type());
 
         let zero = ast.int_lit(0);
         let len_src = self.len_f(src);
         let len_dst = self.len_f(dst);
+        let read_perm = ast.fractional_perm(ast.int_lit(1), ast.int_lit(2));
 
         let pres = [
             // requires 0 <= src_idx <= alen(src)
@@ -214,7 +216,7 @@ impl<'a> IArrayHelper<'a> {
             // requires src_idx + length <= alen(src)
             ast.le_cmp(ast.add(src_idx, length), len_src),
             // requires slice_access(src, src_idx, length, wildcard)
-            self.array_acc_expr(src, src_idx, length, ast.wildcard_perm()),
+            self.array_acc_expr(src, src_idx, length, read_perm),
             // requires 0 <= dst_idx <= alen(dst)
             ast.le_cmp(zero, dst_idx),
             ast.le_cmp(dst_idx, len_dst),
@@ -224,25 +226,31 @@ impl<'a> IArrayHelper<'a> {
             self.array_acc_expr(dst, dst_idx, length, ast.full_perm()),
         ];
 
-        let guard = ast.and(ast.le_cmp(zero, i), ast.lt_cmp(i, length));
-        let src_idx_i = ast.add(src_idx, i);
-        let dst_idx_i = ast.add(dst_idx, i);
-
-        let src_impl = ast.eq_cmp(
-            ast.old(self.access(src, src_idx_i)),
-            self.access(src, src_idx_i),
+        let guard_src = ast.and(
+            ast.le_cmp(src_idx, i),
+            ast.lt_cmp(i, ast.add(src_idx, length)),
         );
-        let dst_impl = ast.eq_cmp(self.access(src, src_idx_i), self.access(dst, dst_idx_i));
+        let guard_src_dst = ast.and(
+            guard_src,
+            ast.eq_cmp(ast.sub(i, j), ast.sub(src_idx, dst_idx)),
+        );
+        let guard_length = ast.and(ast.le_cmp(zero, i), ast.lt_cmp(i, length));
+
+        let src_impl = ast.eq_cmp(ast.old(self.access(src, i)), self.access(src, i));
+        let dst_impl = ast.eq_cmp(self.access(src, i), self.access(dst, j));
 
         let posts = [
             // ensures slice_access(src, src_idx, length, wildcard)
-            self.array_acc_expr(src, src_idx, length, ast.wildcard_perm()),
+            self.array_acc_expr(src, src_idx, length, read_perm),
             // ensures slice_access(dst, dst_idx, length, write)
             self.array_acc_expr(dst, dst_idx, length, ast.full_perm()),
-            // ensures forall i : Int :: 0 <= i < length ==> old(slot(src, src_idx + i).heap_elem) == slot(src, src_idx + i).heap_elem
-            ast.forall(&[i_decl], &[], ast.implies(guard, src_impl)),
-            // ensures forall i : Int :: 0 <= i < length ==> slot(src, src_idx + i).heap_elem == slot(dst, dst_idx + i).heap_elem
-            ast.forall(&[i_decl], &[], ast.implies(guard, dst_impl)),
+            // ensures forall i: Int :: src_idx <= i < src_idx + length ==> old(slot(src, i).heap_elem) == slot(src, i).heap_elem
+            ast.forall(&[i_decl], &[], ast.implies(guard_src, src_impl)),
+            // ensures forall i: Int, j :Int ::
+            //     src_idx <= i < src_idx + length
+            //  && i - j == src_idx - dst_idx
+            //  ==> slot(src, i).heap_elem == slot(dst, j).heap_elem
+            ast.forall(&[i_decl, j_decl], &[], ast.implies(guard_src_dst, dst_impl)),
         ];
 
         let copy_slice = ast.method(
@@ -254,7 +262,7 @@ impl<'a> IArrayHelper<'a> {
             None,
         );
 
-        let create_impl = ast.eq_cmp(self.access(src, src_idx_i), self.access(dst, i));
+        let create_impl = ast.eq_cmp(self.access(src, ast.add(src_idx, i)), self.access(dst, i));
 
         let create_posts = [
             // length == alen(dst)
@@ -263,10 +271,10 @@ impl<'a> IArrayHelper<'a> {
             posts[0],
             // ensures full_access(dst, write)
             self.array_acc_expr(dst, zero, length, ast.full_perm()),
-            // ensures forall i : Int :: 0 <= i < length ==> old(slot(src, src_idx + i).heap_elem) == slot(src, src_idx + i).heap_elem
+            // ensures forall i: Int :: src_idx <= i < src_idx + length ==> old(slot(src, i).heap_elem) == slot(src, i).heap_elem
             posts[2],
-            // ensures forall i: Int :: 0 <= i < length ==> slot(src, idx + i).heap_elem == slot(dst, i).heap_elem
-            ast.forall(&[i_decl], &[], ast.implies(guard, create_impl)),
+            // ensures forall i: Int :: 0 <= i < length ==> slot(src, src_idx + i).heap_elem == slot(dst, i).heap_elem
+            ast.forall(&[i_decl], &[], ast.implies(guard_length, create_impl)),
         ];
 
         let body = ast.seqn(
