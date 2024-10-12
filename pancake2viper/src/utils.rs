@@ -69,11 +69,26 @@ impl ViperHandle {
 
 pub trait ViperUtils<'a> {
     fn new_var(&self, name: &str, typ: Type) -> (LocalVarDecl<'a>, Expr<'a>);
+    fn zero(&self) -> Expr<'a>;
+    fn one(&self) -> Expr<'a>;
+    fn two(&self) -> Expr<'a>;
 }
 
 impl<'a> ViperUtils<'a> for AstFactory<'a> {
     fn new_var(&self, name: &str, typ: Type) -> (LocalVarDecl<'a>, Expr<'a>) {
         (self.local_var_decl(name, typ), self.local_var(name, typ))
+    }
+
+    fn zero(&self) -> Expr<'a> {
+        self.int_lit(0)
+    }
+
+    fn one(&self) -> Expr<'a> {
+        self.int_lit(1)
+    }
+
+    fn two(&self) -> Expr<'a> {
+        self.int_lit(2)
     }
 }
 

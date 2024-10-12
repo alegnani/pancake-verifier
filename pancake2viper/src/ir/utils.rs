@@ -24,6 +24,18 @@ impl MemOpBytes {
         match self {
             Self::Byte => 8,
             Self::HalfWord => 32,
+            Self::Word => 64,
+        }
+    }
+}
+
+impl From<u64> for MemOpBytes {
+    fn from(value: u64) -> Self {
+        match value {
+            8 => Self::Byte,
+            32 => Self::HalfWord,
+            64 => Self::Word,
+            x => panic!("invalid conversion from u64 to MemOpBytes, got {}", x),
         }
     }
 }
