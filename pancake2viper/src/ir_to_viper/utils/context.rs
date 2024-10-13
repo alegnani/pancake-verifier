@@ -2,7 +2,9 @@ use std::collections::{HashMap, HashSet};
 
 use viper::{AstFactory, Declaration, LocalVarDecl};
 
-use crate::{cli::CliOptions, ir::AnnotationType, shape::Shape, viper_prelude::IArrayHelper};
+use crate::{
+    cli::CliOptions, ir::AnnotationType, shape::Shape, viper_prelude::IArrayHelper, ShapeError,
+};
 
 use super::mangler::{Mangler, RESERVED};
 
@@ -188,6 +190,13 @@ impl<'a> ViperEncodeCtx<'a> {
             .get(self.mangler.mangle_var(var))
             .unwrap_or_else(|| panic!("Type for '{}' has not been set", var))
             .to_owned()
+    }
+
+    pub fn get_function_type(&self, fname: &str) -> Result<Shape, ShapeError> {
+        self.type_map
+            .get(&self.mangler.mangle_fn(&fname))
+            .map(Shape::to_owned)
+            .ok_or(ShapeError::UnknownReturnType(fname.to_owned()))
     }
 
     pub fn set_type(&mut self, var: String, shape: Shape) {

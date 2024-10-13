@@ -1,6 +1,8 @@
 use crate::{ir_to_viper::ViperEncodeCtx, shape::Shape, ShapeError, ToShape, TryToShape};
 
-use super::{Arg, Expr, Field, FnDec, Function, Method, Predicate, Stmt, Struct};
+use super::{
+    Arg, Expr, Field, FnDec, Function, Method, Predicate, Program, Stmt, Struct, TailCall,
+};
 
 impl Struct {
     pub fn new(elements: Vec<Expr>) -> Self {
@@ -36,6 +38,18 @@ impl Method {
     }
 }
 
+impl Expr {
+    // TODO: this could well be a function pointer. If we stick to only using
+    // valid function addresses (no unholy pointer arithmetic) we can encode
+    // this as a switch statement checking the expression against all possible
+    // function addresses.
+    pub fn get_label(&self) -> String {
+        match self {
+            Self::Label(label) => label.to_owned(),
+            _ => panic!("Probably using f-pointer"),
+        }
+    }
+}
 impl FnDec {
     pub fn collect_returns(
         body: &Stmt,
@@ -49,8 +63,18 @@ impl FnDec {
                 .flatten()
                 .collect()),
             Stmt::Declaration(dec) => Self::collect_returns(&dec.scope, ctx),
-            Stmt::Return(ret) => Ok(vec![ret.value.to_shape(ctx)?]),
-            // Stmt::TailCall(tail) => tail.shape(ctx), // TODO: evaluate return types
+            x @ (Stmt::Return(_) | Stmt::TailCall(_)) => {
+                let shape = match x {
+                    Stmt::Return(ret) => ret.value.to_shape(ctx),
+                    Stmt::TailCall(tail) => tail.to_shape(ctx),
+                    _ => unreachable!(),
+                };
+                match shape {
+                    Ok(s) => Ok(vec![s]),
+                    Err(ShapeError::UnknownReturnType(_)) => Ok(vec![]),
+                    Err(e) => Err(e),
+                }
+            }
             _ => Ok(vec![]),
         }
     }
@@ -69,7 +93,7 @@ impl<'a> TryToShape<'a> for Expr {
                 | Expr::BaseAddr
                 | Expr::BytesInWord => Shape::Simple,
                 Expr::Var(var) => ctx.get_type(var),
-                Expr::Call(call) => Shape::Simple, // FIXME
+                Expr::Call(call) => ctx.get_function_type(&call.fname.get_label())?,
                 Expr::Label(_) => unreachable!("ToShape for Expr::Label"),
                 Expr::Load(load) => load.shape.clone(),
                 _ => unreachable!(),
@@ -105,6 +129,12 @@ impl<'a> TryToShape<'a> for Field {
                     ))
             }
         }
+    }
+}
+
+impl<'a> TryToShape<'a> for TailCall {
+    fn to_shape(&self, ctx: &ViperEncodeCtx<'a>) -> Result<Shape, ShapeError> {
+        ctx.get_function_type(&self.fname.get_label())
     }
 }
 

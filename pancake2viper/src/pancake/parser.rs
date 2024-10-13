@@ -383,6 +383,7 @@ impl FnDec {
                         fname: name.clone(),
                         args,
                         body: Stmt::parse(body.iter().collect())?,
+                        rettyp: None,
                     })
                 }
                 _ => Err(anyhow!("Shape of SExpr::List does not match")),

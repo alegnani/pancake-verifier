@@ -55,6 +55,8 @@ pub enum ShapeError {
     SimpleShapeAccess(Shape),
     #[error("Field access with index {0} out of bounds for struct of shape `{1:?}`")]
     OutOfBoundsFieldAccess(usize, Shape),
+    #[error("Function {0} has no return type set")]
+    UnknownReturnType(String),
 }
 
 pub trait TryToShape<'a> {
