@@ -1,12 +1,7 @@
 mod auto;
-mod context;
-mod mangler;
 mod to_shape;
 
-pub use context::*;
-pub use mangler::*;
-
-use crate::{ToViper, ToViperError, TryToViper};
+use crate::utils::{ToViper, ToViperError, TryToViper, ViperEncodeCtx};
 
 impl<'a, T: TryToViper<'a>> TryToViper<'a> for Vec<T> {
     type Output = Vec<T::Output>;

@@ -1,9 +1,10 @@
-use crate::{ir, shape::Shape, ShapeError, ToShape, TryToShape};
+use crate::{
+    ir,
+    utils::{Shape, ShapeError, ToShape, TryToShape, TypeContext},
+};
 
-use super::ViperEncodeCtx;
-
-impl<'a> TryToShape<'a> for ir::Struct {
-    fn to_shape(&self, ctx: &ViperEncodeCtx<'a>) -> Result<Shape, ShapeError> {
+impl TryToShape for ir::Struct {
+    fn to_shape(&self, ctx: &TypeContext) -> Result<Shape, ShapeError> {
         let inner_shapes = self
             .elements
             .iter()
@@ -13,8 +14,8 @@ impl<'a> TryToShape<'a> for ir::Struct {
     }
 }
 
-impl<'a> TryToShape<'a> for ir::Field {
-    fn to_shape(&self, ctx: &ViperEncodeCtx<'a>) -> Result<Shape, ShapeError> {
+impl TryToShape for ir::Field {
+    fn to_shape(&self, ctx: &TypeContext) -> Result<Shape, ShapeError> {
         let obj_shape = self.obj.to_shape(ctx)?;
         match &obj_shape {
             Shape::Simple => Err(ShapeError::SimpleShapeFieldAccess(*self.obj.clone())),
@@ -30,8 +31,8 @@ impl<'a> TryToShape<'a> for ir::Field {
     }
 }
 
-impl<'a> ToShape<'a> for ir::Type {
-    fn to_shape(&self, _ctx: &ViperEncodeCtx<'a>) -> Shape {
+impl ToShape for ir::Type {
+    fn to_shape(&self, _ctx: &TypeContext) -> Shape {
         use ir::Type::*;
         match self {
             Bool | Int => Shape::Simple,
@@ -40,8 +41,8 @@ impl<'a> ToShape<'a> for ir::Type {
     }
 }
 
-impl<'a> TryToShape<'a> for ir::Expr {
-    fn to_shape(&self, ctx: &ViperEncodeCtx<'a>) -> Result<Shape, ShapeError> {
+impl TryToShape for ir::Expr {
+    fn to_shape(&self, ctx: &TypeContext) -> Result<Shape, ShapeError> {
         use ir::Expr::*;
         match self {
             Field(field) => field.to_shape(ctx),
@@ -51,7 +52,7 @@ impl<'a> TryToShape<'a> for ir::Expr {
                 Const(_) | UnOp(_) | BinOp(_) | Shift(_) | LoadByte(_) | Quantified(_)
                 | ArrayAccess(_) | AccessPredicate(_) | FieldAccessChain(_) | BaseAddr
                 | BytesInWord => Shape::Simple,
-                Var(var) => ctx.get_type(var),
+                Var(var) => ctx.get_type_no_mangle(var),
                 MethodCall(call) => call.rettype.clone(),
                 FunctionCall(call) => todo!(),
                 Label(_) => unreachable!("ToShape for Expr::Label"),

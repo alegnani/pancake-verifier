@@ -1,8 +1,6 @@
 use crate::ir;
 use crate::ir_to_viper::TranslationMode;
-use crate::utils::ViperUtils;
-
-use crate::{ToViperError, ToViperType, TryToShape, TryToViper};
+use crate::utils::{ToViperError, ToViperType, TryToShape, TryToViper, ViperUtils};
 
 use super::utils::ViperEncodeCtx;
 

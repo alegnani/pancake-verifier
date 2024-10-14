@@ -1,6 +1,8 @@
-use crate::{annotation::parse_annot, ir, pancake};
-
-use super::utils::Wrapper;
+use crate::{
+    annotation::parse_annot,
+    ir, pancake,
+    utils::{ToIR, ToIRError, TryToIR},
+};
 
 impl From<pancake::Annotation> for ir::Annotation {
     fn from(value: pancake::Annotation) -> Self {
@@ -8,187 +10,222 @@ impl From<pancake::Annotation> for ir::Annotation {
     }
 }
 
-impl From<pancake::Assign> for ir::Assign {
-    fn from(value: pancake::Assign) -> Self {
-        Self {
-            lhs: value.lhs,
-            rhs: value.rhs.into(),
-        }
+impl TryToIR for pancake::Assign {
+    type Output = ir::Assign;
+
+    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, ToIRError> {
+        Ok(Self::Output {
+            lhs: ctx.mangler_get_mut().new_scoped_var(self.lhs),
+            rhs: self.rhs.to_ir(ctx)?,
+        })
     }
 }
 
-impl From<pancake::Declaration> for ir::Definition {
-    fn from(value: pancake::Declaration) -> Self {
-        Self {
-            lhs: value.lhs,
-            rhs: value.rhs.into(),
-            scope: Box::new((*value.scope).into()),
-        }
+impl TryToIR for pancake::Declaration {
+    type Output = ir::Definition;
+
+    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, ToIRError> {
+        Ok(Self::Output {
+            lhs: ctx.mangler_get().mangle_var(&self.lhs).to_owned(),
+            rhs: self.rhs.to_ir(ctx)?,
+            scope: Box::new(self.scope.to_ir(ctx)?),
+        })
     }
 }
 
-impl From<pancake::Store> for ir::Store {
-    fn from(value: pancake::Store) -> Self {
-        Self {
-            address: value.address.into(),
-            value: value.value.into(),
-        }
-    }
-}
+impl ToIR for pancake::MemOpBytes {
+    type Output = ir::MemOpBytes;
 
-impl From<pancake::MemOpBytes> for ir::MemOpBytes {
-    fn from(value: pancake::MemOpBytes) -> Self {
+    fn to_ir(self, _ctx: &mut crate::utils::TypeContext) -> Self::Output {
         use pancake::MemOpBytes::*;
-        match value {
-            Byte => Self::Byte,
-            HalfWord => Self::HalfWord,
+        match self {
+            Byte => Self::Output::Byte,
+            HalfWord => Self::Output::HalfWord,
         }
+    }
+}
+
+impl TryToIR for pancake::Store {
+    type Output = ir::Store;
+
+    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, ToIRError> {
+        Ok(Self::Output {
+            address: self.address.to_ir(ctx)?,
+            value: self.value.to_ir(ctx)?,
+        })
     }
 }
 
 // XXX: do we want to only have one load and store and then a masked read/write?
-impl From<pancake::StoreBits> for ir::StoreBits {
-    fn from(value: pancake::StoreBits) -> Self {
-        Self {
-            address: value.address.into(),
-            value: value.value.into(),
-            size: value.size.into(),
-        }
+impl TryToIR for pancake::StoreBits {
+    type Output = ir::StoreBits;
+
+    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, ToIRError> {
+        Ok(Self::Output {
+            address: self.address.to_ir(ctx)?,
+            value: self.value.to_ir(ctx)?,
+            size: self.size.to_ir(ctx),
+        })
     }
 }
 
-impl From<pancake::SharedStore> for ir::SharedStore {
-    fn from(value: pancake::SharedStore) -> Self {
-        Self {
-            address: value.address.into(),
-            value: value.value.into(),
-        }
+impl TryToIR for pancake::SharedStore {
+    type Output = ir::SharedStore;
+
+    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, ToIRError> {
+        Ok(Self::Output {
+            address: self.address.to_ir(ctx)?,
+            value: self.value.to_ir(ctx)?,
+        })
     }
 }
 
-impl From<pancake::SharedStoreBits> for ir::SharedStoreBits {
-    fn from(value: pancake::SharedStoreBits) -> Self {
-        Self {
-            address: value.address.into(),
-            value: value.value.into(),
-            size: value.size.into(),
-        }
+impl TryToIR for pancake::SharedStoreBits {
+    type Output = ir::SharedStoreBits;
+
+    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, ToIRError> {
+        Ok(Self::Output {
+            address: self.address.to_ir(ctx)?,
+            value: self.value.to_ir(ctx)?,
+            size: self.size.to_ir(ctx),
+        })
     }
 }
 
-impl From<pancake::SharedLoad> for ir::SharedLoad {
-    fn from(value: pancake::SharedLoad) -> Self {
-        Self {
-            address: value.address.into(),
-            dst: value.dst.into(),
-        }
+impl TryToIR for pancake::SharedLoad {
+    type Output = ir::SharedLoad;
+
+    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, ToIRError> {
+        Ok(Self::Output {
+            address: self.address.to_ir(ctx)?,
+            dst: self.dst.to_ir(ctx)?,
+        })
     }
 }
 
-impl From<pancake::SharedLoadBits> for ir::SharedLoadBits {
-    fn from(value: pancake::SharedLoadBits) -> Self {
-        Self {
-            address: value.address.into(),
-            size: value.size.into(),
-            dst: value.dst.into(),
-        }
+impl TryToIR for pancake::SharedLoadBits {
+    type Output = ir::SharedLoadBits;
+
+    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, ToIRError> {
+        Ok(Self::Output {
+            address: self.address.to_ir(ctx)?,
+            dst: self.dst.to_ir(ctx)?,
+            size: self.size.to_ir(ctx),
+        })
     }
 }
 
-impl From<pancake::Seq> for ir::Seq {
-    fn from(value: pancake::Seq) -> Self {
-        let stmts: Wrapper<ir::Stmt> = value.stmts.into();
-        Self { stmts: stmts.0 }
+impl TryToIR for pancake::Seq {
+    type Output = ir::Seq;
+
+    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, ToIRError> {
+        let stmts = self.stmts.to_ir(ctx)?;
+        Ok(Self::Output { stmts })
     }
 }
 
-impl From<pancake::If> for ir::If {
-    fn from(value: pancake::If) -> Self {
-        Self {
-            cond: value.cond.into(),
-            if_branch: Box::new((*value.if_branch).into()),
-            else_branch: Box::new((*value.else_branch).into()),
-        }
+impl TryToIR for pancake::If {
+    type Output = ir::If;
+
+    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, ToIRError> {
+        Ok(Self::Output {
+            cond: self.cond.to_ir(ctx)?,
+            if_branch: Box::new(self.if_branch.to_ir(ctx)?),
+            else_branch: Box::new(self.else_branch.to_ir(ctx)?),
+        })
     }
 }
 
-impl From<pancake::While> for ir::While {
-    fn from(value: pancake::While) -> Self {
-        Self {
-            cond: value.cond.into(),
-            body: Box::new((*value.body).into()),
-        }
+impl TryToIR for pancake::While {
+    type Output = ir::While;
+
+    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, ToIRError> {
+        Ok(Self::Output {
+            cond: self.cond.to_ir(ctx)?,
+            body: Box::new(self.body.to_ir(ctx)?),
+        })
     }
 }
 
-impl From<pancake::Call> for ir::Call {
-    fn from(value: pancake::Call) -> Self {
-        let args: Wrapper<ir::Expr> = value.args.into();
-        Self {
+impl TryToIR for pancake::Return {
+    type Output = ir::Return;
+
+    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, ToIRError> {
+        Ok(Self::Output {
+            value: self.value.to_ir(ctx)?,
+        })
+    }
+}
+
+impl TryToIR for pancake::Call {
+    type Output = ir::Call;
+
+    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, ToIRError> {
+        let args = self.args.to_ir(ctx)?;
+        Ok(Self::Output {
             call: ir::Expr::MethodCall(ir::MethodCall {
-                fname: Box::new(value.fname.into()),
-                rettype: crate::shape::Shape::Simple, // FIXME
-                args: args.0,
+                fname: Box::new(self.fname.to_ir(ctx)?),
+                args,
             }),
-        }
+        })
     }
 }
 
-impl From<pancake::TailCall> for ir::Return {
-    fn from(value: pancake::TailCall) -> Self {
-        let args: Wrapper<ir::Expr> = value.args.into();
-        ir::Return {
+impl TryToIR for pancake::TailCall {
+    type Output = ir::Return;
+
+    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, ToIRError> {
+        let args = self.args.to_ir(ctx)?;
+        Ok(Self::Output {
             value: ir::Expr::MethodCall(ir::MethodCall {
-                fname: Box::new(value.fname.into()),
-                args: args.0,
-                rettype: crate::shape::Shape::Simple, // FIXME
+                fname: Box::new(self.fname.to_ir(ctx)?),
+                args,
             }),
-        }
+        })
     }
 }
 
-impl From<pancake::ExtCall> for ir::ExtCall {
-    fn from(value: pancake::ExtCall) -> Self {
-        let args = value.args.map(|a| a.into()).to_vec();
-        Self {
-            fname: value.fname,
+impl TryToIR for pancake::ExtCall {
+    type Output = ir::ExtCall;
+
+    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, ToIRError> {
+        let args = self.args.to_ir(ctx)?;
+        Ok(Self::Output {
+            fname: self.fname,
             args,
-        }
+        })
     }
 }
 
-impl From<pancake::Return> for ir::Return {
-    fn from(value: pancake::Return) -> Self {
-        Self {
-            value: value.value.into(),
-        }
-    }
-}
+impl TryToIR for pancake::Stmt {
+    type Output = ir::Stmt;
 
-impl From<pancake::Stmt> for ir::Stmt {
-    fn from(value: pancake::Stmt) -> Self {
+    fn to_ir(
+        self,
+        ctx: &mut crate::utils::TypeContext,
+    ) -> Result<Self::Output, crate::utils::ToIRError> {
         use pancake::Stmt::*;
-        match value {
-            Skip => Self::Skip,
-            Annotation(a) => Self::Annotation(parse_annot(&a.line)),
-            Declaration(d) => Self::Definition(d.into()),
-            Assign(a) => Self::Assign(a.into()),
-            Store(s) => Self::Store(s.into()),
-            StoreBits(s) => Self::StoreBits(s.into()),
-            SharedStore(s) => Self::SharedStore(s.into()),
-            SharedStoreBits(s) => Self::SharedStoreBits(s.into()),
-            SharedLoad(s) => Self::SharedLoad(s.into()),
-            SharedLoadBits(s) => Self::SharedLoadBits(s.into()),
-            Seq(s) => Self::Seq(s.into()),
-            If(i) => Self::If(i.into()),
-            While(w) => Self::While(w.into()),
-            Break => Self::Break,
-            Continue => Self::Continue,
-            Call(c) => Self::Call(c.into()),
-            TailCall(t) => Self::Return(t.into()),
-            ExtCall(e) => Self::ExtCall(e.into()),
-            Raise(_) | Tick => panic!("Raise and Tick are not implemented"),
-            Return(r) => Self::Return(r.into()),
-        }
+        Ok(match self {
+            Skip => Self::Output::Skip,
+            Annotation(annot) => Self::Output::Annotation(parse_annot(&annot.line)), // FIXME
+            Declaration(decl) => Self::Output::Definition(decl.to_ir(ctx)?),
+            Assign(ass) => Self::Output::Assign(ass.to_ir(ctx)?),
+            Store(store) => Self::Output::Store(store.to_ir(ctx)?),
+            StoreBits(store) => Self::Output::StoreBits(store.to_ir(ctx)?),
+            SharedStore(store) => Self::Output::SharedStore(store.to_ir(ctx)?),
+            SharedStoreBits(store) => Self::Output::SharedStoreBits(store.to_ir(ctx)?),
+            SharedLoad(load) => Self::Output::SharedLoad(load.to_ir(ctx)?),
+            SharedLoadBits(load) => Self::Output::SharedLoadBits(load.to_ir(ctx)?),
+            Seq(seq) => Self::Output::Seq(seq.to_ir(ctx)?),
+            If(i) => Self::Output::If(i.to_ir(ctx)?),
+            While(w) => Self::Output::While(w.to_ir(ctx)?),
+            Break => Self::Output::Break,
+            Continue => Self::Output::Continue,
+            Return(r) => Self::Output::Return(r.to_ir(ctx)?),
+            Call(call) => Self::Output::Call(call.to_ir(ctx)?),
+            TailCall(call) => Self::Output::Return(call.to_ir(ctx)?),
+            ExtCall(call) => Self::Output::ExtCall(call.to_ir(ctx)?),
+            Raise(_) | Tick => panic!("Raise and Tick are not implemented in Pancake"),
+        })
     }
 }

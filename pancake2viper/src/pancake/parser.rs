@@ -9,8 +9,7 @@ use std::{
 };
 
 use super::*;
-use crate::pancake;
-use crate::shape::Shape;
+use crate::{pancake, utils::Shape};
 use SExpr::*;
 
 /// S-expression definition for parsing of `cake`'s explore output

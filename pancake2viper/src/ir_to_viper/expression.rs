@@ -1,14 +1,12 @@
 use viper::BinOpBv;
 use viper::BvSize::BV64;
 
-use crate::shape::Shape;
-use crate::utils::ViperUtils;
+use crate::utils::{Shape, ToViper, ToViperError, ToViperType, TryToViper};
 
 use crate::ir::{self};
 
-use crate::{ToShape, ToViper, ToViperError, ToViperType, TryToShape, TryToViper};
-
 use super::utils::ViperEncodeCtx;
+use super::Mangler;
 
 impl ir::Expr {
     pub fn cond_to_viper<'a>(
@@ -274,7 +272,7 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let ret = ast.new_var(&ctx.fresh_var(), self.rettype.to_viper_type(ctx));
-        let method_name = ctx.mangler.mangle_fn(&self.fname.label_to_viper());
+        let method_name = Mangler::mangle_fn(&self.fname.label_to_viper());
 
         let mut args = vec![];
 

@@ -1,6 +1,6 @@
 use strum::EnumString;
 
-use crate::shape::Shape;
+use crate::utils::Shape;
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -51,7 +51,6 @@ pub struct LoadByte {
 
 #[derive(Debug, Clone)]
 pub struct MethodCall {
-    pub rettype: Shape,
     pub fname: Box<Expr>,
     pub args: Vec<Expr>,
 }

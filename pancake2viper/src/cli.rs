@@ -3,6 +3,8 @@ use std::env;
 use clap::{Parser, ValueEnum};
 use clap_stdin::FileOrStdin;
 
+use crate::utils::EncodeOptions;
+
 #[derive(Debug, Parser, Clone)]
 #[clap(version, about, rename_all = "kebab-case")]
 pub struct CliOptions {
@@ -56,6 +58,17 @@ pub struct CliOptions {
 
     #[arg(short, long, help = "Verify the Pancake code")]
     pub verify: bool,
+}
+
+impl From<CliOptions> for EncodeOptions {
+    fn from(value: CliOptions) -> Self {
+        Self {
+            expr_unrolling: value.tac,
+            assert_aligned_accesses: !value.disable_assert_alignment,
+            word_size: value.word_size.into(),
+            heap_size: value.heap_size,
+        }
+    }
 }
 
 fn get_viper_path() -> String {

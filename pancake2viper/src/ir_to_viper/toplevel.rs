@@ -2,24 +2,17 @@ use std::collections::HashSet;
 
 use viper::{AstFactory, Declaration};
 
-use crate::{
-    utils::ViperUtils, viper_prelude::create_viper_prelude, ProgramToViper, ToViper, ToViperType,
+use crate::utils::{
+    ProgramToViper, ToViper, ToViperError, ToViperType, TryToViper, ViperEncodeCtx, ViperUtils,
 };
+use crate::viper_prelude::create_viper_prelude;
 
-use crate::{ir::*, ToViperError, TryToViper};
-
-use super::{
-    utils::{EncodeOptions, Mangler},
-    ViperEncodeCtx,
-};
+use crate::ir::*;
 
 impl<'a> ToViper<'a> for Arg {
     type Output = viper::LocalVarDecl<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let mangled_arg = ctx.mangler.new_arg(self.name.clone());
-        ctx.set_type(mangled_arg.clone(), self.shape.clone());
-        ctx.ast
-            .local_var_decl(&mangled_arg, self.shape.to_viper_type(ctx))
     }
 }
 
@@ -79,7 +72,7 @@ impl<'a> TryToViper<'a> for FnDec {
         );
 
         Ok(ast.method(
-            &ctx.mangler.mangle_fn(&self.fname),
+            &Mangler::mangle_fn(&self.fname),
             &args_local_decls,
             &[ctx.return_var().0],
             &pres,
@@ -191,7 +184,7 @@ impl<'a> ProgramToViper<'a> for Program {
             .unzip();
         let predicates = predicates.into_iter().collect::<Result<Vec<_>, _>>()?;
 
-        let functions = self
+        let mut functions = self
             .viper_functions
             .into_iter()
             .map(|f| {
@@ -222,9 +215,10 @@ impl<'a> ProgramToViper<'a> for Program {
                 f.to_viper(&mut ctx)
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let (domains, fields, mut methods) = create_viper_prelude(ast);
+        let (domains, fields, mut methods, fs) = create_viper_prelude(ast);
         methods.extend(abstract_methods.iter());
         methods.extend(program_methods.iter());
+        functions.extend(fs.iter());
         Ok(ast.program(&domains, &fields, &functions, &predicates, &methods))
     }
 }

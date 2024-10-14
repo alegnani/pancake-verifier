@@ -2,11 +2,12 @@ use std::collections::{HashMap, HashSet};
 
 use viper::{AstFactory, Declaration, LocalVarDecl};
 
-use crate::{
-    cli::CliOptions, ir::AnnotationType, shape::Shape, viper_prelude::IArrayHelper, ShapeError,
-};
+use crate::{ir::AnnotationType, viper_prelude::IArrayHelper};
 
-use super::mangler::{Mangler, RESERVED};
+use super::{
+    mangler::{Mangler, RESERVED},
+    Shape, ShapeError,
+};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum TranslationMode {
@@ -35,16 +36,69 @@ impl From<AnnotationType> for TranslationMode {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct TypeContext {
+    type_map: HashMap<String, Shape>,
+    mangler: Mangler,
+}
+
+impl TypeContext {
+    pub fn new() -> Self {
+        let mut type_map = HashMap::new();
+        for &keyword in RESERVED.iter() {
+            type_map.insert(keyword.into(), Shape::Simple);
+        }
+        type_map.insert("heap".into(), Shape::Nested(vec![])); // FIXME hack to have heap be of type IArray
+        Self {
+            type_map,
+            mangler: Mangler::default(),
+        }
+    }
+
+    pub fn child(&self) -> Self {
+        self.clone()
+    }
+
+    pub fn get_type(&self, var: &str) -> Shape {
+        self.get_type_no_mangle(self.mangler.mangle_var(var))
+    }
+
+    pub fn get_type_no_mangle(&self, var: &str) -> Shape {
+        self.type_map
+            .get(var)
+            .unwrap_or_else(|| panic!("Type for '{}' has not been set", var))
+            .to_owned()
+    }
+
+    pub fn get_function_type(&self, fname: &str) -> Result<Shape, ShapeError> {
+        self.type_map
+            .get(&Mangler::mangle_fn(&fname))
+            .map(Shape::to_owned)
+            .ok_or(ShapeError::UnknownReturnType(fname.to_owned()))
+    }
+
+    pub fn set_type(&mut self, var: String, shape: Shape) {
+        self.type_map.insert(var, shape);
+    }
+
+    pub fn mangler_get(&self) -> &Mangler {
+        &self.mangler
+    }
+
+    pub fn mangler_get_mut(&mut self) -> &mut Mangler {
+        &mut self.mangler
+    }
+}
+
 pub struct ViperEncodeCtx<'a> {
     mode: TranslationMode,
     pub ast: AstFactory<'a>,
     pub stack: Vec<viper::Stmt<'a>>,
     pub declarations: Vec<viper::LocalVarDecl<'a>>,
-    type_map: HashMap<String, Shape>,
     while_counter: u64,
+    types: TypeContext,
     pub iarray: IArrayHelper<'a>,
     pub options: EncodeOptions,
-    pub mangler: Mangler,
 
     pub pres: Vec<viper::Expr<'a>>,
     pub posts: Vec<viper::Expr<'a>>,
@@ -60,17 +114,6 @@ pub struct EncodeOptions {
     pub heap_size: u64,
 }
 
-impl From<CliOptions> for EncodeOptions {
-    fn from(value: CliOptions) -> Self {
-        Self {
-            expr_unrolling: value.tac,
-            assert_aligned_accesses: !value.disable_assert_alignment,
-            word_size: value.word_size.into(),
-            heap_size: value.heap_size,
-        }
-    }
-}
-
 impl Default for EncodeOptions {
     fn default() -> Self {
         Self {
@@ -83,27 +126,16 @@ impl Default for EncodeOptions {
 }
 
 impl<'a> ViperEncodeCtx<'a> {
-    pub fn new(
-        fname: String,
-        predicates: HashSet<String>,
-        ast: AstFactory<'a>,
-        options: EncodeOptions,
-    ) -> Self {
-        let mut type_map = HashMap::new();
-        for &keyword in RESERVED.iter() {
-            type_map.insert(keyword.into(), Shape::Simple);
-        }
-        type_map.insert("heap".into(), Shape::Nested(vec![])); // FIXME hack to have heap be of type IArray
+    pub fn new(predicates: HashSet<String>, ast: AstFactory<'a>, options: EncodeOptions) -> Self {
         Self {
             mode: TranslationMode::Normal,
             ast,
             stack: vec![],
             declarations: vec![],
-            type_map,
+            types: TypeContext::new(),
             while_counter: 0,
             iarray: IArrayHelper::new(ast),
             options,
-            mangler: Mangler::new(fname),
             pres: vec![],
             posts: vec![],
             invariants: vec![],
@@ -117,11 +149,10 @@ impl<'a> ViperEncodeCtx<'a> {
             ast: self.ast,
             stack: vec![],
             declarations: vec![],
-            type_map: self.type_map.clone(),
+            types: self.types.child(),
             while_counter: self.while_counter,
             iarray: self.iarray,
             options: self.options,
-            mangler: self.mangler.child(),
             pres: self.pres.clone(),
             posts: self.posts.clone(),
             invariants: self.invariants.clone(),
@@ -133,8 +164,8 @@ impl<'a> ViperEncodeCtx<'a> {
         self.while_counter += 1;
     }
 
-    pub fn fresh_var(&mut self) -> String {
-        self.mangler.fresh_var()
+    pub fn fresh_varname(&mut self) -> String {
+        self.types.mangler_get().fresh_varname()
     }
 
     pub fn current_break_label(&self) -> String {
@@ -185,24 +216,6 @@ impl<'a> ViperEncodeCtx<'a> {
         self.iarray.get_type()
     }
 
-    pub fn get_type(&self, var: &str) -> Shape {
-        self.type_map
-            .get(self.mangler.mangle_var(var))
-            .unwrap_or_else(|| panic!("Type for '{}' has not been set", var))
-            .to_owned()
-    }
-
-    pub fn get_function_type(&self, fname: &str) -> Result<Shape, ShapeError> {
-        self.type_map
-            .get(&self.mangler.mangle_fn(&fname))
-            .map(Shape::to_owned)
-            .ok_or(ShapeError::UnknownReturnType(fname.to_owned()))
-    }
-
-    pub fn set_type(&mut self, var: String, shape: Shape) {
-        self.type_map.insert(var, shape);
-    }
-
     pub fn heap_var(&self) -> (viper::LocalVarDecl, viper::Expr) {
         (
             self.ast.local_var_decl("heap", self.heap_type()),
@@ -212,7 +225,7 @@ impl<'a> ViperEncodeCtx<'a> {
 
     pub fn set_mode(&mut self, mode: TranslationMode) {
         self.mode = mode;
-        self.mangler.mangle_mode(mode);
+        self.types.mangler_get_mut().mangle_mode(mode);
     }
 
     pub fn get_mode(&self) -> TranslationMode {
@@ -221,5 +234,29 @@ impl<'a> ViperEncodeCtx<'a> {
 
     pub fn is_predicate(&self, ident: &str) -> bool {
         self.predicates.contains(ident)
+    }
+
+    pub fn get_type(&self, var: &str) -> Shape {
+        self.types.get_type(var)
+    }
+
+    pub fn get_function_type(&self, fname: &str) -> Result<Shape, ShapeError> {
+        self.types.get_function_type(fname)
+    }
+
+    pub fn set_type(&mut self, var: String, shape: Shape) {
+        self.types.set_type(var, shape);
+    }
+
+    pub fn type_ctx(&self) -> &TypeContext {
+        &self.types
+    }
+
+    pub fn typectx_get(&self) -> &TypeContext {
+        &self.types
+    }
+
+    pub fn typectx_get_mut(&mut self) -> &mut TypeContext {
+        &mut self.types
     }
 }

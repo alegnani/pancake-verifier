@@ -3,7 +3,7 @@ use std::{
     sync::{LazyLock, Mutex},
 };
 
-use super::context::TranslationMode;
+use super::TranslationMode;
 
 lazy_static::lazy_static! {
     pub static ref RESERVED: HashSet<&'static str> = HashSet::from(["heap", "retval", "read", "write", "wildcard", "acc", "alen"]);
@@ -21,20 +21,13 @@ fn get_inc_counter() -> u64 {
 #[derive(Debug, Clone, Default)]
 pub struct Mangler {
     mode: TranslationMode,
-    fname: String,
+    fname: Option<String>,
     args: HashMap<String, String>,
     annot_vars: HashSet<String>,
     var_map: HashMap<String, String>,
 }
 
 impl Mangler {
-    pub fn new(fname: String) -> Self {
-        Self {
-            fname,
-            ..Default::default()
-        }
-    }
-
     pub fn child(&self) -> Self {
         Self {
             mode: self.mode,
@@ -52,7 +45,7 @@ impl Mangler {
                 &var
             );
         }
-        let mangled = format!("{}_{}_{}", &self.fname, &var, get_inc_counter());
+        let mangled = format!("{}_{}_{}", self.get_fname(), &var, get_inc_counter());
         self.var_map.insert(var, mangled.clone());
         mangled
     }
@@ -71,14 +64,14 @@ impl Mangler {
     }
 
     pub fn new_arg(&mut self, arg: String) -> String {
-        let mangled = Self::mangle_arg(&arg);
+        let mangled = self.mangle_arg(&arg);
         if self.args.insert(arg.clone(), mangled.clone()).is_some() {
             panic!("Arg '{}' was already defined\n{:?}", &arg, self);
         }
         mangled
     }
 
-    pub fn fresh_var(&mut self) -> String {
+    pub fn fresh_varname(&self) -> String {
         let fresh = format!("fr_{}", get_inc_counter());
         fresh
     }
@@ -107,11 +100,17 @@ impl Mangler {
             .unwrap_or_else(|| panic!("Variable '{}' has not been defined\n{:?}", var, self))
     }
 
-    pub fn mangle_arg(arg: &str) -> String {
-        format!("arg_{}", arg)
+    fn get_fname(&self) -> &str {
+        self.fname
+            .as_ref()
+            .expect("Mangler's current function name not set")
     }
 
-    pub fn mangle_fn(&self, fname: &str) -> String {
+    pub fn mangle_arg(&self, arg: &str) -> String {
+        format!("{}_arg_{}", self.get_fname(), arg)
+    }
+
+    pub fn mangle_fn(fname: &str) -> String {
         format!("f_{}", fname)
     }
 }

@@ -1,9 +1,8 @@
 use viper::{BinOpBv, BvSize::BV64, UnOpBv};
 
-use crate::{ir, ToViperError, TryToShape, TryToViper};
+use crate::ir;
 
-use crate::shape::Shape;
-use crate::utils::ViperUtils;
+use crate::utils::{Shape, ToViperError, TryToViper};
 
 use super::utils::ViperEncodeCtx;
 

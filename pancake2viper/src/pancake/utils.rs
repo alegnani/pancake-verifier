@@ -1,8 +1,6 @@
-use crate::{ir_to_viper::ViperEncodeCtx, shape::Shape, ShapeError, ToShape, TryToShape};
+use crate::utils::{Shape, ShapeError, ToShape, TryToShape, TypeContext};
 
-use super::{
-    Arg, Expr, Field, FnDec, Function, Method, Predicate, Program, Stmt, Struct, TailCall,
-};
+use super::{Arg, Expr, Field, FnDec, Function, Method, Predicate, Stmt, Struct, TailCall};
 
 impl Struct {
     pub fn new(elements: Vec<Expr>) -> Self {
@@ -51,10 +49,7 @@ impl Expr {
     }
 }
 impl FnDec {
-    pub fn collect_returns(
-        body: &Stmt,
-        ctx: &ViperEncodeCtx<'_>,
-    ) -> Result<Vec<Shape>, ShapeError> {
+    pub fn collect_returns(body: &Stmt, ctx: &TypeContext) -> Result<Vec<Shape>, ShapeError> {
         match body {
             Stmt::Seq(seqn) => Ok(seqn
                 .stmts
@@ -80,8 +75,8 @@ impl FnDec {
     }
 }
 
-impl<'a> TryToShape<'a> for Expr {
-    fn to_shape(&self, ctx: &ViperEncodeCtx<'a>) -> Result<Shape, ShapeError> {
+impl TryToShape for Expr {
+    fn to_shape(&self, ctx: &TypeContext) -> Result<Shape, ShapeError> {
         match self {
             Expr::Struct(struc) => struc.to_shape(ctx),
             Expr::Field(field) => field.to_shape(ctx),
@@ -92,7 +87,7 @@ impl<'a> TryToShape<'a> for Expr {
                 | Expr::LoadByte(_)
                 | Expr::BaseAddr
                 | Expr::BytesInWord => Shape::Simple,
-                Expr::Var(var) => ctx.get_type(var),
+                Expr::Var(var) => ctx.get_type_no_mangle(var),
                 Expr::Call(call) => ctx.get_function_type(&call.fname.get_label())?,
                 Expr::Label(_) => unreachable!("ToShape for Expr::Label"),
                 Expr::Load(load) => load.shape.clone(),
@@ -102,8 +97,8 @@ impl<'a> TryToShape<'a> for Expr {
     }
 }
 
-impl<'a> TryToShape<'a> for Struct {
-    fn to_shape(&self, ctx: &ViperEncodeCtx<'a>) -> Result<Shape, ShapeError> {
+impl TryToShape for Struct {
+    fn to_shape(&self, ctx: &TypeContext) -> Result<Shape, ShapeError> {
         let inner_shapes = self
             .elements
             .iter()
@@ -113,13 +108,11 @@ impl<'a> TryToShape<'a> for Struct {
     }
 }
 
-impl<'a> TryToShape<'a> for Field {
-    fn to_shape(&self, ctx: &ViperEncodeCtx<'a>) -> Result<Shape, ShapeError> {
+impl TryToShape for Field {
+    fn to_shape(&self, ctx: &TypeContext) -> Result<Shape, ShapeError> {
         let obj_shape = self.obj.to_shape(ctx)?;
         match &obj_shape {
-            Shape::Simple => Err(ShapeError::SimpleShapeFieldAccess(
-                (*self.obj).clone().into(),
-            )),
+            Shape::Simple => Err(ShapeError::SimpleShapeFieldAccess(*self.obj.clone())),
             Shape::Nested(ls) => {
                 ls.get(self.field_idx)
                     .cloned()
@@ -132,20 +125,20 @@ impl<'a> TryToShape<'a> for Field {
     }
 }
 
-impl<'a> TryToShape<'a> for TailCall {
-    fn to_shape(&self, ctx: &ViperEncodeCtx<'a>) -> Result<Shape, ShapeError> {
+impl TryToShape for TailCall {
+    fn to_shape(&self, ctx: &TypeContext) -> Result<Shape, ShapeError> {
         ctx.get_function_type(&self.fname.get_label())
     }
 }
 
-impl<'a> ToShape<'a> for Arg {
-    fn to_shape(&self, _ctx: &ViperEncodeCtx<'a>) -> Shape {
+impl ToShape for Arg {
+    fn to_shape(&self, _ctx: &TypeContext) -> Shape {
         self.shape.clone()
     }
 }
 
-impl<'a> TryToShape<'a> for FnDec {
-    fn to_shape(&self, ctx: &ViperEncodeCtx<'a>) -> Result<Shape, ShapeError> {
+impl TryToShape for FnDec {
+    fn to_shape(&self, ctx: &TypeContext) -> Result<Shape, ShapeError> {
         let shapes = FnDec::collect_returns(&self.body, ctx)?;
         // TODO: add check for types to be the same and non-empty
         Ok(shapes[0].clone())

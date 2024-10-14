@@ -1,8 +1,9 @@
 use viper::Expr;
 
-use crate::{ir::Arg, shape::Shape, utils::ViperUtils, ToViperType};
-
-use super::{Mangler, ViperEncodeCtx};
+use crate::{
+    ir::Arg,
+    utils::{Shape, ToViperType, ViperEncodeCtx, ViperUtils},
+};
 
 impl Arg {
     /// Generates preconditions for an argument
@@ -18,7 +19,7 @@ impl Arg {
                 let arg_var = ctx
                     .ast
                     .new_var(
-                        &Mangler::mangle_arg(&self.name),
+                        &ctx.typectx_get().mangler_get().mangle_arg(&self.name),
                         self.shape.to_viper_type(ctx),
                     )
                     .1;
