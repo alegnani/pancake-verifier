@@ -259,4 +259,12 @@ impl<'a> ViperEncodeCtx<'a> {
     pub fn typectx_get_mut(&mut self) -> &mut TypeContext {
         &mut self.types
     }
+
+    pub fn mangler_get(&self) -> &Mangler {
+        &self.types.mangler
+    }
+
+    pub fn mangler_get_mut(&mut self) -> &mut Mangler {
+        &mut self.types.mangler
+    }
 }

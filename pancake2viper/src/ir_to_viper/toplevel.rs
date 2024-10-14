@@ -3,7 +3,8 @@ use std::collections::HashSet;
 use viper::{AstFactory, Declaration};
 
 use crate::utils::{
-    ProgramToViper, ToViper, ToViperError, ToViperType, TryToViper, ViperEncodeCtx, ViperUtils,
+    EncodeOptions, Mangler, ProgramToViper, ToViper, ToViperError, ToViperType, TranslationMode,
+    TryToViper, ViperEncodeCtx, ViperUtils,
 };
 use crate::viper_prelude::create_viper_prelude;
 
@@ -12,7 +13,11 @@ use crate::ir::*;
 impl<'a> ToViper<'a> for Arg {
     type Output = viper::LocalVarDecl<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
-        let mangled_arg = ctx.mangler.new_arg(self.name.clone());
+        // XXX move
+        // let mangled_arg = ctx.mangler.new_arg(self.name.clone());
+        // ctx.set_type(mangled_arg.clone(), self.shape.clone());
+        ctx.ast
+            .local_var_decl(&self.name, self.shape.to_viper_type(ctx))
     }
 }
 
@@ -33,14 +38,16 @@ impl<'a> TryToViper<'a> for FnDec {
             .iter()
             .map(|a| {
                 let typ = a.shape.to_viper_type(ctx);
-                let mangled_lhs = ctx.mangler.new_scoped_var(a.name.clone());
+                let mangled_lhs = ctx.mangler_get_mut().new_scoped_var(a.name.clone());
                 ctx.set_type(mangled_lhs.clone(), a.shape.clone());
                 let lhs = ast.new_var(&mangled_lhs, typ);
                 let decl: Declaration = lhs.0.into();
                 (
                     decl,
-                    ctx.ast
-                        .local_var_assign(lhs.1, ast.local_var(&Mangler::mangle_arg(&a.name), typ)),
+                    ctx.ast.local_var_assign(
+                        lhs.1,
+                        ast.local_var(&ctx.mangler_get().mangle_arg(&a.name), typ),
+                    ),
                 )
             })
             .unzip();
@@ -176,8 +183,8 @@ impl<'a> ProgramToViper<'a> for Program {
             .into_iter()
             .map(|p| {
                 let pred_name = p.name.clone();
-                let mut ctx = ViperEncodeCtx::new(pred_name.clone(), HashSet::new(), ast, options);
-                ctx.set_mode(super::TranslationMode::PrePost);
+                let mut ctx = ViperEncodeCtx::new(HashSet::new(), ast, options);
+                ctx.set_mode(TranslationMode::PrePost);
 
                 (p.to_viper(&mut ctx), pred_name)
             })
@@ -188,9 +195,8 @@ impl<'a> ProgramToViper<'a> for Program {
             .viper_functions
             .into_iter()
             .map(|f| {
-                let mut ctx =
-                    ViperEncodeCtx::new(f.name.clone(), predicate_names.clone(), ast, options);
-                ctx.set_mode(super::TranslationMode::PrePost);
+                let mut ctx = ViperEncodeCtx::new(predicate_names.clone(), ast, options);
+                ctx.set_mode(TranslationMode::PrePost);
                 f.to_viper(&mut ctx)
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -199,9 +205,8 @@ impl<'a> ProgramToViper<'a> for Program {
             .methods
             .into_iter()
             .map(|m| {
-                let mut ctx =
-                    ViperEncodeCtx::new(m.name.clone(), predicate_names.clone(), ast, options);
-                ctx.set_mode(super::TranslationMode::PrePost);
+                let mut ctx = ViperEncodeCtx::new(predicate_names.clone(), ast, options);
+                ctx.set_mode(TranslationMode::PrePost);
                 m.to_viper(&mut ctx)
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -210,8 +215,7 @@ impl<'a> ProgramToViper<'a> for Program {
             .functions
             .into_iter()
             .map(|f| {
-                let mut ctx =
-                    ViperEncodeCtx::new(f.fname.clone(), predicate_names.clone(), ast, options);
+                let mut ctx = ViperEncodeCtx::new(predicate_names.clone(), ast, options);
                 f.to_viper(&mut ctx)
             })
             .collect::<Result<Vec<_>, _>>()?;

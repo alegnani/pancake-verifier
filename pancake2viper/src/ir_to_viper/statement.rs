@@ -1,8 +1,7 @@
 use crate::ir;
-use crate::ir_to_viper::TranslationMode;
-use crate::utils::{ToViperError, ToViperType, TryToShape, TryToViper, ViperUtils};
-
-use super::utils::ViperEncodeCtx;
+use crate::utils::{
+    ToViperError, ToViperType, TranslationMode, TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
+};
 
 impl<'a> TryToViper<'a> for ir::Stmt {
     type Output = viper::Stmt<'a>;
@@ -130,12 +129,11 @@ impl<'a> TryToViper<'a> for ir::Definition {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let name = ctx.mangler.new_scoped_var(self.lhs);
-        let shape = self.rhs.to_shape(ctx)?;
-        let var = ast.new_var(&name, shape.to_viper_type(ctx));
+        let shape = self.rhs.to_shape(&ctx.typectx_get_mut())?;
+        let var = ast.new_var(&self.lhs, shape.to_viper_type(ctx));
         ctx.declarations.push(var.0);
 
-        ctx.set_type(name, shape);
+        // ctx.set_type(name, shape);
         let ass = ast.local_var_assign(var.1, self.rhs.to_viper(ctx)?);
         let scope = self.scope.to_viper(&mut ctx.child())?;
 
@@ -154,12 +152,11 @@ impl<'a> TryToViper<'a> for ir::Assign {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let lhs_shape = ctx.get_type(&self.lhs);
-        let rhs_shape = self.rhs.to_shape(ctx)?;
-        let name = ctx.mangler.mangle_var(&self.lhs);
+        let rhs_shape = self.rhs.to_shape(&ctx.typectx_get_mut())?;
         if lhs_shape != rhs_shape {
             return Err(ToViperError::MismatchedShapes(lhs_shape, rhs_shape));
         }
-        let var = ast.new_var(name, lhs_shape.to_viper_type(ctx));
+        let var = ast.new_var(&self.lhs, lhs_shape.to_viper_type(ctx));
 
         let ass = ast.local_var_assign(var.1, self.rhs.to_viper(ctx)?);
         let decls = ctx.pop_decls();
@@ -175,7 +172,7 @@ impl<'a> TryToViper<'a> for ir::Call {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         ir::Definition {
-            lhs: ctx.fresh_var(),
+            lhs: ctx.fresh_varname(),
             rhs: self.call,
             scope: Box::new(ir::Stmt::Skip),
         }
@@ -221,7 +218,7 @@ impl<'a> TryToViper<'a> for ir::Annotation {
                 ctx.set_mode(self.typ.into());
                 let body = self.expr.to_viper(ctx)?;
                 ctx.set_mode(TranslationMode::Normal);
-                ctx.mangler.clear_annot_var();
+                ctx.mangler_get_mut().clear_annot_var();
                 Ok(match x {
                     Assertion => ast.assert(body, no_pos),
                     Assumption | Inhale => ast.inhale(body, no_pos),

@@ -1,6 +1,10 @@
 use anyhow::anyhow;
 use clap::Parser;
-use pancake2viper::{cli::CliOptions, ir, pancake, utils::ViperHandle, ProgramToViper};
+use pancake2viper::{
+    cli::CliOptions,
+    ir, pancake,
+    utils::{ProgramToViper, ViperHandle},
+};
 use std::{fs::File, io::Write};
 
 fn main() -> anyhow::Result<()> {
@@ -13,7 +17,7 @@ fn main() -> anyhow::Result<()> {
     let program_str = options.file.contents()?;
     let program: pancake::Program = pancake::Program::parse_str(program_str, &options.cake_path)?;
     println!("DONE");
-    let program: ir::Program = program.into();
+    let program: ir::Program = program.try_into()?;
     print!("Transpiling to Viper...");
     let program: viper::Program<'_> = program.to_viper(viper.ast, encode_options)?;
     println!("DONE");

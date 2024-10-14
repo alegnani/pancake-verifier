@@ -7,9 +7,8 @@ use anyhow::anyhow;
 use dashmap::DashMap;
 use expanduser::expanduser;
 use notification::ShowMessage;
-use pancake2viper::ir_to_viper::EncodeOptions;
-use pancake2viper::utils::ViperHandle;
-use pancake2viper::{ir, ProgramToViper};
+use pancake2viper::ir;
+use pancake2viper::utils::{EncodeOptions, ProgramToViper, ViperHandle};
 
 use serde_json::Value;
 use tokio::sync::Mutex;
@@ -82,7 +81,7 @@ impl Backend {
     async fn update_ast(&self, uri: &Url, program: String) -> anyhow::Result<()> {
         self.current_file.lock().await.replace(Some(uri.clone()));
         let program = pancake2viper::pancake::Program::parse_str(program, &self.cake_path)?;
-        let program: ir::Program = program.into();
+        let program: ir::Program = program.try_into()?;
         self.file_map.insert(uri.to_string(), program);
         Ok(())
     }

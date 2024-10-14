@@ -1,6 +1,6 @@
 use crate::{
     ir,
-    utils::{Shape, ShapeError, ToShape, TryToShape, TypeContext},
+    utils::{Mangler, Shape, ShapeError, ToShape, TryToShape, TypeContext},
 };
 
 impl TryToShape for ir::Struct {
@@ -18,7 +18,7 @@ impl TryToShape for ir::Field {
     fn to_shape(&self, ctx: &TypeContext) -> Result<Shape, ShapeError> {
         let obj_shape = self.obj.to_shape(ctx)?;
         match &obj_shape {
-            Shape::Simple => Err(ShapeError::SimpleShapeFieldAccess(*self.obj.clone())),
+            Shape::Simple => Err(ShapeError::IRSimpleShapeFieldAccess(*self.obj.clone())),
             Shape::Nested(ls) => {
                 ls.get(self.field_idx)
                     .cloned()
@@ -53,8 +53,8 @@ impl TryToShape for ir::Expr {
                 | ArrayAccess(_) | AccessPredicate(_) | FieldAccessChain(_) | BaseAddr
                 | BytesInWord => Shape::Simple,
                 Var(var) => ctx.get_type_no_mangle(var),
-                MethodCall(call) => call.rettype.clone(),
-                FunctionCall(call) => todo!(),
+                MethodCall(call) => ctx.get_type(&Mangler::mangle_fn(&call.fname.label_to_viper())),
+                FunctionCall(call) => ctx.get_type(&Mangler::mangle_fn(&call.fname)),
                 Label(_) => unreachable!("ToShape for Expr::Label"),
                 Load(load) => load.shape.clone(),
                 _ => unreachable!(),

@@ -112,7 +112,7 @@ impl TryToShape for Field {
     fn to_shape(&self, ctx: &TypeContext) -> Result<Shape, ShapeError> {
         let obj_shape = self.obj.to_shape(ctx)?;
         match &obj_shape {
-            Shape::Simple => Err(ShapeError::SimpleShapeFieldAccess(*self.obj.clone())),
+            Shape::Simple => Err(ShapeError::PancakeSimpleShapeFieldAccess(*self.obj.clone())),
             Shape::Nested(ls) => {
                 ls.get(self.field_idx)
                     .cloned()

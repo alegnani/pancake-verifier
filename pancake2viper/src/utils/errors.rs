@@ -23,7 +23,9 @@ pub enum ToViperError {
 #[derive(Error, Debug)]
 pub enum ShapeError {
     #[error("Invalid field access: {0:?} is of shape `1`")]
-    SimpleShapeFieldAccess(pancake::Expr),
+    PancakeSimpleShapeFieldAccess(pancake::Expr),
+    #[error("Invalid field access: {0:?} is of shape `1`")]
+    IRSimpleShapeFieldAccess(ir::Expr),
     #[error("Invalid access: {0:?} is of shape `1`")]
     SimpleShapeAccess(Shape),
     #[error("Field access with index {0} out of bounds for struct of shape `{1:?}`")]
