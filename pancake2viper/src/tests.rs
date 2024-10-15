@@ -1,7 +1,7 @@
 use std::env;
 
 use lazy_static::lazy_static;
-use utils::{EncodeOptions, ProgramToViper};
+use utils::{EncodeOptions, Mangleable, Mangler, ProgramToViper};
 
 use super::*;
 
@@ -14,7 +14,10 @@ fn verify_file(path: &str) -> anyhow::Result<()> {
 
     // Parse Pancake program
     let program = pancake::Program::parse_file(path, &cake)?;
-    let program: ir::Program = program.try_into()?;
+    let mut program: ir::Program = program.try_into()?;
+    println!("{:?}", program);
+    let mut mangler = Mangler::default();
+    program.mangle(&mut mangler)?;
     println!("{:?}", program);
     // Create Viper context
     // let viper = Viper::new_with_args(&viper_home, vec![]);

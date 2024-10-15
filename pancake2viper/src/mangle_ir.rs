@@ -78,9 +78,14 @@ impl Mangleable for ir::Stmt {
             Skip | Break | Continue => (),
             Annotation(annot) => annot.mangle(mangler)?,
             Definition(def) => {
-                def.lhs = mangler.new_mangled_var(def.lhs.clone(), VariableType::Variable)?
+                def.lhs = mangler.new_mangled_var(def.lhs.clone(), VariableType::Variable)?;
+                def.rhs.mangle(mangler)?;
+                def.scope.mangle(mangler)?
             }
-            Assign(ass) => ass.lhs = mangler.mangle_var(&ass.lhs)?.to_owned(),
+            Assign(ass) => {
+                ass.lhs = mangler.mangle_var(&ass.lhs)?.to_owned();
+                ass.rhs.mangle(mangler)?
+            }
             Store(store) => {
                 store.address.mangle(mangler)?;
                 store.value.mangle(mangler)?
@@ -135,6 +140,7 @@ impl Mangleable for ir::Arg {
 
 impl Mangleable for ir::FnDec {
     fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
+        mangler.set_fname(self.fname.clone());
         self.fname = Mangler::mangle_fn(&self.fname);
         self.args.mangle(mangler)?;
         self.body.mangle(mangler)
@@ -143,6 +149,7 @@ impl Mangleable for ir::FnDec {
 
 impl Mangleable for ir::Predicate {
     fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
+        mangler.set_fname(self.name.clone());
         self.name = Mangler::mangle_fn(&self.name);
         self.args.mangle(mangler)?;
         self.body.as_mut().map(|b| b.mangle(mangler)).transpose()?;
@@ -152,6 +159,7 @@ impl Mangleable for ir::Predicate {
 
 impl Mangleable for ir::Function {
     fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
+        mangler.set_fname(self.name.clone());
         self.name = Mangler::mangle_fn(&self.name);
         self.args.mangle(mangler)?;
         self.body.as_mut().map(|b| b.mangle(mangler)).transpose()?;
@@ -161,6 +169,7 @@ impl Mangleable for ir::Function {
 
 impl Mangleable for ir::AbstractMethod {
     fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
+        mangler.set_fname(self.name.clone());
         self.name = Mangler::mangle_fn(&self.name);
         self.args.mangle(mangler)?;
         self.preposts.mangle(mangler)
