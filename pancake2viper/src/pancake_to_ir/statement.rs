@@ -1,7 +1,7 @@
 use crate::{
     annotation::parse_annot,
     ir, pancake,
-    utils::{ToIR, TranslationError, TryToIR, VariableType},
+    utils::{TranslationError, TryToIR, VariableType},
 };
 
 impl From<pancake::Annotation> for ir::Annotation {
@@ -33,15 +33,15 @@ impl TryToIR for pancake::Declaration {
     }
 }
 
-impl ToIR for pancake::MemOpBytes {
+impl TryToIR for pancake::MemOpBytes {
     type Output = ir::MemOpBytes;
 
-    fn to_ir(self, _ctx: &mut crate::utils::TypeContext) -> Self::Output {
+    fn to_ir(self, _ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, TranslationError> {
         use pancake::MemOpBytes::*;
-        match self {
+        Ok(match self {
             Byte => Self::Output::Byte,
             HalfWord => Self::Output::HalfWord,
-        }
+        })
     }
 }
 
@@ -64,7 +64,7 @@ impl TryToIR for pancake::StoreBits {
         Ok(Self::Output {
             address: self.address.to_ir(ctx)?,
             value: self.value.to_ir(ctx)?,
-            size: self.size.to_ir(ctx),
+            size: self.size.to_ir(ctx)?,
         })
     }
 }
@@ -87,7 +87,7 @@ impl TryToIR for pancake::SharedStoreBits {
         Ok(Self::Output {
             address: self.address.to_ir(ctx)?,
             value: self.value.to_ir(ctx)?,
-            size: self.size.to_ir(ctx),
+            size: self.size.to_ir(ctx)?,
         })
     }
 }
@@ -110,7 +110,7 @@ impl TryToIR for pancake::SharedLoadBits {
         Ok(Self::Output {
             address: self.address.to_ir(ctx)?,
             dst: self.dst.to_ir(ctx)?,
-            size: self.size.to_ir(ctx),
+            size: self.size.to_ir(ctx)?,
         })
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
     ir, pancake,
-    utils::{Mangler, ToIR, ToIRGeneric, TranslationError, TryToIR, TryToIRGeneric},
+    utils::{Mangler, TranslationError, TryToIR, TryToIRGeneric},
 };
 
 impl TryToIR for pancake::Struct {
@@ -67,11 +67,14 @@ impl TryToIRGeneric<ir::UnOpType> for pancake::OpType {
     }
 }
 
-impl ToIRGeneric<ir::BinOpType> for pancake::OpType {
-    fn to_ir(self, _ctx: &mut crate::utils::TypeContext) -> ir::BinOpType {
+impl TryToIRGeneric<ir::BinOpType> for pancake::OpType {
+    fn to_ir(
+        self,
+        _ctx: &mut crate::utils::TypeContext,
+    ) -> Result<ir::BinOpType, TranslationError> {
         use ir::BinOpType;
         use pancake::OpType::*;
-        match self {
+        Ok(match self {
             Add => BinOpType::Add,
             Sub => BinOpType::Sub,
             Mul => BinOpType::Mul,
@@ -82,7 +85,7 @@ impl ToIRGeneric<ir::BinOpType> for pancake::OpType {
             And => BinOpType::BitAnd,
             Or => BinOpType::BitOr,
             Xor => BinOpType::BitXor,
-        }
+        })
     }
 }
 
@@ -98,7 +101,7 @@ impl TryToIRGeneric<ir::UnOp> for pancake::Op {
 impl TryToIRGeneric<ir::BinOp> for pancake::Op {
     fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<ir::BinOp, TranslationError> {
         assert!(self.operands.len() >= 2);
-        let optype = ToIRGeneric::to_ir(self.optype, ctx);
+        let optype = TryToIRGeneric::to_ir(self.optype, ctx)?;
         let mut iter = self.operands.into_iter();
         let acc = ir::BinOp {
             optype,
@@ -115,16 +118,16 @@ impl TryToIRGeneric<ir::BinOp> for pancake::Op {
     }
 }
 
-impl ToIR for pancake::ShiftType {
+impl TryToIR for pancake::ShiftType {
     type Output = ir::ShiftType;
 
-    fn to_ir(self, _ctx: &mut crate::utils::TypeContext) -> Self::Output {
+    fn to_ir(self, _ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, TranslationError> {
         use pancake::ShiftType::*;
-        match self {
+        Ok(match self {
             Lsl => Self::Output::Lsl,
             Asr => Self::Output::Asr,
             Lsr => Self::Output::Lsr,
-        }
+        })
     }
 }
 
@@ -133,7 +136,7 @@ impl TryToIR for pancake::Shift {
 
     fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, TranslationError> {
         Ok(Self::Output {
-            shifttype: self.shifttype.to_ir(ctx),
+            shifttype: self.shifttype.to_ir(ctx)?,
             value: Box::new(self.value.to_ir(ctx)?),
             amount: self.amount,
         })

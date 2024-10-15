@@ -14,15 +14,6 @@ pub trait TryToIRGeneric<T> {
     fn to_ir(self, ctx: &mut TypeContext) -> Result<T, TranslationError>;
 }
 
-pub trait ToIR {
-    type Output;
-    fn to_ir(self, ctx: &mut TypeContext) -> Self::Output;
-}
-
-pub trait ToIRGeneric<T> {
-    fn to_ir(self, ctx: &mut TypeContext) -> T;
-}
-
 pub trait TryToViper<'a> {
     type Output;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError>;
