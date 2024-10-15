@@ -18,6 +18,10 @@ pub trait Mangleable {
     fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError>;
 }
 
+pub trait TypeResolution {
+    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<Shape, TranslationError>;
+}
+
 pub trait TryToViper<'a> {
     type Output;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError>;

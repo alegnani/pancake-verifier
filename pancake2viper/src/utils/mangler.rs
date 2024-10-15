@@ -93,7 +93,7 @@ impl Mangler {
             TranslationMode::PrePost => maybe_annot.or(maybe_arg),
         }
         .map(String::as_str)
-        .ok_or(MangleError::UndeclaredVar(var.to_owned(), self.clone()))
+        .ok_or(MangleError::UndeclaredVar(var.to_owned()))
     }
 
     fn get_fname(&self) -> &str {

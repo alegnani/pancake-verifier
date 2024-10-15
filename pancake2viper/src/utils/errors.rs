@@ -54,6 +54,6 @@ pub enum MangleError {
     ReservedKeyword(String),
     #[error("Variable '{0}' has been declared twice")]
     DoubleDeclaration(String),
-    #[error("Variable '{0}' has not been declared. \n{1:?}")]
-    UndeclaredVar(String, Mangler),
+    #[error("Variable '{0}' has not been declared")]
+    UndeclaredVar(String),
 }

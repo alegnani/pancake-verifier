@@ -2,8 +2,24 @@ use viper::Expr;
 
 use crate::{
     ir::Arg,
-    utils::{Shape, ToViperType, ViperEncodeCtx, ViperUtils},
+    utils::{Shape, ToViper, ToViperError, ToViperType, TryToViper, ViperEncodeCtx, ViperUtils},
 };
+
+impl<'a, T: TryToViper<'a>> TryToViper<'a> for Vec<T> {
+    type Output = Vec<T::Output>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
+        self.into_iter()
+            .map(|a| a.to_viper(ctx))
+            .collect::<Result<Vec<_>, _>>()
+    }
+}
+
+impl<'a, T: ToViper<'a>> ToViper<'a> for Vec<T> {
+    type Output = Vec<T::Output>;
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
+        self.into_iter().map(|a| a.to_viper(ctx)).collect()
+    }
+}
 
 impl Arg {
     /// Generates preconditions for an argument
