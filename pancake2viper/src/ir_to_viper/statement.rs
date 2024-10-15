@@ -130,18 +130,17 @@ impl<'a> TryToViper<'a> for ir::Definition {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let shape = self.rhs.to_shape(&ctx.typectx_get_mut())?;
+        let shape = self.rhs.to_shape(ctx.typectx_get())?;
         let var = ast.new_var(&self.lhs, shape.to_viper_type(ctx));
-        ctx.declarations.push(var.0);
 
-        // ctx.set_type(name, shape);
         let ass = ast.local_var_assign(var.1, self.rhs.to_viper(ctx)?);
-        let scope = self.scope.to_viper(&mut ctx.child())?;
+        ctx.stack.push(ass);
+        let scope = self.scope.to_viper(ctx)?;
+        ctx.stack.push(scope);
 
+        ctx.declarations.push(var.0);
         let decls = ctx.pop_decls();
 
-        ctx.stack.push(ass);
-        ctx.stack.push(scope);
         let seq = ast.seqn(&ctx.stack, &decls);
         ctx.stack.clear();
         Ok(seq)
@@ -154,7 +153,7 @@ impl<'a> TryToViper<'a> for ir::Assign {
         let ast = ctx.ast;
         // XXX: move this to type checking?
         let lhs_shape = ctx.get_type(&self.lhs)?;
-        let rhs_shape = self.rhs.to_shape(&ctx.typectx_get_mut())?;
+        let rhs_shape = self.rhs.to_shape(ctx.typectx_get_mut())?;
         if lhs_shape != rhs_shape {
             return Err(ToViperError::MismatchedShapes(lhs_shape, rhs_shape));
         }
@@ -220,7 +219,6 @@ impl<'a> TryToViper<'a> for ir::Annotation {
                 ctx.set_mode(self.typ.into());
                 let body = self.expr.to_viper(ctx)?;
                 ctx.set_mode(TranslationMode::Normal);
-                ctx.mangler.clear_annot_var(); // FIXME: move this to ToIR
                 Ok(match x {
                     Assertion => ast.assert(body, no_pos),
                     Assumption | Inhale => ast.inhale(body, no_pos),
