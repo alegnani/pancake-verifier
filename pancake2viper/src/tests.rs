@@ -13,7 +13,9 @@ fn verify_file(path: &str) -> anyhow::Result<()> {
     let cake = env::var("CAKE_ML").unwrap_or("cake".into());
 
     // Parse Pancake program
-    let program: ir::Program = pancake::Program::parse_file(path, &cake)?.try_into()?;
+    let program = pancake::Program::parse_file(path, &cake)?;
+    let program: ir::Program = program.try_into()?;
+    println!("{:?}", program);
     // Create Viper context
     // let viper = Viper::new_with_args(&viper_home, vec![]);
     let ver_ctx = VIPER.attach_current_thread();

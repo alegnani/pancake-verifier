@@ -1,5 +1,3 @@
-use crate::utils::{Shape, ToShape, TypeContext};
-
 use super::{
     expression::{Expr, Struct},
     statement::MemOpBytes,

@@ -38,16 +38,16 @@ impl<'a> TryToViper<'a> for FnDec {
             .iter()
             .map(|a| {
                 let typ = a.shape.to_viper_type(ctx);
-                let mangled_lhs = ctx.mangler_get_mut().new_scoped_var(a.name.clone());
+                let mangled_lhs = ctx
+                    .mangler_get_mut()
+                    .new_mangled_var(a.name.clone(), crate::utils::VariableType::Variable)
+                    .unwrap(); // FIXME: remove unwrap
                 ctx.set_type(mangled_lhs.clone(), a.shape.clone());
                 let lhs = ast.new_var(&mangled_lhs, typ);
                 let decl: Declaration = lhs.0.into();
                 (
                     decl,
-                    ctx.ast.local_var_assign(
-                        lhs.1,
-                        ast.local_var(&ctx.mangler_get().mangle_arg(&a.name), typ),
-                    ),
+                    ctx.ast.local_var_assign(lhs.1, ast.local_var(&a.name, typ)),
                 )
             })
             .unzip();
@@ -79,7 +79,7 @@ impl<'a> TryToViper<'a> for FnDec {
         );
 
         Ok(ast.method(
-            &Mangler::mangle_fn(&self.fname),
+            &self.fname,
             &args_local_decls,
             &[ctx.return_var().0],
             &pres,

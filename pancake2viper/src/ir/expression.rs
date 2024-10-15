@@ -51,7 +51,7 @@ pub struct LoadByte {
 
 #[derive(Debug, Clone)]
 pub struct MethodCall {
-    pub fname: Box<Expr>,
+    pub fname: String,
     pub args: Vec<Expr>,
 }
 

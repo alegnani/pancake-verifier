@@ -16,13 +16,7 @@ impl Arg {
         match self.shape {
             Shape::Simple => None,
             Shape::Nested(_) => {
-                let arg_var = ctx
-                    .ast
-                    .new_var(
-                        &ctx.typectx_get().mangler_get().mangle_arg(&self.name),
-                        self.shape.to_viper_type(ctx),
-                    )
-                    .1;
+                let arg_var = ctx.ast.new_var(&self.name, self.shape.to_viper_type(ctx)).1;
                 let length = ast.int_lit(self.shape.len() as i64);
                 let access_perm =
                     ctx.iarray

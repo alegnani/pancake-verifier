@@ -5,8 +5,8 @@ use viper::{AstFactory, Declaration, LocalVarDecl};
 use crate::{ir::AnnotationType, viper_prelude::IArrayHelper};
 
 use super::{
-    mangler::{Mangler, RESERVED},
-    Shape, ShapeError,
+    mangler::{Mangler, VariableType, RESERVED},
+    MangleError, Shape, TranslationError,
 };
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -59,22 +59,22 @@ impl TypeContext {
         self.clone()
     }
 
-    pub fn get_type(&self, var: &str) -> Shape {
-        self.get_type_no_mangle(self.mangler.mangle_var(var))
+    pub fn get_type(&self, var: &str) -> Result<Shape, TranslationError> {
+        self.get_type_no_mangle(self.mangle_var(var)?)
     }
 
-    pub fn get_type_no_mangle(&self, var: &str) -> Shape {
+    pub fn get_type_no_mangle(&self, var: &str) -> Result<Shape, TranslationError> {
         self.type_map
             .get(var)
-            .unwrap_or_else(|| panic!("Type for '{}' has not been set", var))
-            .to_owned()
+            .cloned()
+            .ok_or(TranslationError::UnknownShape(var.to_owned()))
     }
 
-    pub fn get_function_type(&self, fname: &str) -> Result<Shape, ShapeError> {
+    pub fn get_function_type(&self, fname: &str) -> Result<Shape, TranslationError> {
         self.type_map
-            .get(&Mangler::mangle_fn(&fname))
-            .map(Shape::to_owned)
-            .ok_or(ShapeError::UnknownReturnType(fname.to_owned()))
+            .get(&Mangler::mangle_fn(fname))
+            .cloned()
+            .ok_or(TranslationError::UnknownReturnType(fname.to_owned()))
     }
 
     pub fn set_type(&mut self, var: String, shape: Shape) {
@@ -87,6 +87,18 @@ impl TypeContext {
 
     pub fn mangler_get_mut(&mut self) -> &mut Mangler {
         &mut self.mangler
+    }
+
+    pub fn new_mangled_var(
+        &mut self,
+        name: String,
+        typ: VariableType,
+    ) -> Result<String, MangleError> {
+        self.mangler.new_mangled_var(name, typ)
+    }
+
+    pub fn mangle_var<'a>(&'a self, name: &'a str) -> Result<&'a str, MangleError> {
+        self.mangler.mangle_var(name)
     }
 }
 
@@ -236,11 +248,11 @@ impl<'a> ViperEncodeCtx<'a> {
         self.predicates.contains(ident)
     }
 
-    pub fn get_type(&self, var: &str) -> Shape {
+    pub fn get_type(&self, var: &str) -> Result<Shape, TranslationError> {
         self.types.get_type(var)
     }
 
-    pub fn get_function_type(&self, fname: &str) -> Result<Shape, ShapeError> {
+    pub fn get_function_type(&self, fname: &str) -> Result<Shape, TranslationError> {
         self.types.get_function_type(fname)
     }
 

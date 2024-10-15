@@ -7,7 +7,7 @@ mod traits;
 
 pub use contexts::*;
 pub use errors::*;
-pub use mangler::Mangler;
+pub use mangler::{Mangler, VariableType};
 pub use misc::*;
 pub use shape::Shape;
 pub use traits::*;

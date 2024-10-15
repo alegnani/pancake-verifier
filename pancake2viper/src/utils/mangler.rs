@@ -3,7 +3,7 @@ use std::{
     sync::{LazyLock, Mutex},
 };
 
-use super::TranslationMode;
+use super::{MangleError, TranslationMode};
 
 lazy_static::lazy_static! {
     pub static ref RESERVED: HashSet<&'static str> = HashSet::from(["heap", "retval", "read", "write", "wildcard", "acc", "alen"]);
@@ -22,9 +22,15 @@ fn get_inc_counter() -> u64 {
 pub struct Mangler {
     mode: TranslationMode,
     fname: Option<String>,
-    args: HashMap<String, String>,
-    annot_vars: HashSet<String>,
+    annot_map: HashMap<String, String>,
     var_map: HashMap<String, String>,
+    arg_map: HashMap<String, String>,
+}
+
+pub enum VariableType {
+    Variable,
+    Annotation,
+    Argument,
 }
 
 impl Mangler {
@@ -32,43 +38,37 @@ impl Mangler {
         Self {
             mode: self.mode,
             fname: self.fname.clone(),
-            args: self.args.clone(),
-            annot_vars: self.annot_vars.clone(),
+            annot_map: self.annot_map.clone(),
             var_map: self.var_map.clone(),
+            arg_map: self.arg_map.clone(),
         }
     }
 
-    pub fn new_scoped_var(&mut self, var: String) -> String {
-        if RESERVED.contains(var.as_str()) {
-            panic!(
-                "'{}' is a reserved keyword and can't be used as an identifier",
-                &var
-            );
+    pub fn new_mangled_var(
+        &mut self,
+        name: String,
+        typ: VariableType,
+    ) -> Result<String, MangleError> {
+        if RESERVED.contains(name.as_str()) {
+            return Err(MangleError::ReservedKeyword(name));
         }
-        let mangled = format!("{}_{}_{}", self.get_fname(), &var, get_inc_counter());
-        self.var_map.insert(var, mangled.clone());
-        mangled
-    }
-
-    pub fn new_annot_var(&mut self, var: String) {
-        assert!(
-            self.annot_vars.insert(var.clone()),
-            "Duplicated variable in annotation: '{}'\n{:?}",
-            var,
-            self
-        );
+        let mangled = format!("{}_{}_{}", self.get_fname(), &name, get_inc_counter());
+        let map = match typ {
+            VariableType::Annotation => &mut self.annot_map,
+            VariableType::Argument => &mut self.arg_map,
+            VariableType::Variable => &mut self.var_map,
+        };
+        // Check if variable has already been declared. For normal variables
+        // this is allowed due to shadowing.
+        if map.contains_key(&name) && !matches!(typ, VariableType::Variable) {
+            return Err(MangleError::DoubleDeclaration(name));
+        }
+        map.insert(name.clone(), mangled.clone());
+        Ok(mangled)
     }
 
     pub fn clear_annot_var(&mut self) {
-        self.annot_vars.clear();
-    }
-
-    pub fn new_arg(&mut self, arg: String) -> String {
-        let mangled = self.mangle_arg(&arg);
-        if self.args.insert(arg.clone(), mangled.clone()).is_some() {
-            panic!("Arg '{}' was already defined\n{:?}", &arg, self);
-        }
-        mangled
+        self.annot_map.clear();
     }
 
     pub fn fresh_varname(&self) -> String {
@@ -80,24 +80,20 @@ impl Mangler {
         self.mode = mode;
     }
 
-    pub fn mangle_var<'a>(&'a self, var: &'a str) -> &'a str {
+    pub fn mangle_var<'a>(&'a self, var: &'a str) -> Result<&'a str, MangleError> {
         if RESERVED.contains(var) {
-            return var;
+            return Ok(var);
         }
-        if let TranslationMode::PrePost = self.mode {
-            if let Some(ret) = self.args.get(var) {
-                return ret;
-            }
+        let maybe_arg = self.arg_map.get(var);
+        let maybe_annot = self.annot_map.get(var);
+        let maybe_var = self.var_map.get(var);
+        match self.mode {
+            TranslationMode::Normal => maybe_var,
+            TranslationMode::Assertion => maybe_annot.or(maybe_var),
+            TranslationMode::PrePost => maybe_annot.or(maybe_arg),
         }
-
-        if let TranslationMode::PrePost | TranslationMode::Assertion = self.mode {
-            if let Some(ret) = self.annot_vars.get(var) {
-                return ret;
-            }
-        }
-        self.var_map
-            .get(var)
-            .unwrap_or_else(|| panic!("Variable '{}' has not been defined\n{:?}", var, self))
+        .map(String::as_str)
+        .ok_or(MangleError::UndeclaredVar(var.to_owned(), self.clone()))
     }
 
     fn get_fname(&self) -> &str {
@@ -106,11 +102,15 @@ impl Mangler {
             .expect("Mangler's current function name not set")
     }
 
-    pub fn mangle_arg(&self, arg: &str) -> String {
-        format!("{}_arg_{}", self.get_fname(), arg)
+    pub fn set_fname(&mut self, fname: String) {
+        self.fname = Some(fname);
     }
 
     pub fn mangle_fn(fname: &str) -> String {
         format!("f_{}", fname)
     }
+
+    // pub fn demangle_fn(mangled:& str) -> String {
+
+    // }
 }

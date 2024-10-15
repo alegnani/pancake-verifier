@@ -2,8 +2,8 @@ use viper::BinOpBv;
 use viper::BvSize::BV64;
 
 use crate::utils::{
-    Mangler, Shape, ToShape, ToViper, ToViperError, ToViperType, TryToShape, TryToViper,
-    ViperEncodeCtx, ViperUtils,
+    Mangler, Shape, ToViper, ToViperError, ToViperType, TryToShape, TryToViper, ViperEncodeCtx,
+    ViperUtils,
 };
 
 use crate::ir::{self};
@@ -14,9 +14,9 @@ impl ir::Expr {
         ctx: &mut ViperEncodeCtx<'a>,
     ) -> Result<viper::Expr<'a>, ToViperError> {
         let ast = ctx.ast;
-        if !self.to_shape(&ctx.typectx_get_mut())?.is_simple() {
+        if !self.to_shape(ctx.typectx_get_mut())?.is_simple() {
             return Err(ToViperError::ConditionShape(
-                self.to_shape(&ctx.typectx_get_mut())?,
+                self.to_shape(ctx.typectx_get_mut())?,
             ));
         }
         Ok(ast.ne_cmp(self.to_viper(ctx)?, ast.int_lit(0)))
@@ -144,7 +144,7 @@ impl<'a> TryToViper<'a> for ir::Struct {
         let shapes = self
             .elements
             .iter()
-            .map(|e| e.to_shape(&ctx.typectx_get_mut()))
+            .map(|e| e.to_shape(ctx.typectx_get_mut()))
             .collect::<Result<Vec<_>, _>>()?;
         let len: usize = shapes.iter().map(Shape::len).sum();
         let fresh = ctx.fresh_varname();
@@ -184,7 +184,7 @@ impl<'a> TryToViper<'a> for ir::Field {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let obj_shape = self.obj.to_shape(&ctx.typectx_get_mut())?;
+        let obj_shape = self.obj.to_shape(ctx.typectx_get_mut())?;
         let obj = self.obj.to_viper(ctx)?;
 
         Ok(match &obj_shape {
@@ -276,22 +276,19 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
         let ast = ctx.ast;
         let ret = ast.new_var(
             &ctx.fresh_varname(),
-            ctx.get_type(&Mangler::mangle_fn(&self.fname.label_to_viper()))
-                .to_viper_type(ctx),
+            ctx.get_type(&self.fname)?.to_viper_type(ctx),
         );
-        let method_name = Mangler::mangle_fn(&self.fname.label_to_viper());
-
         let mut args = vec![];
 
         for arg in self.args {
-            let arg = match arg.to_shape(&ctx.typectx_get_mut())? {
+            let arg = match arg.to_shape(ctx.typectx_get_mut())? {
                 Shape::Simple => arg.to_viper(ctx)?,
                 Shape::Nested(_) => {
                     let fresh = ast.new_var(
                         &ctx.fresh_varname(),
-                        arg.to_shape(&ctx.typectx_get_mut())?.to_viper_type(ctx),
+                        arg.to_shape(ctx.typectx_get_mut())?.to_viper_type(ctx),
                     );
-                    let arg_len = arg.to_shape(&ctx.typectx_get_mut())?.len();
+                    let arg_len = arg.to_shape(ctx.typectx_get_mut())?.len();
                     let viper_arg = arg.to_viper(ctx)?;
                     let copy_arg = ctx.iarray.create_slice_m(
                         viper_arg,
@@ -308,7 +305,7 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
         }
         args.insert(0, ctx.heap_var().1);
 
-        let call = ast.method_call(&method_name, &args, &[ret.1]);
+        let call = ast.method_call(&self.fname, &args, &[ret.1]);
         ctx.declarations.push(ret.0);
         ctx.stack.push(call);
         Ok(ret.1)
@@ -353,7 +350,7 @@ impl<'a> TryToViper<'a> for ir::FieldAccessChain {
 
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let obj_shape = self.obj.to_shape(&ctx.typectx_get_mut())?;
+        let obj_shape = self.obj.to_shape(ctx.typectx_get_mut())?;
 
         let (final_shape, offset) =
             self.idxs
@@ -422,7 +419,7 @@ impl<'a> TryToViper<'a> for ir::Expr {
             Ternary(ternary) => ternary.to_viper(ctx),
             x => Ok(match x {
                 Const(c) => ast.int_lit(c),
-                Var(name) => ast.local_var(&name, ctx.get_type(&name).to_viper_type(ctx)),
+                Var(name) => ast.local_var(&name, ctx.get_type(&name)?.to_viper_type(ctx)),
                 Label(_) => todo!(), // XXX: not sure if we need this
                 BaseAddr => ast.int_lit(0),
                 BytesInWord => ast.int_lit(ctx.options.word_size as i64 / 8),

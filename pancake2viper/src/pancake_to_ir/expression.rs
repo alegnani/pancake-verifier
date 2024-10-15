@@ -1,6 +1,6 @@
 use crate::{
     ir, pancake,
-    utils::{Mangler, ToIR, ToIRError, ToIRGeneric, TryToIR, TryToIRGeneric},
+    utils::{Mangler, ToIR, ToIRGeneric, TranslationError, TryToIR, TryToIRGeneric},
 };
 
 impl TryToIR for pancake::Struct {
@@ -9,7 +9,7 @@ impl TryToIR for pancake::Struct {
     fn to_ir(
         self,
         ctx: &mut crate::utils::TypeContext,
-    ) -> Result<Self::Output, crate::utils::ToIRError> {
+    ) -> Result<Self::Output, crate::utils::TranslationError> {
         Ok(Self::Output {
             elements: self.elements.to_ir(ctx)?,
         })
@@ -22,7 +22,7 @@ impl TryToIR for pancake::Field {
     fn to_ir(
         self,
         ctx: &mut crate::utils::TypeContext,
-    ) -> Result<Self::Output, crate::utils::ToIRError> {
+    ) -> Result<Self::Output, crate::utils::TranslationError> {
         Ok(Self::Output {
             obj: Box::new(self.obj.to_ir(ctx)?),
             field_idx: self.field_idx,
@@ -36,7 +36,7 @@ impl TryToIR for pancake::Load {
     fn to_ir(
         self,
         ctx: &mut crate::utils::TypeContext,
-    ) -> Result<Self::Output, crate::utils::ToIRError> {
+    ) -> Result<Self::Output, crate::utils::TranslationError> {
         Ok(Self::Output {
             shape: self.shape,
             address: Box::new(self.address.to_ir(ctx)?),
@@ -51,7 +51,7 @@ impl TryToIR for pancake::LoadByte {
     fn to_ir(
         self,
         ctx: &mut crate::utils::TypeContext,
-    ) -> Result<Self::Output, crate::utils::ToIRError> {
+    ) -> Result<Self::Output, crate::utils::TranslationError> {
         Ok(Self::Output {
             address: Box::new(self.address.to_ir(ctx)?),
         })
@@ -59,7 +59,7 @@ impl TryToIR for pancake::LoadByte {
 }
 
 impl TryToIRGeneric<ir::UnOpType> for pancake::OpType {
-    fn to_ir(self, _ctx: &mut crate::utils::TypeContext) -> Result<ir::UnOpType, ToIRError> {
+    fn to_ir(self, _ctx: &mut crate::utils::TypeContext) -> Result<ir::UnOpType, TranslationError> {
         match self {
             pancake::OpType::Sub => Ok(ir::UnOpType::Minus),
             _ => panic!("Can't convert Pancake operator '{:?}' to UnOpType", self),
@@ -87,7 +87,7 @@ impl ToIRGeneric<ir::BinOpType> for pancake::OpType {
 }
 
 impl TryToIRGeneric<ir::UnOp> for pancake::Op {
-    fn to_ir(mut self, ctx: &mut crate::utils::TypeContext) -> Result<ir::UnOp, ToIRError> {
+    fn to_ir(mut self, ctx: &mut crate::utils::TypeContext) -> Result<ir::UnOp, TranslationError> {
         assert!(self.operands.len() == 1);
         let optype = TryToIRGeneric::to_ir(self.optype, ctx)?;
         let right = Box::new(self.operands.remove(0).to_ir(ctx)?);
@@ -96,7 +96,7 @@ impl TryToIRGeneric<ir::UnOp> for pancake::Op {
 }
 
 impl TryToIRGeneric<ir::BinOp> for pancake::Op {
-    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<ir::BinOp, ToIRError> {
+    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<ir::BinOp, TranslationError> {
         assert!(self.operands.len() >= 2);
         let optype = ToIRGeneric::to_ir(self.optype, ctx);
         let mut iter = self.operands.into_iter();
@@ -131,7 +131,7 @@ impl ToIR for pancake::ShiftType {
 impl TryToIR for pancake::Shift {
     type Output = ir::Shift;
 
-    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, ToIRError> {
+    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, TranslationError> {
         Ok(Self::Output {
             shifttype: self.shifttype.to_ir(ctx),
             value: Box::new(self.value.to_ir(ctx)?),
@@ -143,10 +143,10 @@ impl TryToIR for pancake::Shift {
 impl TryToIR for pancake::ExprCall {
     type Output = ir::MethodCall;
 
-    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, ToIRError> {
+    fn to_ir(self, ctx: &mut crate::utils::TypeContext) -> Result<Self::Output, TranslationError> {
         let args = self.args.to_ir(ctx)?;
         Ok(Self::Output {
-            fname: Box::new(self.fname.to_ir(ctx)?),
+            fname: self.fname.get_label()?,
             args,
         })
     }
@@ -158,11 +158,11 @@ impl TryToIR for pancake::Expr {
     fn to_ir(
         self,
         ctx: &mut crate::utils::TypeContext,
-    ) -> Result<Self::Output, crate::utils::ToIRError> {
+    ) -> Result<Self::Output, crate::utils::TranslationError> {
         use pancake::Expr::*;
         Ok(match self {
             Const(c) => Self::Output::Const(c),
-            Var(varname) => Self::Output::Var(ctx.mangler_get_mut().new_scoped_var(varname)),
+            Var(varname) => Self::Output::Var(ctx.mangle_var(&varname)?.to_owned()),
             Label(label) => Self::Output::Label(Mangler::mangle_fn(&label)),
             Struct(struc) => Self::Output::Struct(struc.to_ir(ctx)?),
             Field(field) => Self::Output::Field(field.to_ir(ctx)?),

@@ -1,18 +1,17 @@
 use viper::{AstFactory, Expr, LocalVarDecl, Type};
 
 use super::{
-    errors::{ShapeError, ToViperError},
-    shape::Shape,
-    EncodeOptions, ToIRError, TypeContext, ViperEncodeCtx,
+    errors::ToViperError, shape::Shape, EncodeOptions, TranslationError, TypeContext,
+    ViperEncodeCtx,
 };
 
 pub trait TryToIR {
     type Output;
-    fn to_ir(self, ctx: &mut TypeContext) -> Result<Self::Output, ToIRError>;
+    fn to_ir(self, ctx: &mut TypeContext) -> Result<Self::Output, TranslationError>;
 }
 
 pub trait TryToIRGeneric<T> {
-    fn to_ir(self, ctx: &mut TypeContext) -> Result<T, ToIRError>;
+    fn to_ir(self, ctx: &mut TypeContext) -> Result<T, TranslationError>;
 }
 
 pub trait ToIR {
@@ -49,7 +48,7 @@ pub trait ToShape {
 }
 
 pub trait TryToShape {
-    fn to_shape(&self, ctx: &TypeContext) -> Result<Shape, ShapeError>;
+    fn to_shape(&self, ctx: &TypeContext) -> Result<Shape, TranslationError>;
 }
 
 pub trait ProgramToViper<'a> {

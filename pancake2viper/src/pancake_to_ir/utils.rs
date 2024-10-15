@@ -6,7 +6,7 @@ impl<T: TryToIR> TryToIR for Vec<T> {
     fn to_ir(
         self,
         ctx: &mut crate::utils::TypeContext,
-    ) -> Result<Self::Output, crate::utils::ToIRError> {
+    ) -> Result<Self::Output, crate::utils::TranslationError> {
         self.into_iter().map(|a| a.to_ir(ctx)).collect()
     }
 }
@@ -17,7 +17,7 @@ impl<T: TryToIR, const N: usize> TryToIR for [T; N] {
     fn to_ir(
         self,
         ctx: &mut crate::utils::TypeContext,
-    ) -> Result<Self::Output, crate::utils::ToIRError> {
+    ) -> Result<Self::Output, crate::utils::TranslationError> {
         self.into_iter().map(|a| a.to_ir(ctx)).collect()
     }
 }
