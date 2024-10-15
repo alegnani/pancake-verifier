@@ -19,7 +19,7 @@ pub trait Mangleable {
 }
 
 pub trait TypeResolution {
-    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<Shape, TranslationError>;
+    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError>;
 }
 
 pub trait TryToViper<'a> {

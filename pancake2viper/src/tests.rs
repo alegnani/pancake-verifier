@@ -19,6 +19,8 @@ fn verify_file(path: &str) -> anyhow::Result<()> {
     let mut mangler = Mangler::default();
     program.mangle(&mut mangler)?;
     println!("{:?}", program);
+    let ctx = program.resolve_types()?;
+    println!("Resolved types!: {:?}", ctx);
     // Create Viper context
     // let viper = Viper::new_with_args(&viper_home, vec![]);
     let ver_ctx = VIPER.attach_current_thread();

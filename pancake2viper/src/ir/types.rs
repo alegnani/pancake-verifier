@@ -1,75 +1,92 @@
+use std::fmt::Debug;
+
 use crate::{
     ir,
-    utils::{Shape, TranslationError, TypeContext, TypeResolution},
+    utils::{Shape, TranslationError, TryToShape, TypeContext, TypeResolution},
 };
 
-// impl TryToShape for ir::Struct {
-//     fn to_shape(&self, ctx: &TypeContext) -> Result<Shape, TranslationError> {
-//         let inner_shapes = self
-//             .elements
-//             .iter()
-//             .map(|e| e.to_shape(ctx))
-//             .collect::<Result<Vec<_>, _>>()?;
-//         Ok(Shape::Nested(inner_shapes))
-//     }
-// }
+impl TypeResolution for ir::Stmt {
+    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
+        match self {
+            ir::Stmt::Definition(def) => {
+                match def.rhs.to_shape(ctx) {
+                    Ok(shape) => ctx.set_type(def.lhs.clone(), shape),
+                    Err(TranslationError::UnknownReturnType(_))
+                    | Err(TranslationError::UnknownShape(_)) => (), // TODO: do something
+                    Err(e) => return Err(e),
+                }
+                def.scope.resolve_type(ctx)
+            }
+            ir::Stmt::If(i) => {
+                let if_type = i.if_branch.resolve_type(ctx);
+                match if_type {
+                    Ok(_)
+                    | Err(TranslationError::UnknownReturnType(_))
+                    | Err(TranslationError::UnknownShape(_)) => (),
+                    x => return x,
+                }
+                i.else_branch.resolve_type(ctx)
+            }
+            ir::Stmt::While(w) => w.body.resolve_type(ctx),
+            ir::Stmt::Seq(seq) => seq.stmts.resolve_type(ctx),
+            _ => Ok(()),
+        }
+    }
+}
 
-// impl TryToShape for ir::Field {
-//     fn to_shape(&self, ctx: &TypeContext) -> Result<Shape, TranslationError> {
-//         let obj_shape = self.obj.to_shape(ctx)?;
-//         match &obj_shape {
-//             Shape::Simple => Err(ShapeError::IRSimpleShapeFieldAccess(*self.obj.clone()).into()),
-//             Shape::Nested(ls) => ls
-//                 .get(self.field_idx)
-//                 .cloned()
-//                 .ok_or(ShapeError::OutOfBoundsFieldAccess(self.field_idx, obj_shape).into()),
-//         }
-//     }
-// }
+impl<T: TypeResolution + Debug> TypeResolution for Vec<T> {
+    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
+        let mut ret = Ok(());
+        for stmt in self {
+            println!("resolving type of {:?}", stmt);
+            let typ = stmt.resolve_type(ctx);
+            match typ {
+                Ok(_)
+                | Err(TranslationError::UnknownReturnType(_))
+                | Err(TranslationError::UnknownShape(_)) => (),
+                x => ret = x,
+            }
+        }
+        ret
+    }
+}
 
-// impl ToShape for ir::Type {
-//     fn to_shape(&self, _ctx: &TypeContext) -> Shape {
-//         use ir::Type::*;
-//         match self {
-//             Bool | Int => Shape::Simple,
-//             IArray => Shape::Nested(vec![]),
-//         }
-//     }
-// }
+impl TypeResolution for ir::Arg {
+    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
+        println!("setting type arg: {} -> {:?}", self.name, self.shape);
+        ctx.set_type(self.name.clone(), self.shape.clone());
+        Ok(())
+    }
+}
 
-// impl TryToShape for ir::Expr {
-//     fn to_shape(&self, ctx: &TypeContext) -> Result<Shape, TranslationError> {
-//         use ir::Expr::*;
-//         match self {
-//             Field(field) => field.to_shape(ctx),
-//             Struct(struc) => struc.to_shape(ctx),
-//             UnfoldingIn(unfold) => unfold.expr.to_shape(ctx),
-//             MethodCall(call) => ctx.get_function_type(&call.fname),
-//             FunctionCall(call) => ctx.get_function_type(&call.fname),
-//             x => Ok(match x {
-//                 Const(_) | UnOp(_) | BinOp(_) | Shift(_) | LoadByte(_) | Quantified(_)
-//                 | ArrayAccess(_) | AccessPredicate(_) | FieldAccessChain(_) | BaseAddr
-//                 | BytesInWord => Shape::Simple,
-//                 Var(var) => ctx.get_type_no_mangle(var)?,
-//                 Label(_) => unreachable!("ToShape for Expr::Label"),
-//                 Load(load) => load.shape.clone(),
-//                 _ => unreachable!(),
-//             }),
-//         }
-//     }
-// }
+impl TypeResolution for ir::FnDec {
+    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
+        println!("type of fun: {}", self.fname);
+        self.args.resolve_type(ctx)?;
+        self.body.resolve_type(ctx)?;
+        todo!() // return tyeps
+    }
+}
 
-// impl TypeResolution for ir::Expr {
-//     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<Shape, TranslationError> {
-//         use ir::Expr::*;
-//         match self {
-//             Const(_) | UnOp(_) | BinOp(_) | Shift(_) | LoadByte(_) | Quantified(_)
-//             | ArrayAccess(_) | AccessPredicate(_) | FieldAccessChain(_) | BaseAddr
-//             | BytesInWord => Ok(Shape::Simple),
-//             Var(name) => ctx.get_type_no_mangle(&name),
-//             Label(_) => panic!("Label can't have a type"),
-//             Field(field) => field.
-//             Load(load) => Ok(load.shape.clone()),
-//         }
-//     }
-// }
+impl ir::Program {
+    pub fn resolve_types(&self) -> Result<TypeContext, TranslationError> {
+        let mut ctx = TypeContext::new();
+        let mut prev_size = ctx.size();
+        loop {
+            println!("{:?}", ctx);
+            let typ = self.functions.resolve_type(&mut ctx);
+            match typ {
+                Ok(_)
+                | Err(TranslationError::UnknownReturnType(_))
+                | Err(TranslationError::UnknownShape(_)) => (),
+                Err(x) => return Err(x),
+            }
+            let new_size = ctx.size();
+            if new_size == prev_size {
+                break;
+            }
+            prev_size = new_size;
+        }
+        Ok(ctx)
+    }
+}

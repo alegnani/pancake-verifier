@@ -72,6 +72,10 @@ impl TypeContext {
     pub fn set_type(&mut self, var: String, shape: Shape) {
         self.type_map.insert(var, shape);
     }
+
+    pub fn size(&self) -> usize {
+        self.type_map.len()
+    }
 }
 
 pub struct ViperEncodeCtx<'a> {
