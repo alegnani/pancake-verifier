@@ -5,6 +5,8 @@ use crate::{
     utils::{Shape, TranslationError, TryToShape, TypeContext, TypeResolution},
 };
 
+use super::{FnDec, Stmt};
+
 impl TypeResolution for ir::Stmt {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
         match self {
@@ -38,7 +40,6 @@ impl<T: TypeResolution + Debug> TypeResolution for Vec<T> {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
         let mut ret = Ok(());
         for stmt in self {
-            println!("resolving type of {:?}", stmt);
             let typ = stmt.resolve_type(ctx);
             match typ {
                 Ok(_)
@@ -53,7 +54,6 @@ impl<T: TypeResolution + Debug> TypeResolution for Vec<T> {
 
 impl TypeResolution for ir::Arg {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
-        println!("setting type arg: {} -> {:?}", self.name, self.shape);
         ctx.set_type(self.name.clone(), self.shape.clone());
         Ok(())
     }
@@ -61,10 +61,36 @@ impl TypeResolution for ir::Arg {
 
 impl TypeResolution for ir::FnDec {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
-        println!("type of fun: {}", self.fname);
         self.args.resolve_type(ctx)?;
         self.body.resolve_type(ctx)?;
-        todo!() // return tyeps
+        let returns = Self::collect_returns(&self.body, ctx)?;
+        if returns.is_empty() {
+            Err(TranslationError::UnknownReturnType(self.fname.clone()))
+        } else {
+            ctx.set_type(self.fname.clone(), returns[0].clone());
+            Ok(())
+        }
+    }
+}
+
+impl FnDec {
+    pub fn collect_returns(body: &Stmt, ctx: &TypeContext) -> Result<Vec<Shape>, TranslationError> {
+        match body {
+            Stmt::Seq(seqn) => Ok(seqn
+                .stmts
+                .iter()
+                .flat_map(|s| Self::collect_returns(s, ctx))
+                .flatten()
+                .collect()),
+            Stmt::Definition(def) => Self::collect_returns(&def.scope, ctx),
+            Stmt::Return(ret) => match ret.value.to_shape(ctx) {
+                Ok(s) => Ok(vec![s]),
+                Err(TranslationError::UnknownReturnType(_))
+                | Err(TranslationError::UnknownShape(_)) => Ok(vec![]),
+                Err(e) => Err(e),
+            },
+            _ => Ok(vec![]),
+        }
     }
 }
 
@@ -73,7 +99,6 @@ impl ir::Program {
         let mut ctx = TypeContext::new();
         let mut prev_size = ctx.size();
         loop {
-            println!("{:?}", ctx);
             let typ = self.functions.resolve_type(&mut ctx);
             match typ {
                 Ok(_)

@@ -1,0 +1,10 @@
+fun dostuff() {
+    /*@ ensures retval.0 == 1@*/
+    /*@ ensures retval.1 == 1@*/
+    return < 1, 1 >;
+}
+
+fun main() {
+    var 2 x = dostuff();
+    return 0;
+}

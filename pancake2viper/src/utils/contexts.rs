@@ -64,7 +64,7 @@ impl TypeContext {
 
     pub fn get_function_type(&self, fname: &str) -> Result<Shape, TranslationError> {
         self.type_map
-            .get(&Mangler::mangle_fn(fname))
+            .get(fname)
             .cloned()
             .ok_or(TranslationError::UnknownReturnType(fname.to_owned()))
     }
@@ -115,13 +115,18 @@ impl Default for EncodeOptions {
 }
 
 impl<'a> ViperEncodeCtx<'a> {
-    pub fn new(predicates: HashSet<String>, ast: AstFactory<'a>, options: EncodeOptions) -> Self {
+    pub fn new(
+        types: TypeContext,
+        predicates: HashSet<String>,
+        ast: AstFactory<'a>,
+        options: EncodeOptions,
+    ) -> Self {
         Self {
             mode: TranslationMode::Normal,
             ast,
             stack: vec![],
             declarations: vec![],
-            types: TypeContext::new(),
+            types,
             while_counter: 0,
             iarray: IArrayHelper::new(ast),
             options,

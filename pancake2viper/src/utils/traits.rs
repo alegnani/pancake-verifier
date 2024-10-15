@@ -53,6 +53,7 @@ pub trait TryToShape {
 pub trait ProgramToViper<'a> {
     fn to_viper(
         self,
+        types: TypeContext,
         ast: AstFactory<'a>,
         options: EncodeOptions,
     ) -> Result<viper::Program<'a>, ToViperError>;

@@ -3,7 +3,7 @@ use clap::Parser;
 use pancake2viper::{
     cli::CliOptions,
     ir, pancake,
-    utils::{ProgramToViper, ViperHandle},
+    utils::{Mangleable, Mangler, ProgramToViper, ViperHandle},
 };
 use std::{fs::File, io::Write};
 
@@ -17,9 +17,16 @@ fn main() -> anyhow::Result<()> {
     let program_str = options.file.contents()?;
     let program: pancake::Program = pancake::Program::parse_str(program_str, &options.cake_path)?;
     println!("DONE");
-    let program: ir::Program = program.try_into()?;
+    let mut program: ir::Program = program.try_into()?;
+    print!("Mangling...");
+    let mut mangler = Mangler::default();
+    program.mangle(&mut mangler)?;
+    println!("DONE");
+    print!("Resolving types...");
+    let ctx = program.resolve_types()?;
+    println!("DONE");
     print!("Transpiling to Viper...");
-    let program: viper::Program<'_> = program.to_viper(viper.ast, encode_options)?;
+    let program: viper::Program<'_> = program.to_viper(ctx, viper.ast, encode_options)?;
     println!("DONE");
 
     let transpiled = viper.pretty_print(program);
