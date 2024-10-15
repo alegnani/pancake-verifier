@@ -1,17 +1,17 @@
 use viper::{AstFactory, Expr, LocalVarDecl, Type};
 
 use super::{
-    errors::ToViperError, shape::Shape, EncodeOptions, TranslationError, TypeContext,
+    errors::ToViperError, shape::Shape, EncodeOptions, Mangler, TranslationError, TypeContext,
     ViperEncodeCtx,
 };
 
 pub trait TryToIR {
     type Output;
-    fn to_ir(self, ctx: &mut TypeContext) -> Result<Self::Output, TranslationError>;
+    fn to_ir(self, mangler: &mut Mangler) -> Result<Self::Output, TranslationError>;
 }
 
 pub trait TryToIRGeneric<T> {
-    fn to_ir(self, ctx: &mut TypeContext) -> Result<T, TranslationError>;
+    fn to_ir(self, mangler: &mut Mangler) -> Result<T, TranslationError>;
 }
 
 pub trait TryToViper<'a> {

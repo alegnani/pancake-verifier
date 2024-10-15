@@ -1,6 +1,6 @@
 use crate::utils::{Shape, ShapeError, ToShape, TranslationError, TryToShape, TypeContext};
 
-use super::{Arg, Expr, Field, FnDec, Function, Method, Predicate, Stmt, Struct, TailCall};
+use super::{Arg, Expr, Field, FnDec, Function, Method, Predicate, Stmt, Struct};
 
 impl Struct {
     pub fn new(elements: Vec<Expr>) -> Self {
