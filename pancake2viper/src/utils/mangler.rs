@@ -71,7 +71,7 @@ impl Mangler {
         self.annot_map.clear();
     }
 
-    pub fn fresh_varname(&self) -> String {
+    pub fn fresh_varname() -> String {
         let fresh = format!("fr_{}", get_inc_counter());
         fresh
     }

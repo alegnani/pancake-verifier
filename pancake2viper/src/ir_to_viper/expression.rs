@@ -147,7 +147,7 @@ impl<'a> TryToViper<'a> for ir::Struct {
             .map(|e| e.to_shape(ctx.typectx_get_mut()))
             .collect::<Result<Vec<_>, _>>()?;
         let len: usize = shapes.iter().map(Shape::len).sum();
-        let fresh = ctx.fresh_varname();
+        let fresh = Mangler::fresh_varname();
         let (struct_decl, struct_var) = ast.new_var(&fresh, ctx.heap_type());
         let mut assumptions = vec![
             ast.inhale(
@@ -193,7 +193,7 @@ impl<'a> TryToViper<'a> for ir::Field {
                 if elems[self.field_idx].len() == 1 {
                     ctx.iarray.access(obj, ast.int_lit(self.field_idx as i64))
                 } else {
-                    let fresh = ctx.fresh_varname();
+                    let fresh = Mangler::fresh_varname();
                     let (f_decl, f) = ast.new_var(&fresh, ctx.iarray.get_type());
                     ctx.declarations.push(f_decl);
                     let (offset, size) = obj_shape.access(self.field_idx)?;
@@ -275,7 +275,7 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let ret = ast.new_var(
-            &ctx.fresh_varname(),
+            &Mangler::fresh_varname(),
             ctx.get_type(&self.fname)?.to_viper_type(ctx),
         );
         let mut args = vec![];
@@ -285,7 +285,7 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
                 Shape::Simple => arg.to_viper(ctx)?,
                 Shape::Nested(_) => {
                     let fresh = ast.new_var(
-                        &ctx.fresh_varname(),
+                        &Mangler::fresh_varname(),
                         arg.to_shape(ctx.typectx_get_mut())?.to_viper_type(ctx),
                     );
                     let arg_len = arg.to_shape(ctx.typectx_get_mut())?.len();

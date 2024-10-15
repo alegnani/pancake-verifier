@@ -2,7 +2,9 @@ use viper::{BinOpBv, BvSize::BV64, UnOpBv};
 
 use crate::ir;
 
-use crate::utils::{Shape, ToViperError, TryToShape, TryToViper, ViperEncodeCtx, ViperUtils};
+use crate::utils::{
+    Mangler, Shape, ToViperError, TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
+};
 
 impl<'a> TryToViper<'a> for ir::Load {
     type Output = viper::Expr<'a>;
@@ -26,7 +28,7 @@ impl<'a> TryToViper<'a> for ir::Load {
         Ok(if self.shape.is_simple() {
             iarray.access(ctx.heap_var().1, word_addr)
         } else {
-            let fresh_str = ctx.fresh_varname();
+            let fresh_str = Mangler::fresh_varname();
             let (fresh_decl, fresh) = ast.new_var(&fresh_str, iarray.get_type());
             let length = ast.int_lit(self.shape.len() as i64);
             ctx.set_type(fresh_str, self.shape);

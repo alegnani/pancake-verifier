@@ -1,6 +1,7 @@
 use crate::ir;
 use crate::utils::{
-    ToViperError, ToViperType, TranslationMode, TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
+    Mangler, ToViperError, ToViperType, TranslationMode, TryToShape, TryToViper, ViperEncodeCtx,
+    ViperUtils,
 };
 
 impl<'a> TryToViper<'a> for ir::Stmt {
@@ -173,7 +174,7 @@ impl<'a> TryToViper<'a> for ir::Call {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         ir::Definition {
-            lhs: ctx.fresh_varname(),
+            lhs: Mangler::fresh_varname(),
             rhs: self.call,
             scope: Box::new(ir::Stmt::Skip),
         }
@@ -219,7 +220,7 @@ impl<'a> TryToViper<'a> for ir::Annotation {
                 ctx.set_mode(self.typ.into());
                 let body = self.expr.to_viper(ctx)?;
                 ctx.set_mode(TranslationMode::Normal);
-                ctx.mangler_get_mut().clear_annot_var();
+                ctx.mangler.clear_annot_var(); // FIXME: move this to ToIR
                 Ok(match x {
                     Assertion => ast.assert(body, no_pos),
                     Assumption | Inhale => ast.inhale(body, no_pos),

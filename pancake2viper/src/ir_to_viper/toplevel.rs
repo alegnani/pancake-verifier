@@ -39,7 +39,7 @@ impl<'a> TryToViper<'a> for FnDec {
             .map(|a| {
                 let typ = a.shape.to_viper_type(ctx);
                 let mangled_lhs = ctx
-                    .mangler_get_mut()
+                    .mangler
                     .new_mangled_var(a.name.clone(), crate::utils::VariableType::Variable)
                     .unwrap(); // FIXME: remove unwrap
                 ctx.set_type(mangled_lhs.clone(), a.shape.clone());

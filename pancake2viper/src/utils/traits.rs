@@ -7,11 +7,15 @@ use super::{
 
 pub trait TryToIR {
     type Output;
-    fn to_ir(self, mangler: &mut Mangler) -> Result<Self::Output, TranslationError>;
+    fn to_ir(self) -> Result<Self::Output, TranslationError>;
 }
 
 pub trait TryToIRGeneric<T> {
-    fn to_ir(self, mangler: &mut Mangler) -> Result<T, TranslationError>;
+    fn to_ir(self) -> Result<T, TranslationError>;
+}
+
+pub trait Mangleable {
+    fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError>;
 }
 
 pub trait TryToViper<'a> {

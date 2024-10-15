@@ -27,26 +27,3 @@ impl MemOpBytes {
         }
     }
 }
-
-// impl Program {
-//     pub fn infer_function_types(&self) -> HashMap<String, Shape> {
-//         todo!()
-//     }
-// }
-
-// impl FnDec {
-//     fn get_type_ctx(&self) -> TypeContext {
-//         todo!()
-//     }
-// }
-
-// #[derive(Debug)]
-// enum ExprType {
-//     Symbolic(String),
-//     Resolved(Shape),
-// }
-
-// #[derive(Debug, Default)]
-// struct TypeContext {
-//     var_map: HashMap<String, ExprType>,
-// }

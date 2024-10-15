@@ -5,8 +5,8 @@ use viper::{AstFactory, Declaration, LocalVarDecl};
 use crate::{ir::AnnotationType, viper_prelude::IArrayHelper};
 
 use super::{
-    mangler::{Mangler, VariableType, RESERVED},
-    MangleError, Shape, TranslationError,
+    mangler::{Mangler, RESERVED},
+    Shape, TranslationError,
 };
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -39,7 +39,6 @@ impl From<AnnotationType> for TranslationMode {
 #[derive(Debug, Clone)]
 pub struct TypeContext {
     type_map: HashMap<String, Shape>,
-    mangler: Mangler,
 }
 
 impl TypeContext {
@@ -49,18 +48,11 @@ impl TypeContext {
             type_map.insert(keyword.into(), Shape::Simple);
         }
         type_map.insert("heap".into(), Shape::Nested(vec![])); // FIXME hack to have heap be of type IArray
-        Self {
-            type_map,
-            mangler: Mangler::default(),
-        }
+        Self { type_map }
     }
 
     pub fn child(&self) -> Self {
         self.clone()
-    }
-
-    pub fn get_type(&self, var: &str) -> Result<Shape, TranslationError> {
-        self.get_type_no_mangle(self.mangle_var(var)?)
     }
 
     pub fn get_type_no_mangle(&self, var: &str) -> Result<Shape, TranslationError> {
@@ -80,26 +72,6 @@ impl TypeContext {
     pub fn set_type(&mut self, var: String, shape: Shape) {
         self.type_map.insert(var, shape);
     }
-
-    pub fn mangler_get(&self) -> &Mangler {
-        &self.mangler
-    }
-
-    pub fn mangler_get_mut(&mut self) -> &mut Mangler {
-        &mut self.mangler
-    }
-
-    pub fn new_mangled_var(
-        &mut self,
-        name: String,
-        typ: VariableType,
-    ) -> Result<String, MangleError> {
-        self.mangler.new_mangled_var(name, typ)
-    }
-
-    pub fn mangle_var<'a>(&'a self, name: &'a str) -> Result<&'a str, MangleError> {
-        self.mangler.mangle_var(name)
-    }
 }
 
 pub struct ViperEncodeCtx<'a> {
@@ -116,6 +88,7 @@ pub struct ViperEncodeCtx<'a> {
     pub posts: Vec<viper::Expr<'a>>,
     pub invariants: Vec<viper::Expr<'a>>,
     predicates: HashSet<String>,
+    pub mangler: Mangler,
 }
 
 #[derive(Clone, Copy)]
@@ -152,6 +125,7 @@ impl<'a> ViperEncodeCtx<'a> {
             posts: vec![],
             invariants: vec![],
             predicates,
+            mangler: Mangler::default(),
         }
     }
 
@@ -169,15 +143,12 @@ impl<'a> ViperEncodeCtx<'a> {
             posts: self.posts.clone(),
             invariants: self.invariants.clone(),
             predicates: self.predicates.clone(),
+            mangler: self.mangler.clone(),
         }
     }
 
     pub fn enter_new_loop(&mut self) {
         self.while_counter += 1;
-    }
-
-    pub fn fresh_varname(&mut self) -> String {
-        self.types.mangler_get().fresh_varname()
     }
 
     pub fn current_break_label(&self) -> String {
@@ -237,7 +208,6 @@ impl<'a> ViperEncodeCtx<'a> {
 
     pub fn set_mode(&mut self, mode: TranslationMode) {
         self.mode = mode;
-        self.types.mangler_get_mut().mangle_mode(mode);
     }
 
     pub fn get_mode(&self) -> TranslationMode {
@@ -249,7 +219,7 @@ impl<'a> ViperEncodeCtx<'a> {
     }
 
     pub fn get_type(&self, var: &str) -> Result<Shape, TranslationError> {
-        self.types.get_type(var)
+        self.types.get_type_no_mangle(var)
     }
 
     pub fn get_function_type(&self, fname: &str) -> Result<Shape, TranslationError> {
@@ -270,13 +240,5 @@ impl<'a> ViperEncodeCtx<'a> {
 
     pub fn typectx_get_mut(&mut self) -> &mut TypeContext {
         &mut self.types
-    }
-
-    pub fn mangler_get(&self) -> &Mangler {
-        &self.types.mangler
-    }
-
-    pub fn mangler_get_mut(&mut self) -> &mut Mangler {
-        &mut self.types.mangler
     }
 }
