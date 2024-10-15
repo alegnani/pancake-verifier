@@ -78,8 +78,8 @@ impl Mangleable for ir::Stmt {
             Skip | Break | Continue => (),
             Annotation(annot) => annot.mangle(mangler)?,
             Definition(def) => {
-                def.lhs = mangler.new_mangled_var(def.lhs.clone(), VariableType::Variable)?;
                 def.rhs.mangle(mangler)?;
+                def.lhs = mangler.new_mangled_var(def.lhs.clone(), VariableType::Variable)?;
                 def.scope.mangle(mangler)?
             }
             Assign(ass) => {

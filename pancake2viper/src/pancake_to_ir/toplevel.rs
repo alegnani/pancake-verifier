@@ -29,10 +29,17 @@ impl TryToIR for pancake::FnDec {
 
     fn to_ir(self) -> Result<Self::Output, TranslationError> {
         let args = self.args.to_ir()?;
+        let body = args.iter().fold(self.body.to_ir()?, |scope, arg| {
+            ir::Stmt::Definition(ir::Definition {
+                lhs: arg.name.clone(),
+                rhs: ir::Expr::Var(arg.name.clone()),
+                scope: Box::new(scope),
+            })
+        });
         Ok(Self::Output {
             fname: self.fname,
             args,
-            body: self.body.to_ir()?,
+            body,
         })
     }
 }

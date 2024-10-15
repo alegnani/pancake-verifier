@@ -88,7 +88,7 @@ impl Mangler {
         let maybe_annot = self.annot_map.get(var);
         let maybe_var = self.var_map.get(var);
         match self.mode {
-            TranslationMode::Normal => maybe_var,
+            TranslationMode::Normal => maybe_var.or(maybe_arg),
             TranslationMode::Assertion => maybe_annot.or(maybe_var),
             TranslationMode::PrePost => maybe_annot.or(maybe_arg),
         }

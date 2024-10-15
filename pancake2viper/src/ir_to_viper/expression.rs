@@ -256,7 +256,7 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
         let ast = ctx.ast;
         let mut args = self.args.to_viper(ctx)?;
         Ok(match self.fname.as_str() {
-            "alen" => {
+            "f_alen" => {
                 let arr = args[0];
                 ctx.iarray.len_f(arr)
             }

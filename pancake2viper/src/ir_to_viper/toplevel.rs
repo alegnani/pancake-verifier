@@ -1,10 +1,10 @@
 use std::collections::HashSet;
 
-use viper::{AstFactory, Declaration};
+use viper::AstFactory;
 
 use crate::utils::{
     EncodeOptions, ProgramToViper, ToViper, ToViperError, ToViperType, TranslationMode, TryToViper,
-    TypeContext, ViperEncodeCtx, ViperUtils,
+    TypeContext, ViperEncodeCtx,
 };
 use crate::viper_prelude::create_viper_prelude;
 
@@ -33,35 +33,15 @@ impl<'a> TryToViper<'a> for FnDec {
             .map(|a| a.clone().to_viper(ctx))
             .collect::<Vec<_>>();
 
-        let (args_decls, mut args_assigns): (Vec<Declaration>, Vec<_>) = self
-            .args
-            .iter()
-            .map(|a| {
-                let typ = a.shape.to_viper_type(ctx);
-                let mangled_lhs = ctx
-                    .mangler
-                    .new_mangled_var(a.name.clone(), crate::utils::VariableType::Variable)
-                    .unwrap(); // FIXME: remove unwrap
-                ctx.set_type(mangled_lhs.clone(), a.shape.clone());
-                let lhs = ast.new_var(&mangled_lhs, typ);
-                let decl: Declaration = lhs.0.into();
-                (
-                    decl,
-                    ctx.ast.local_var_assign(lhs.1, ast.local_var(&a.name, typ)),
-                )
-            })
-            .unzip();
-
         let body = self.body.to_viper(ctx)?;
-
-        args_local_decls.insert(0, ctx.heap_var().0);
-
-        args_assigns.extend_from_slice(&[
-            body,
-            ast.label(ctx.return_label(), &[]),
-            ast.refute(ast.false_lit(), ast.no_position()),
-        ]);
-        let body = ast.seqn(&args_assigns, &args_decls);
+        let body = ast.seqn(
+            &[
+                body,
+                ast.label(ctx.return_label(), &[]),
+                ast.refute(ast.false_lit(), ast.no_position()),
+            ],
+            &[],
+        );
 
         let mut pres = self
             .args
@@ -77,6 +57,8 @@ impl<'a> TryToViper<'a> for FnDec {
                 ast.int_lit(ctx.options.heap_size as i64),
             ),
         );
+
+        args_local_decls.insert(0, ctx.heap_var().0);
 
         Ok(ast.method(
             &self.fname,
