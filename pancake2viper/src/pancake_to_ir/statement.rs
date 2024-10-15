@@ -191,7 +191,7 @@ impl TryToIR for pancake::ExtCall {
     fn to_ir(self) -> Result<Self::Output, TranslationError> {
         let args = self.args.to_ir()?;
         Ok(Self::Output {
-            fname: self.fname,
+            fname: format!("ffi{}", self.fname),
             args,
         })
     }
