@@ -1,27 +1,29 @@
-use crate::{ir, pancake};
+use crate::{
+    ir::Type,
+    utils::{Shape, ToType, TryToIR},
+};
 
-pub struct Wrapper<T>(pub Vec<T>);
+impl<T: TryToIR> TryToIR for Vec<T> {
+    type Output = Vec<T::Output>;
 
-impl From<Vec<pancake::Expr>> for Wrapper<ir::Expr> {
-    fn from(value: Vec<pancake::Expr>) -> Self {
-        Self(value.into_iter().map(|v| v.into()).collect())
+    fn to_ir(self) -> Result<Self::Output, crate::utils::TranslationError> {
+        self.into_iter().map(TryToIR::to_ir).collect()
     }
 }
 
-impl From<Vec<pancake::Stmt>> for Wrapper<ir::Stmt> {
-    fn from(value: Vec<pancake::Stmt>) -> Self {
-        Self(value.into_iter().map(|v| v.into()).collect())
+impl<T: TryToIR, const N: usize> TryToIR for [T; N] {
+    type Output = Vec<T::Output>;
+
+    fn to_ir(self) -> Result<Self::Output, crate::utils::TranslationError> {
+        self.into_iter().map(TryToIR::to_ir).collect()
     }
 }
 
-impl From<Vec<pancake::Arg>> for Wrapper<ir::Arg> {
-    fn from(value: Vec<pancake::Arg>) -> Self {
-        Self(value.into_iter().map(|v| v.into()).collect())
-    }
-}
-
-impl From<Vec<pancake::FnDec>> for Wrapper<ir::FnDec> {
-    fn from(value: Vec<pancake::FnDec>) -> Self {
-        Self(value.into_iter().map(|v| v.into()).collect())
+impl ToType for Shape {
+    fn to_type(&self) -> Type {
+        match self {
+            Self::Simple => Type::Int,
+            Self::Nested(inner) => Type::Struct(inner.clone()),
+        }
     }
 }

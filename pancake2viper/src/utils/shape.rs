@@ -1,6 +1,6 @@
-use crate::{ir_to_viper::ViperEncodeCtx, ShapeError, ToViperType};
+use super::{errors::ShapeError, traits::ToViperType, ViperEncodeCtx};
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Shape {
     Simple,
     Nested(Vec<Self>),

@@ -19,7 +19,7 @@ pub enum Stmt {
     Continue,
     Call(Call),
     ExtCall(ExtCall),
-    Return(Return),
+    Return,
 }
 
 #[derive(Debug, Clone)]
