@@ -26,12 +26,14 @@ impl<'a> TryToViper<'a> for FnDec {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
 
-        // Copy all the parameters as they are read-only in Viper
-        let mut args_local_decls = self
+        let mut pres = self
             .args
             .iter()
-            .map(|a| a.clone().to_viper(ctx))
+            .filter_map(|a| a.permission(ctx))
             .collect::<Vec<_>>();
+
+        // Copy all the parameters as they are read-only in Viper
+        let mut args_local_decls = self.args.to_viper(ctx);
 
         let body = self.body.to_viper(ctx)?;
         let body = ast.seqn(
@@ -43,11 +45,6 @@ impl<'a> TryToViper<'a> for FnDec {
             &[],
         );
 
-        let mut pres = self
-            .args
-            .iter()
-            .filter_map(|a| a.permission(ctx))
-            .collect::<Vec<_>>();
         pres.extend(&ctx.pres);
         // add precondition about heap size: `requires alen(heap) == HEAP_SIZE`
         pres.insert(
@@ -98,7 +95,7 @@ impl<'a> TryToViper<'a> for Function {
     type Output = viper::Function<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let args = self.args.to_viper(ctx);
+        let mut args = self.args.to_viper(ctx);
 
         let (pres, posts, others) = partition_annotation_types(self.preposts);
 
@@ -116,6 +113,7 @@ impl<'a> TryToViper<'a> for Function {
             .collect::<Result<Vec<_>, _>>()?;
         let body = self.body.map(|b| b.to_viper(ctx)).transpose()?;
 
+        args.insert(0, ctx.heap_var().0);
         Ok(ast.function(
             &self.name,
             &args,
@@ -132,7 +130,7 @@ impl<'a> TryToViper<'a> for AbstractMethod {
     type Output = viper::Method<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let args = self.args.to_viper(ctx);
+        let mut args = self.args.to_viper(ctx);
         let rettyps = self.rettyps.to_viper(ctx);
 
         let (pres, posts, others) = partition_annotation_types(self.preposts);
@@ -150,6 +148,7 @@ impl<'a> TryToViper<'a> for AbstractMethod {
             .map(|e| e.expr.to_viper(ctx))
             .collect::<Result<Vec<_>, _>>()?;
 
+        args.insert(0, ctx.heap_var().0);
         Ok(ast.method(&self.name, &args, &rettyps, &pres, &posts, None))
     }
 }

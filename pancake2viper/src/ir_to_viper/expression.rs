@@ -264,8 +264,14 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
                 args.insert(0, ctx.heap_var().1);
                 ast.predicate_access_predicate(ast.predicate_access(&args, pred), ast.full_perm())
             }
-            // FIXME: return type
-            fname => ast.func_app(fname, &args, ast.int_type(), ast.no_position()),
+            fname => {
+                args.insert(0, ctx.heap_var().1);
+                let ret_type = ctx
+                    .typectx_get()
+                    .get_function_type(fname)?
+                    .to_viper_type(ctx);
+                ast.func_app(fname, &args, ret_type, ast.no_position())
+            }
         })
     }
 }
