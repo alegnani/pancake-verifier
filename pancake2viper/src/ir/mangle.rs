@@ -45,7 +45,10 @@ impl Mangleable for ir::Expr {
                 quant.decls.mangle(mangler)?;
                 quant.body.mangle(mangler)?
             }
-            ArrayAccess(access) => access.obj.mangle(mangler)?,
+            ArrayAccess(access) => {
+                access.obj.mangle(mangler)?;
+                access.idx.mangle(mangler)?
+            }
             AccessPredicate(acc) => acc.field.mangle(mangler)?,
             FieldAccessChain(access) => access.obj.mangle(mangler)?,
             UnfoldingIn(fold) => {
