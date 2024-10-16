@@ -125,6 +125,7 @@ pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
             Rule::expr => parse_expr(primary.into_inner()),
             Rule::ident => Expr::Var(primary.as_str().to_owned()),
             Rule::f_call => Expr::FunctionCall(FunctionCall::from_pest(primary)),
+            Rule::acc_slice => Expr::AccessSlice(AccessSlice::from_pest(primary)),
             Rule::acc_pred => Expr::AccessPredicate(AccessPredicate::from_pest(primary)),
             Rule::unfolding => Expr::UnfoldingIn(UnfoldingIn::from_pest(primary)),
             Rule::base => Expr::BaseAddr,
@@ -341,6 +342,37 @@ impl FromPestPair for AccessPredicate {
             .map(Permission::from_pest)
             .unwrap_or(Permission::Write);
         Self { field, perm }
+    }
+}
+
+impl FromPestPair for SliceType {
+    fn from_pest(pair: Pair<'_, Rule>) -> Self {
+        match pair.as_rule() {
+            Rule::slice_inc => Self::Inclusive,
+            Rule::slice_exc => Self::Exclusive,
+            x => panic!("Failed to parse SliceType, got {:?}", x),
+        }
+    }
+}
+
+impl FromPestPair for AccessSlice {
+    fn from_pest(pair: Pair<'_, Rule>) -> Self {
+        let mut inner = pair.into_inner();
+        let field = Box::new(parse_expr(Pairs::single(inner.next().unwrap())));
+        let lower = inner.next().unwrap().as_str().parse().unwrap();
+        let typ = SliceType::from_pest(inner.next().unwrap());
+        let upper = inner.next().unwrap().as_str().parse().unwrap();
+        let perm = inner
+            .next()
+            .map(Permission::from_pest)
+            .unwrap_or(Permission::Write);
+        Self {
+            field,
+            typ,
+            lower,
+            upper,
+            perm,
+        }
     }
 }
 

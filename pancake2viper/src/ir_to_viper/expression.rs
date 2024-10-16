@@ -391,6 +391,24 @@ impl<'a> TryToViper<'a> for ir::Ternary {
     }
 }
 
+impl<'a> TryToViper<'a> for ir::AccessSlice {
+    type Output = viper::Expr<'a>;
+
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
+        let ast = ctx.ast;
+        let field = self.field.to_viper(ctx)?;
+        let lower = ast.int_lit(self.lower);
+        let length = self.upper - self.lower
+            + match self.typ {
+                ir::SliceType::Exclusive => 0,
+                ir::SliceType::Inclusive => 1,
+            };
+        let length = ast.int_lit(length);
+        let perm = self.perm.to_viper(ctx);
+        Ok(ctx.iarray.array_acc_expr(field, lower, length, perm))
+    }
+}
+
 impl<'a> TryToViper<'a> for ir::Expr {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
@@ -412,6 +430,7 @@ impl<'a> TryToViper<'a> for ir::Expr {
             Load(load) => load.to_viper(ctx),
             LoadByte(load) => load.to_viper(ctx),
             Ternary(ternary) => ternary.to_viper(ctx),
+            AccessSlice(slice) => slice.to_viper(ctx),
             x => Ok(match x {
                 Const(c) => ast.int_lit(c),
                 Var(name) => ast.local_var(&name, ctx.get_type(&name)?.to_viper_type(ctx)),

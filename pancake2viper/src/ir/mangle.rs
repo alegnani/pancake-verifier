@@ -69,6 +69,7 @@ impl Mangleable for ir::Expr {
                 tern.left.mangle(mangler)?;
                 tern.right.mangle(mangler)?
             }
+            AccessSlice(slice) => slice.field.mangle(mangler)?,
         }
         Ok(())
     }

@@ -24,7 +24,7 @@ impl ExprTypeResolution for ir::Expr {
             | FieldAccessChain(_) => Ok(Type::Int),
             BinOp(_) => Ok(Type::Int), // FIXME
             UnOp(_) => Ok(Type::Int),
-            AccessPredicate(_) => Ok(Type::Bool),
+            AccessPredicate(_) | AccessSlice(_) => Ok(Type::Bool),
             Var(name) => ctx.get_type_no_mangle(name),
             Label(_) => unreachable!(),
             Struct(struc) => Ok(struc.to_shape(ctx)?.to_type()),
