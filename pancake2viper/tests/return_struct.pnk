@@ -1,4 +1,7 @@
 fun dostuff() {
+    /*@ ensures alen(retval) == 2 @*/
+    /*@ ensures acc(retval.0) @*/
+    /*@ ensures acc(retval.1) @*/
     /*@ ensures retval.0 == 1@*/
     /*@ ensures retval.1 == 1@*/
     return < 1, 1 >;
