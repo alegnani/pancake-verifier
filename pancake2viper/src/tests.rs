@@ -1,7 +1,7 @@
 use std::env;
 
-use ir_to_viper::EncodeOptions;
 use lazy_static::lazy_static;
+use utils::{EncodeOptions, Mangleable, Mangler, ProgramToViper};
 
 use super::*;
 
@@ -13,7 +13,14 @@ fn verify_file(path: &str) -> anyhow::Result<()> {
     let cake = env::var("CAKE_ML").unwrap_or("cake".into());
 
     // Parse Pancake program
-    let program: ir::Program = pancake::Program::parse_file(path, &cake)?.into();
+    let program = pancake::Program::parse_file(path, &cake)?;
+    let mut program: ir::Program = program.try_into()?;
+    println!("{:?}", program);
+    let mut mangler = Mangler::default();
+    program.mangle(&mut mangler)?;
+    println!("{:?}", program);
+    let ctx = program.resolve_types()?;
+    println!("Resolved types!: {:?}", ctx);
     // Create Viper context
     // let viper = Viper::new_with_args(&viper_home, vec![]);
     let ver_ctx = VIPER.attach_current_thread();
@@ -23,7 +30,7 @@ fn verify_file(path: &str) -> anyhow::Result<()> {
         vec!["--logLevel=OFF".into()],
     );
     // Tranpile to Viper and verify
-    let program = program.to_viper(ast_factory, EncodeOptions::default())?;
+    let program = program.to_viper(ctx, ast_factory, EncodeOptions::default())?;
     let res = verifier.verify(program);
     assert!(res.is_success(), "Verification error: {:?}", res);
 

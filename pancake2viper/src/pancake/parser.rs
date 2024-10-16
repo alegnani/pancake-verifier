@@ -9,8 +9,7 @@ use std::{
 };
 
 use super::*;
-use crate::pancake;
-use crate::shape::Shape;
+use crate::{pancake, utils::Shape};
 use SExpr::*;
 
 /// S-expression definition for parsing of `cake`'s explore output
@@ -101,14 +100,14 @@ impl Expr {
             [Symbol(bytes)] if bytes == "BytesInWord" => Ok(Self::BytesInWord),
             [Symbol(op), List(label), List(args), Symbol(ret)] if op == "call" => {
                 Ok(Self::Call(ExprCall {
-                    rettype: Shape::Simple,
+                    expected_rettype: Shape::parse(ret)?,
                     fname: Box::new(Self::parse(label)?),
                     args: Self::parse_slice(args)?,
                 }))
             }
             [Symbol(op), List(label), List(args), Int(_)] if op == "call" => {
                 Ok(Self::Call(ExprCall {
-                    rettype: Shape::Simple,
+                    expected_rettype: Shape::Simple,
                     fname: Box::new(Self::parse(label)?),
                     args: Self::parse_slice(args)?,
                 }))
@@ -269,7 +268,7 @@ impl Stmt {
                     args: Expr::parse_slice(args)?,
                 }))
             }
-            [Symbol(op), List(label), List(args), Int(ret)] if op == "call" => {
+            [Symbol(op), List(label), List(args), Int(_ret)] if op == "call" => {
                 Ok(Self::Call(Call {
                     rettype: "todo_call".into(),
                     fname: Expr::parse(label)?,
@@ -383,6 +382,7 @@ impl FnDec {
                         fname: name.clone(),
                         args,
                         body: Stmt::parse(body.iter().collect())?,
+                        rettyp: None,
                     })
                 }
                 _ => Err(anyhow!("Shape of SExpr::List does not match")),

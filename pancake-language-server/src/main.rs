@@ -7,9 +7,8 @@ use anyhow::anyhow;
 use dashmap::DashMap;
 use expanduser::expanduser;
 use notification::ShowMessage;
-use pancake2viper::ir_to_viper::EncodeOptions;
-use pancake2viper::utils::ViperHandle;
-use pancake2viper::{ir, ProgramToViper};
+use pancake2viper::ir;
+use pancake2viper::utils::{EncodeOptions, Mangleable, Mangler, ProgramToViper, ViperHandle};
 
 use serde_json::Value;
 use tokio::sync::Mutex;
@@ -82,7 +81,7 @@ impl Backend {
     async fn update_ast(&self, uri: &Url, program: String) -> anyhow::Result<()> {
         self.current_file.lock().await.replace(Some(uri.clone()));
         let program = pancake2viper::pancake::Program::parse_str(program, &self.cake_path)?;
-        let program: ir::Program = program.into();
+        let program: ir::Program = program.try_into()?;
         self.file_map.insert(uri.to_string(), program);
         Ok(())
     }
@@ -103,9 +102,12 @@ impl Backend {
     }
 
     async fn transpile_file(&self, uri: Url) -> anyhow::Result<()> {
-        let program = self.file_map.get(uri.as_str()).unwrap().clone();
+        let mut program = self.file_map.get(uri.as_str()).unwrap().clone();
         let viper = self.viper.lock().await;
-        let program = program.to_viper(viper.ast, EncodeOptions::default())?;
+        let mut mangler = Mangler::default();
+        program.mangle(&mut mangler)?;
+        let ctx = program.resolve_types()?;
+        let program = program.to_viper(ctx, viper.ast, EncodeOptions::default())?;
 
         self.create_vpr_file(uri, viper.pretty_print(program)).await;
         Ok(())
@@ -167,10 +169,12 @@ impl Backend {
 
     async fn verify_command(&self) -> Result<Option<Value>> {
         let mut viper = self.viper.lock().await;
-        let program = self
-            .get_current_ast()
-            .await
-            .to_viper(viper.ast, EncodeOptions::default())
+        let mut program = self.get_current_ast().await;
+        let mut mangler = Mangler::default();
+        program.mangle(&mut mangler).unwrap();
+        let ctx = program.resolve_types().unwrap();
+        let program = program
+            .to_viper(ctx, viper.ast, EncodeOptions::default())
             .unwrap();
         let ver = viper.verify(program);
         let result = serde_json::json!({

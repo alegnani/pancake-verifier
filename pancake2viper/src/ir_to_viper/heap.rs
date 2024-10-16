@@ -1,11 +1,10 @@
 use viper::{BinOpBv, BvSize::BV64, UnOpBv};
 
-use crate::{ir, ToViperError, TryToShape, TryToViper};
+use crate::ir;
 
-use crate::shape::Shape;
-use crate::utils::ViperUtils;
-
-use super::utils::ViperEncodeCtx;
+use crate::utils::{
+    Mangler, Shape, ToType, ToViperError, TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
+};
 
 impl<'a> TryToViper<'a> for ir::Load {
     type Output = viper::Expr<'a>;
@@ -28,10 +27,10 @@ impl<'a> TryToViper<'a> for ir::Load {
         Ok(if self.shape.is_simple() {
             iarray.access(ctx.heap_var().1, word_addr)
         } else {
-            let fresh_str = ctx.fresh_var();
+            let fresh_str = Mangler::fresh_varname();
             let (fresh_decl, fresh) = ast.new_var(&fresh_str, iarray.get_type());
             let length = ast.int_lit(self.shape.len() as i64);
-            ctx.set_type(fresh_str, self.shape);
+            ctx.set_type(fresh_str, self.shape.to_type());
 
             let slice = iarray.create_slice_m(ctx.heap_var().1, word_addr, length, fresh);
             ctx.declarations.push(fresh_decl);
@@ -95,7 +94,7 @@ impl<'a> TryToViper<'a> for ir::Store {
         };
 
         let word_addr = ast.div(addr_expr, bytes_in_word);
-        let rhs_shape = self.value.to_shape(ctx)?;
+        let rhs_shape = self.value.to_shape(ctx.typectx_get_mut())?;
         let rhs = self.value.to_viper(ctx)?;
 
         let store = if rhs_shape.is_simple() {

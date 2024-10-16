@@ -1,6 +1,6 @@
-use crate::{ir_to_viper::ViperEncodeCtx, shape::Shape, ShapeError, ToShape, TryToShape};
+use crate::utils::TranslationError;
 
-use super::{Arg, Expr, Field, FnDec, Function, Method, Predicate, Stmt, Struct};
+use super::{Expr, Function, Method, Predicate, Struct};
 
 impl Struct {
     pub fn new(elements: Vec<Expr>) -> Self {
@@ -36,88 +36,15 @@ impl Method {
     }
 }
 
-impl FnDec {
-    pub fn collect_returns(
-        body: &Stmt,
-        ctx: &ViperEncodeCtx<'_>,
-    ) -> Result<Vec<Shape>, ShapeError> {
-        match body {
-            Stmt::Seq(seqn) => Ok(seqn
-                .stmts
-                .iter()
-                .flat_map(|s| Self::collect_returns(s, ctx))
-                .flatten()
-                .collect()),
-            Stmt::Declaration(dec) => Self::collect_returns(&dec.scope, ctx),
-            Stmt::Return(ret) => Ok(vec![ret.value.to_shape(ctx)?]),
-            // Stmt::TailCall(tail) => tail.shape(ctx), // TODO: evaluate return types
-            _ => Ok(vec![]),
-        }
-    }
-}
-
-impl<'a> TryToShape<'a> for Expr {
-    fn to_shape(&self, ctx: &ViperEncodeCtx<'a>) -> Result<Shape, ShapeError> {
+impl Expr {
+    // TODO: this could well be a function pointer. If we stick to only using
+    // valid function addresses (no unholy pointer arithmetic) we can encode
+    // this as a switch statement checking the expression against all possible
+    // function addresses.
+    pub fn get_label(&self) -> Result<String, TranslationError> {
         match self {
-            Expr::Struct(struc) => struc.to_shape(ctx),
-            Expr::Field(field) => field.to_shape(ctx),
-            x => Ok(match x {
-                Expr::Const(_)
-                | Expr::Op(_)
-                | Expr::Shift(_)
-                | Expr::LoadByte(_)
-                | Expr::BaseAddr
-                | Expr::BytesInWord => Shape::Simple,
-                Expr::Var(var) => ctx.get_type(var),
-                Expr::Call(call) => Shape::Simple, // FIXME
-                Expr::Label(_) => unreachable!("ToShape for Expr::Label"),
-                Expr::Load(load) => load.shape.clone(),
-                _ => unreachable!(),
-            }),
+            Self::Label(label) => Ok(label.to_owned()),
+            x => Err(TranslationError::InvalidLabel(x.clone())),
         }
-    }
-}
-
-impl<'a> TryToShape<'a> for Struct {
-    fn to_shape(&self, ctx: &ViperEncodeCtx<'a>) -> Result<Shape, ShapeError> {
-        let inner_shapes = self
-            .elements
-            .iter()
-            .map(|e| e.to_shape(ctx))
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(Shape::Nested(inner_shapes))
-    }
-}
-
-impl<'a> TryToShape<'a> for Field {
-    fn to_shape(&self, ctx: &ViperEncodeCtx<'a>) -> Result<Shape, ShapeError> {
-        let obj_shape = self.obj.to_shape(ctx)?;
-        match &obj_shape {
-            Shape::Simple => Err(ShapeError::SimpleShapeFieldAccess(
-                (*self.obj).clone().into(),
-            )),
-            Shape::Nested(ls) => {
-                ls.get(self.field_idx)
-                    .cloned()
-                    .ok_or(ShapeError::OutOfBoundsFieldAccess(
-                        self.field_idx,
-                        obj_shape,
-                    ))
-            }
-        }
-    }
-}
-
-impl<'a> ToShape<'a> for Arg {
-    fn to_shape(&self, _ctx: &ViperEncodeCtx<'a>) -> Shape {
-        self.shape.clone()
-    }
-}
-
-impl<'a> TryToShape<'a> for FnDec {
-    fn to_shape(&self, ctx: &ViperEncodeCtx<'a>) -> Result<Shape, ShapeError> {
-        let shapes = FnDec::collect_returns(&self.body, ctx)?;
-        // TODO: add check for types to be the same and non-empty
-        Ok(shapes[0].clone())
     }
 }

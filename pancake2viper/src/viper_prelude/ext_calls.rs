@@ -1,6 +1,5 @@
-use viper::{AstFactory, Method};
-
 use crate::utils::ViperUtils;
+use viper::{AstFactory, Method};
 
 pub fn add_ext_call<'a>(ast: AstFactory<'a>, name: &str) -> Method<'a> {
     let args = (0..4)

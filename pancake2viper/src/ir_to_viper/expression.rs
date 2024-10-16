@@ -1,14 +1,12 @@
 use viper::BinOpBv;
 use viper::BvSize::BV64;
 
-use crate::shape::Shape;
-use crate::utils::ViperUtils;
+use crate::utils::{
+    Mangler, Shape, ToViper, ToViperError, ToViperType, TryToShape, TryToViper, ViperEncodeCtx,
+    ViperUtils,
+};
 
 use crate::ir::{self};
-
-use crate::{ToShape, ToViper, ToViperError, ToViperType, TryToShape, TryToViper};
-
-use super::utils::ViperEncodeCtx;
 
 impl ir::Expr {
     pub fn cond_to_viper<'a>(
@@ -16,8 +14,10 @@ impl ir::Expr {
         ctx: &mut ViperEncodeCtx<'a>,
     ) -> Result<viper::Expr<'a>, ToViperError> {
         let ast = ctx.ast;
-        if !self.to_shape(ctx)?.is_simple() {
-            return Err(ToViperError::ConditionShape(self.to_shape(ctx)?));
+        if !self.to_shape(ctx.typectx_get_mut())?.is_simple() {
+            return Err(ToViperError::ConditionShape(
+                self.to_shape(ctx.typectx_get_mut())?,
+            ));
         }
         Ok(ast.ne_cmp(self.to_viper(ctx)?, ast.int_lit(0)))
     }
@@ -144,10 +144,10 @@ impl<'a> TryToViper<'a> for ir::Struct {
         let shapes = self
             .elements
             .iter()
-            .map(|e| e.to_shape(ctx))
+            .map(|e| e.to_shape(ctx.typectx_get_mut()))
             .collect::<Result<Vec<_>, _>>()?;
         let len: usize = shapes.iter().map(Shape::len).sum();
-        let fresh = ctx.fresh_var();
+        let fresh = Mangler::fresh_varname();
         let (struct_decl, struct_var) = ast.new_var(&fresh, ctx.heap_type());
         let mut assumptions = vec![
             ast.inhale(
@@ -184,7 +184,7 @@ impl<'a> TryToViper<'a> for ir::Field {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let obj_shape = self.obj.to_shape(ctx)?;
+        let obj_shape = self.obj.to_shape(ctx.typectx_get_mut())?;
         let obj = self.obj.to_viper(ctx)?;
 
         Ok(match &obj_shape {
@@ -193,7 +193,7 @@ impl<'a> TryToViper<'a> for ir::Field {
                 if elems[self.field_idx].len() == 1 {
                     ctx.iarray.access(obj, ast.int_lit(self.field_idx as i64))
                 } else {
-                    let fresh = ctx.fresh_var();
+                    let fresh = Mangler::fresh_varname();
                     let (f_decl, f) = ast.new_var(&fresh, ctx.iarray.get_type());
                     ctx.declarations.push(f_decl);
                     let (offset, size) = obj_shape.access(self.field_idx)?;
@@ -210,23 +210,13 @@ impl<'a> TryToViper<'a> for ir::Field {
     }
 }
 
-impl<'a> ToViperType<'a> for ir::Type {
-    fn to_viper_type(&self, ctx: &ViperEncodeCtx<'a>) -> viper::Type<'a> {
-        let ast = ctx.ast;
-        match self {
-            Self::Bool => ast.bool_type(),
-            Self::Int => ast.int_type(),
-            Self::IArray => ctx.iarray.get_type(),
-        }
-    }
-}
-
 impl<'a> ToViper<'a> for ir::Decl {
     type Output = viper::LocalVarDecl<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
-        ctx.set_type(self.name.clone(), self.typ.to_shape(ctx));
-        ctx.mangler.new_annot_var(self.name.clone());
+        // XXX: move
+        // ctx.set_type(self.name.clone(), self.typ.to_shape(ctx.typectx_get()));
+        // ctx.mangler.new_annot_var(self.name.clone());
         ast.local_var_decl(&self.name, self.typ.to_viper_type(ctx))
     }
 }
@@ -255,7 +245,7 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
         let ast = ctx.ast;
         let mut args = self.args.to_viper(ctx)?;
         Ok(match self.fname.as_str() {
-            "alen" => {
+            "f_alen" => {
                 let arr = args[0];
                 ctx.iarray.len_f(arr)
             }
@@ -263,8 +253,14 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
                 args.insert(0, ctx.heap_var().1);
                 ast.predicate_access_predicate(ast.predicate_access(&args, pred), ast.full_perm())
             }
-            // FIXME: return type
-            fname => ast.func_app(fname, &args, ast.int_type(), ast.no_position()),
+            fname => {
+                args.insert(0, ctx.heap_var().1);
+                let ret_type = ctx
+                    .typectx_get()
+                    .get_function_type(fname)?
+                    .to_viper_type(ctx);
+                ast.func_app(fname, &args, ret_type, ast.no_position())
+            }
         })
     }
 }
@@ -273,18 +269,21 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let ret = ast.new_var(&ctx.fresh_var(), self.rettype.to_viper_type(ctx));
-        let method_name = ctx.mangler.mangle_fn(&self.fname.label_to_viper());
-
+        let ret = ast.new_var(
+            &Mangler::fresh_varname(),
+            ctx.get_type(&self.fname)?.to_viper_type(ctx),
+        );
         let mut args = vec![];
 
         for arg in self.args {
-            let arg = match arg.to_shape(ctx)? {
+            let arg = match arg.to_shape(ctx.typectx_get_mut())? {
                 Shape::Simple => arg.to_viper(ctx)?,
                 Shape::Nested(_) => {
-                    let fresh =
-                        ast.new_var(&ctx.fresh_var(), arg.to_shape(ctx)?.to_viper_type(ctx));
-                    let arg_len = arg.to_shape(ctx)?.len();
+                    let fresh = ast.new_var(
+                        &Mangler::fresh_varname(),
+                        arg.to_shape(ctx.typectx_get_mut())?.to_viper_type(ctx),
+                    );
+                    let arg_len = arg.to_shape(ctx.typectx_get_mut())?.len();
                     let viper_arg = arg.to_viper(ctx)?;
                     let copy_arg = ctx.iarray.create_slice_m(
                         viper_arg,
@@ -301,7 +300,7 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
         }
         args.insert(0, ctx.heap_var().1);
 
-        let call = ast.method_call(&method_name, &args, &[ret.1]);
+        let call = ast.method_call(&self.fname, &args, &[ret.1]);
         ctx.declarations.push(ret.0);
         ctx.stack.push(call);
         Ok(ret.1)
@@ -346,7 +345,7 @@ impl<'a> TryToViper<'a> for ir::FieldAccessChain {
 
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let obj_shape = self.obj.to_shape(ctx)?;
+        let obj_shape = self.obj.to_shape(ctx.typectx_get_mut())?;
 
         let (final_shape, offset) =
             self.idxs
@@ -415,10 +414,7 @@ impl<'a> TryToViper<'a> for ir::Expr {
             Ternary(ternary) => ternary.to_viper(ctx),
             x => Ok(match x {
                 Const(c) => ast.int_lit(c),
-                Var(name) => ast.local_var(
-                    ctx.mangler.mangle_var(&name),
-                    ctx.get_type(&name).to_viper_type(ctx),
-                ),
+                Var(name) => ast.local_var(&name, ctx.get_type(&name)?.to_viper_type(ctx)),
                 Label(_) => todo!(), // XXX: not sure if we need this
                 BaseAddr => ast.int_lit(0),
                 BytesInWord => ast.int_lit(ctx.options.word_size as i64 / 8),

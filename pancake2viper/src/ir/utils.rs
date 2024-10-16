@@ -1,6 +1,9 @@
+use crate::utils::Shape;
+
 use super::{
     expression::{Expr, Struct},
     statement::MemOpBytes,
+    Arg, Decl, Type,
 };
 
 impl Struct {
@@ -40,25 +43,27 @@ impl From<u64> for MemOpBytes {
     }
 }
 
-// impl Program {
-//     pub fn infer_function_types(&self) -> HashMap<String, Shape> {
-//         todo!()
-//     }
-// }
+impl From<Decl> for Arg {
+    fn from(value: Decl) -> Self {
+        Self {
+            name: value.name,
+            typ: value.typ,
+        }
+    }
+}
 
-// impl FnDec {
-//     fn get_type_ctx(&self) -> TypeContext {
-//         todo!()
-//     }
-// }
+impl Type {
+    pub fn len(&self) -> usize {
+        match self {
+            Type::Void => 0,
+            Type::Int | Type::Bool => 1,
+            Type::Struct(inner) => inner.iter().map(Shape::len).sum(),
+            _ => panic!("Unbounded length"),
+        }
+    }
 
-// #[derive(Debug)]
-// enum ExprType {
-//     Symbolic(String),
-//     Resolved(Shape),
-// }
-
-// #[derive(Debug, Default)]
-// struct TypeContext {
-//     var_map: HashMap<String, ExprType>,
-// }
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}

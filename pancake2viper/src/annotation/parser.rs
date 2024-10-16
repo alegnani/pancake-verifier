@@ -53,7 +53,11 @@ pub fn parse_predicate(pred: &str) -> Predicate {
     } else {
         Some(parse_expr(body))
     };
-    Predicate { name, args, body }
+    Predicate {
+        name,
+        args: args.into_iter().map(Arg::from).collect(),
+        body,
+    }
 }
 
 pub fn parse_function(func: &str) -> Function {
@@ -72,7 +76,7 @@ pub fn parse_function(func: &str) -> Function {
     };
     Function {
         name,
-        args,
+        args: args.into_iter().map(Arg::from).collect(),
         typ,
         preposts,
         body,
@@ -90,7 +94,7 @@ pub fn parse_method(met: &str) -> AbstractMethod {
         .collect();
     AbstractMethod {
         name,
-        args,
+        args: args.into_iter().map(Arg::from).collect(),
         rettyps,
         preposts,
     }
@@ -250,7 +254,7 @@ impl FromPestPair for Type {
         match pair.as_rule() {
             Rule::bool_t => Self::Bool,
             Rule::int_t => Self::Int,
-            Rule::iarray_t => Self::IArray,
+            Rule::iarray_t => Self::Array,
             x => panic!("Failed to parse Type, got {:?}", x),
         }
     }

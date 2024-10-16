@@ -1,145 +1,164 @@
-use super::utils::Wrapper;
-use crate::{ir, pancake};
+use crate::{
+    ir, pancake,
+    utils::{TranslationError, TryToIR, TryToIRGeneric},
+};
 
-impl From<pancake::Struct> for ir::Struct {
-    fn from(value: pancake::Struct) -> Self {
-        let elements: Wrapper<ir::Expr> = value.elements.into();
-        Self {
-            elements: elements.0,
-        }
-    }
-}
+impl TryToIR for pancake::Struct {
+    type Output = ir::Struct;
 
-impl From<pancake::Field> for ir::Field {
-    fn from(value: pancake::Field) -> Self {
-        Self {
-            obj: Box::new((*value.obj).into()),
-            field_idx: value.field_idx,
-        }
-    }
-}
-
-impl From<pancake::Load> for ir::Load {
-    fn from(value: pancake::Load) -> Self {
-        Self {
-            shape: value.shape,
-            address: Box::new((*value.address).into()),
-            assert: true,
-        }
-    }
-}
-
-impl From<pancake::LoadByte> for ir::LoadByte {
-    fn from(value: pancake::LoadByte) -> Self {
-        Self {
-            address: Box::new((*value.address).into()),
-        }
-    }
-}
-
-impl From<pancake::OpType> for ir::UnOpType {
-    fn from(value: pancake::OpType) -> Self {
-        match value {
-            pancake::OpType::Sub => Self::Minus,
-            _ => panic!("Can't convert Pancake operator '{:?}' to UnOpType", value),
-        }
-    }
-}
-
-impl From<pancake::Op> for ir::UnOp {
-    fn from(mut value: pancake::Op) -> Self {
-        assert!(value.operands.len() == 1);
-        let optype = value.optype.into();
-        let right = Box::new(value.operands.remove(0).into());
-        Self { optype, right }
-    }
-}
-
-impl From<pancake::OpType> for ir::BinOpType {
-    fn from(value: pancake::OpType) -> Self {
-        use pancake::OpType::*;
-        match value {
-            Add => Self::Add,
-            Sub => Self::Sub,
-            Mul => Self::Mul,
-            NotEqual => Self::PancakeNotEqual,
-            Equal => Self::PancakeEqual,
-            Less => Self::Lt,
-            NotLess => Self::Gte,
-            And => Self::BitAnd,
-            Or => Self::BitOr,
-            Xor => Self::BitXor,
-        }
-    }
-}
-
-impl From<pancake::Op> for ir::BinOp {
-    fn from(value: pancake::Op) -> Self {
-        assert!(value.operands.len() >= 2);
-        let optype = value.optype.into();
-        let mut iter = value.operands.into_iter();
-        let acc = Self {
-            optype,
-            left: Box::new(iter.next().unwrap().into()),
-            right: Box::new(iter.next().unwrap().into()),
-        };
-        iter.fold(acc, |acc, op| Self {
-            optype,
-            left: Box::new(ir::Expr::BinOp(acc)),
-            right: Box::new(op.into()),
+    fn to_ir(self) -> Result<Self::Output, crate::utils::TranslationError> {
+        Ok(Self::Output {
+            elements: self.elements.to_ir()?,
         })
     }
 }
 
-impl From<pancake::ShiftType> for ir::ShiftType {
-    fn from(value: pancake::ShiftType) -> Self {
+impl TryToIR for pancake::Field {
+    type Output = ir::Field;
+
+    fn to_ir(self) -> Result<Self::Output, crate::utils::TranslationError> {
+        Ok(Self::Output {
+            obj: Box::new(self.obj.to_ir()?),
+            field_idx: self.field_idx,
+        })
+    }
+}
+
+impl TryToIR for pancake::Load {
+    type Output = ir::Load;
+
+    fn to_ir(self) -> Result<Self::Output, crate::utils::TranslationError> {
+        Ok(Self::Output {
+            shape: self.shape,
+            address: Box::new(self.address.to_ir()?),
+            assert: true,
+        })
+    }
+}
+
+impl TryToIR for pancake::LoadByte {
+    type Output = ir::LoadByte;
+
+    fn to_ir(self) -> Result<Self::Output, crate::utils::TranslationError> {
+        Ok(Self::Output {
+            address: Box::new(self.address.to_ir()?),
+        })
+    }
+}
+
+impl TryToIRGeneric<ir::UnOpType> for pancake::OpType {
+    fn to_ir(self) -> Result<ir::UnOpType, TranslationError> {
+        match self {
+            pancake::OpType::Sub => Ok(ir::UnOpType::Minus),
+            _ => panic!("Can't convert Pancake operator '{:?}' to UnOpType", self),
+        }
+    }
+}
+
+impl TryToIRGeneric<ir::BinOpType> for pancake::OpType {
+    fn to_ir(self) -> Result<ir::BinOpType, TranslationError> {
+        use ir::BinOpType;
+        use pancake::OpType::*;
+        Ok(match self {
+            Add => BinOpType::Add,
+            Sub => BinOpType::Sub,
+            Mul => BinOpType::Mul,
+            NotEqual => BinOpType::PancakeNotEqual,
+            Equal => BinOpType::PancakeEqual,
+            Less => BinOpType::Lt,
+            NotLess => BinOpType::Gte,
+            And => BinOpType::BitAnd,
+            Or => BinOpType::BitOr,
+            Xor => BinOpType::BitXor,
+        })
+    }
+}
+
+impl TryToIRGeneric<ir::UnOp> for pancake::Op {
+    fn to_ir(mut self) -> Result<ir::UnOp, TranslationError> {
+        assert!(self.operands.len() == 1);
+        let optype = TryToIRGeneric::to_ir(self.optype)?;
+        let right = Box::new(self.operands.remove(0).to_ir()?);
+        Ok(ir::UnOp { optype, right })
+    }
+}
+
+impl TryToIRGeneric<ir::BinOp> for pancake::Op {
+    fn to_ir(self) -> Result<ir::BinOp, TranslationError> {
+        assert!(self.operands.len() >= 2);
+        let optype = TryToIRGeneric::to_ir(self.optype)?;
+        let mut iter = self.operands.into_iter();
+        let acc = ir::BinOp {
+            optype,
+            left: Box::new(iter.next().unwrap().to_ir()?),
+            right: Box::new(iter.next().unwrap().to_ir()?),
+        };
+        iter.try_fold(acc, |acc, op| {
+            Ok(ir::BinOp {
+                optype,
+                left: Box::new(ir::Expr::BinOp(acc)),
+                right: Box::new(op.to_ir()?),
+            })
+        })
+    }
+}
+
+impl TryToIR for pancake::ShiftType {
+    type Output = ir::ShiftType;
+
+    fn to_ir(self) -> Result<Self::Output, TranslationError> {
         use pancake::ShiftType::*;
-        match value {
-            Lsl => Self::Lsl,
-            Asr => Self::Asr,
-            Lsr => Self::Lsr,
-        }
+        Ok(match self {
+            Lsl => Self::Output::Lsl,
+            Asr => Self::Output::Asr,
+            Lsr => Self::Output::Lsr,
+        })
     }
 }
 
-impl From<pancake::Shift> for ir::Shift {
-    fn from(value: pancake::Shift) -> Self {
-        Self {
-            shifttype: value.shifttype.into(),
-            value: Box::new((*value.value).into()),
-            amount: value.amount,
-        }
+impl TryToIR for pancake::Shift {
+    type Output = ir::Shift;
+
+    fn to_ir(self) -> Result<Self::Output, TranslationError> {
+        Ok(Self::Output {
+            shifttype: self.shifttype.to_ir()?,
+            value: Box::new(self.value.to_ir()?),
+            amount: self.amount,
+        })
     }
 }
 
-impl From<pancake::ExprCall> for ir::MethodCall {
-    fn from(value: pancake::ExprCall) -> Self {
-        let args: Wrapper<ir::Expr> = value.args.into();
-        Self {
-            rettype: value.rettype,
-            fname: Box::new((*value.fname).into()),
-            args: args.0,
-        }
+impl TryToIR for pancake::ExprCall {
+    type Output = ir::MethodCall;
+
+    fn to_ir(self) -> Result<Self::Output, TranslationError> {
+        let args = self.args.to_ir()?;
+        Ok(Self::Output {
+            fname: self.fname.get_label()?,
+            args,
+        })
     }
 }
 
-impl From<pancake::Expr> for ir::Expr {
-    fn from(value: pancake::Expr) -> Self {
+impl TryToIR for pancake::Expr {
+    type Output = ir::Expr;
+
+    fn to_ir(self) -> Result<Self::Output, crate::utils::TranslationError> {
         use pancake::Expr::*;
-        match value {
-            Const(i) => Self::Const(i),
-            Var(s) => Self::Var(s),
-            Label(s) => Self::Label(s),
-            Struct(s) => Self::Struct(s.into()),
-            Field(f) => Self::Field(f.into()),
-            Load(l) => Self::Load(l.into()),
-            LoadByte(l) => Self::LoadByte(l.into()),
-            Op(o) if o.operands.len() == 1 => Self::UnOp(o.into()),
-            Op(o) => Self::BinOp(o.into()),
-            Shift(s) => Self::Shift(s.into()),
-            BaseAddr => Self::BaseAddr,
-            BytesInWord => Self::BytesInWord,
-            Call(c) => Self::MethodCall(c.into()),
-        }
+        Ok(match self {
+            Const(c) => Self::Output::Const(c),
+            Var(varname) => Self::Output::Var(varname),
+            Label(label) => Self::Output::Label(label),
+            Struct(struc) => Self::Output::Struct(struc.to_ir()?),
+            Field(field) => Self::Output::Field(field.to_ir()?),
+            Load(load) => Self::Output::Load(load.to_ir()?),
+            LoadByte(load) => Self::Output::LoadByte(load.to_ir()?),
+            Op(o) if o.operands.len() == 1 => Self::Output::UnOp(o.to_ir()?),
+            Op(o) => Self::Output::BinOp(o.to_ir()?),
+            Shift(shift) => Self::Output::Shift(shift.to_ir()?),
+            BaseAddr => Self::Output::BaseAddr,
+            BytesInWord => Self::Output::BytesInWord,
+            Call(call) => Self::Output::MethodCall(call.to_ir()?),
+        })
     }
 }

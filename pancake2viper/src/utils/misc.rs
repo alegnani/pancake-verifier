@@ -1,4 +1,4 @@
-use std::{path::PathBuf, str::FromStr};
+use std::str::FromStr;
 
 use anyhow::anyhow;
 use regex::Regex;
