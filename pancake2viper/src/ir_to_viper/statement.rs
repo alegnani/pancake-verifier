@@ -1,7 +1,9 @@
-use crate::ir;
-use crate::utils::{
-    Mangler, ToViperError, ToViperType, TranslationMode, TryToShape, TryToViper, ViperEncodeCtx,
-    ViperUtils,
+use crate::{
+    ir,
+    utils::{
+        Mangler, ToViperError, ToViperType, TranslationMode, TryToShape, TryToViper,
+        ViperEncodeCtx, ViperUtils,
+    },
 };
 
 impl<'a> TryToViper<'a> for ir::Stmt {
@@ -33,12 +35,8 @@ impl<'a> TryToViper<'a> for ir::Stmt {
             }?,
         };
         ctx.stack.push(stmt);
+        let decls = ctx.pop_decls();
 
-        let decls = ctx
-            .declarations
-            .drain(..)
-            .map(|d| d.into())
-            .collect::<Vec<_>>();
         let seq = ast.seqn(&ctx.stack, &decls);
         ctx.stack.clear();
         Ok(seq)
@@ -93,19 +91,18 @@ impl<'a> TryToViper<'a> for ir::While {
         body_ctx.enter_new_loop();
         let body = self.body.to_viper(&mut body_ctx)?;
 
-        let decls = ctx
-            .declarations
-            .drain(..)
-            .map(|d| d.into())
-            .collect::<Vec<_>>();
+        let decls = ctx.pop_decls();
 
         let mut body_seq = ctx.stack.clone();
         body_seq.push(body);
         body_seq.push(ast.label(&ctx.current_continue_label(), &[]));
         let body = ast.seqn(&body_seq, &[]);
 
-        ctx.stack
-            .push(ast.while_stmt(cond, &body_ctx.invariants, body));
+        ctx.stack.push(ast.while_stmt(
+            cond,
+            &body_ctx.invariants.drain(..).collect::<Vec<_>>(),
+            body,
+        ));
         ctx.stack.push(ast.label(&ctx.current_break_label(), &[]));
         let seq = ast.seqn(&ctx.stack, &decls);
         ctx.stack.clear();
@@ -117,11 +114,7 @@ impl<'a> TryToViper<'a> for ir::Seq {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let stmts = self
-            .stmts
-            .into_iter()
-            .map(|s| s.to_viper(ctx))
-            .collect::<Result<Vec<_>, _>>()?;
+        let stmts = self.stmts.to_viper(ctx)?;
         Ok(ast.seqn(&stmts, &[]))
     }
 }
@@ -130,17 +123,22 @@ impl<'a> TryToViper<'a> for ir::Definition {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let shape = self.rhs.to_shape(ctx.typectx_get())?;
+        let shape = self.rhs.to_shape(ctx.type_ctx())?;
         let var = ast.new_var(&self.lhs, shape.to_viper_type(ctx));
+        ctx.declarations.push(var.0);
 
         let ass = ast.local_var_assign(var.1, self.rhs.to_viper(ctx)?);
-        ctx.stack.push(ass);
-        let scope = self.scope.to_viper(ctx)?;
-        ctx.stack.push(scope);
+        let mut scope_ctx = ctx.child();
+        let scope = self.scope.to_viper(&mut scope_ctx)?;
+        // Push not consumed invariants, pre- and postconditions up
+        ctx.pres.append(&mut scope_ctx.pres);
+        ctx.posts.append(&mut scope_ctx.posts);
+        ctx.invariants.append(&mut scope_ctx.invariants);
 
-        ctx.declarations.push(var.0);
         let decls = ctx.pop_decls();
 
+        ctx.stack.push(ass);
+        ctx.stack.push(scope);
         let seq = ast.seqn(&ctx.stack, &decls);
         ctx.stack.clear();
         Ok(seq)
@@ -151,9 +149,8 @@ impl<'a> TryToViper<'a> for ir::Assign {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        // XXX: move this to type checking?
         let lhs_shape = ctx.get_type(&self.lhs)?;
-        let rhs_shape = self.rhs.to_shape(ctx.typectx_get_mut())?;
+        let rhs_shape = self.rhs.to_shape(ctx.typectx_get())?;
         if lhs_shape != rhs_shape {
             return Err(ToViperError::MismatchedShapes(lhs_shape, rhs_shape));
         }
@@ -219,6 +216,7 @@ impl<'a> TryToViper<'a> for ir::Annotation {
                 ctx.set_mode(self.typ.into());
                 let body = self.expr.to_viper(ctx)?;
                 ctx.set_mode(TranslationMode::Normal);
+                ctx.mangler.clear_annot_var();
                 Ok(match x {
                     Assertion => ast.assert(body, no_pos),
                     Assumption | Inhale => ast.inhale(body, no_pos),

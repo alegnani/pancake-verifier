@@ -11,7 +11,7 @@ impl<T: Mangleable> Mangleable for Vec<T> {
 
 impl Mangleable for ir::Decl {
     fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
-        self.name = mangler.new_mangled_var(self.name.clone(), VariableType::Annotation)?;
+        self.name = mangler.new_mangled_var(self.name.clone(), VariableType::Variable)?;
         Ok(())
     }
 }
@@ -70,6 +70,7 @@ impl Mangleable for ir::Annotation {
         mangler.mangle_mode(self.typ.into());
         self.expr.mangle(mangler)?;
         mangler.mangle_mode(TranslationMode::Normal);
+        mangler.clear_annot_var();
         Ok(())
     }
 }

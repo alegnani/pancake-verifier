@@ -29,7 +29,6 @@ pub struct Mangler {
 
 pub enum VariableType {
     Variable,
-    Annotation,
     Argument,
 }
 
@@ -53,14 +52,20 @@ impl Mangler {
             return Err(MangleError::ReservedKeyword(name));
         }
         let mangled = format!("{}_{}_{}", self.get_fname(), &name, get_inc_counter());
-        let map = match typ {
-            VariableType::Annotation => &mut self.annot_map,
-            VariableType::Argument => &mut self.arg_map,
-            VariableType::Variable => &mut self.var_map,
+        let map = match (&typ, self.mode) {
+            (VariableType::Variable, TranslationMode::Normal) => &mut self.var_map,
+            (VariableType::Variable, _) => &mut self.annot_map,
+            (VariableType::Argument, TranslationMode::Normal) => &mut self.arg_map,
+            _ => unreachable!(),
         };
         // Check if variable has already been declared. For normal variables
         // this is allowed due to shadowing.
-        if map.contains_key(&name) && !matches!(typ, VariableType::Variable) {
+        if map.contains_key(&name)
+            && !matches!(
+                (typ, self.mode),
+                (VariableType::Variable, TranslationMode::Normal)
+            )
+        {
             return Err(MangleError::DoubleDeclaration(name));
         }
         map.insert(name.clone(), mangled.clone());

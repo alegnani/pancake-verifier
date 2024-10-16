@@ -148,9 +148,9 @@ impl<'a> ViperEncodeCtx<'a> {
             while_counter: self.while_counter,
             iarray: self.iarray,
             options: self.options,
-            pres: self.pres.clone(),
-            posts: self.posts.clone(),
-            invariants: self.invariants.clone(),
+            pres: vec![],
+            posts: vec![],
+            invariants: vec![],
             predicates: self.predicates.clone(),
             mangler: self.mangler.clone(),
         }
