@@ -43,7 +43,7 @@ pub struct TypeContext {
 
 impl TypeContext {
     pub fn new() -> Self {
-        let mut type_map = HashMap::new();
+        let mut type_map: HashMap<String, Shape> = HashMap::new();
         for &keyword in RESERVED.iter() {
             type_map.insert(keyword.into(), Shape::Simple);
         }
@@ -75,6 +75,12 @@ impl TypeContext {
 
     pub fn size(&self) -> usize {
         self.type_map.len()
+    }
+}
+
+impl Default for TypeContext {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

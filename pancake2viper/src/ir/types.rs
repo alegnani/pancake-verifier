@@ -1,5 +1,3 @@
-use std::fmt::Debug;
-
 use crate::{
     ir,
     utils::{Shape, ToShape, TranslationError, TryToShape, TypeContext, TypeResolution},

@@ -1,6 +1,6 @@
 use crate::{
     ir,
-    utils::{Mangler, Shape, ShapeError, ToShape, TranslationError, TryToShape, TypeContext},
+    utils::{Shape, ShapeError, ToShape, TranslationError, TryToShape, TypeContext},
 };
 
 impl TryToShape for ir::Struct {

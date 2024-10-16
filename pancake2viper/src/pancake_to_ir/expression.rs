@@ -1,6 +1,6 @@
 use crate::{
     ir, pancake,
-    utils::{Mangler, TranslationError, TryToIR, TryToIRGeneric},
+    utils::{TranslationError, TryToIR, TryToIRGeneric},
 };
 
 impl TryToIR for pancake::Struct {

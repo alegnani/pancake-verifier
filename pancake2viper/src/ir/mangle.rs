@@ -174,7 +174,6 @@ impl Mangleable for ir::Function {
         mangler.switch_ctx(self.name.clone());
         self.name = Mangler::mangle_fn(&self.name);
         self.args.mangle(mangler)?;
-        println!("Mangling fun: {:#?}", mangler);
         self.preposts.mangle(mangler)?;
         self.body.mangle(mangler)
     }

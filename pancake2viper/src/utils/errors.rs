@@ -2,7 +2,7 @@ use thiserror::Error;
 
 use crate::{ir, pancake};
 
-use super::{shape::Shape, Mangler};
+use super::shape::Shape;
 
 #[derive(Error, Debug)]
 pub enum ToViperError {

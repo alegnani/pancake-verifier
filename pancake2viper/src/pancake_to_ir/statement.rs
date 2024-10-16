@@ -1,7 +1,7 @@
 use crate::{
     annotation::parse_annot,
     ir, pancake,
-    utils::{Mangler, TranslationError, TryToIR, VariableType},
+    utils::{TranslationError, TryToIR},
 };
 
 impl From<pancake::Annotation> for ir::Annotation {
