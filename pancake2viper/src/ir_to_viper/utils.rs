@@ -1,7 +1,7 @@
 use viper::Expr;
 
 use crate::{
-    ir::{self, Arg},
+    ir::{self, Arg, FnDec, Type},
     utils::{Shape, ToViper, ToViperError, ToViperType, TryToViper, ViperEncodeCtx, ViperUtils},
 };
 
@@ -52,6 +52,25 @@ impl<'a> ToViperType<'a> for ir::Type {
             ir::Type::Int => ast.int_type(),
             ir::Type::Array | ir::Type::Struct(_) => ctx.iarray.get_type(),
             x => panic!("Want type of {:?}", x),
+        }
+    }
+}
+
+impl FnDec {
+    pub fn permission<'a>(&self, ctx: &ViperEncodeCtx<'a>) -> Vec<Expr<'a>> {
+        let ast = ctx.ast;
+        match ctx.get_type(&self.retvar).unwrap() {
+            Type::Int => vec![],
+            struc @ Type::Struct(_) => {
+                let retval = ast.local_var(&self.retvar, struc.to_viper_type(ctx));
+                let len = ast.int_lit(struc.len() as i64);
+                vec![
+                    ast.eq_cmp(ctx.iarray.len_f(retval), len),
+                    ctx.iarray
+                        .array_acc_expr(retval, ast.int_lit(0), len, ctx.ast.full_perm()),
+                ]
+            }
+            _ => unreachable!(),
         }
     }
 }

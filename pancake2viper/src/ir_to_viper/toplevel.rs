@@ -23,13 +23,16 @@ impl<'a> TryToViper<'a> for FnDec {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
 
+        // add access permissions to arguments if structs
         let mut pres = self
             .args
             .iter()
             .filter_map(|a| a.permission(ctx))
             .collect::<Vec<_>>();
 
-        // Copy all the parameters as they are read-only in Viper
+        // add postcondition if returning struct
+        let mut posts = self.permission(ctx);
+
         let mut args_local_decls = self.args.to_viper(ctx);
 
         let body = self.body.to_viper(ctx)?;
@@ -51,6 +54,7 @@ impl<'a> TryToViper<'a> for FnDec {
                 ast.int_lit(ctx.options.heap_size as i64),
             ),
         );
+        posts.append(&mut ctx.posts);
 
         args_local_decls.insert(0, ctx.heap_var().0);
 
@@ -59,7 +63,7 @@ impl<'a> TryToViper<'a> for FnDec {
             &args_local_decls,
             &[ast.local_var_decl(&self.retvar, ctx.get_type(&self.retvar)?.to_viper_type(ctx))],
             &pres,
-            &ctx.posts,
+            &posts,
             Some(body),
         ))
     }
