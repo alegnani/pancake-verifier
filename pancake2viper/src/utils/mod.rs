@@ -19,7 +19,6 @@ use crate::ir::types::Type;
 lazy_static::lazy_static! {
     pub static ref RESERVED: HashMap<&'static str, Type> = HashMap::from([
         ("heap", Type::Array),
-        ("retval", Type::Int), // FIXME: change this
         ("read", Type::Void),
         ("write", Type::Void), ("wildcard", Type::Void),
         ("acc", Type::Bool),

@@ -15,11 +15,11 @@ impl<'a> TryToViper<'a> for ir::Stmt {
             Skip => ast.comment("skip"),
             Break => ast.goto(&ctx.outer_break_label()),
             Continue => ast.goto(&ctx.outer_continue_label()),
+            Return => ast.goto(ctx.return_label()),
             x => match x {
                 Annotation(annot) => annot.to_viper(ctx),
                 Definition(def) => def.to_viper(ctx),
                 Assign(ass) => ass.to_viper(ctx),
-                Return(ret) => ret.to_viper(ctx),
                 If(ifs) => ifs.to_viper(ctx),
                 While(whiles) => whiles.to_viper(ctx),
                 Seq(seq) => seq.to_viper(ctx),
@@ -37,24 +37,6 @@ impl<'a> TryToViper<'a> for ir::Stmt {
         ctx.stack.push(stmt);
         let decls = ctx.pop_decls();
 
-        let seq = ast.seqn(&ctx.stack, &decls);
-        ctx.stack.clear();
-        Ok(seq)
-    }
-}
-
-impl<'a> TryToViper<'a> for ir::Return {
-    type Output = viper::Stmt<'a>;
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
-        let ast = ctx.ast;
-        let value = self.value.to_viper(ctx)?;
-        let ass = ast.local_var_assign(ctx.return_var().1, value);
-        let goto = ast.goto(ctx.return_label());
-
-        let decls = ctx.pop_decls();
-
-        ctx.stack.push(ass);
-        ctx.stack.push(goto);
         let seq = ast.seqn(&ctx.stack, &decls);
         ctx.stack.clear();
         Ok(seq)

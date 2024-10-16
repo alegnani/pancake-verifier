@@ -30,10 +30,9 @@ impl Arg {
     pub fn permission<'a>(&self, ctx: &ViperEncodeCtx<'a>) -> Option<Expr<'a>> {
         let ast = ctx.ast;
         match &self.typ {
-            ir::Type::Struct(inner) => {
+            ir::Type::Struct(_) => {
                 let arg_var = ctx.ast.new_var(&self.name, self.typ.to_viper_type(ctx)).1;
-                let len: usize = inner.iter().map(Shape::len).sum();
-                let length = ast.int_lit(len as i64);
+                let length = ast.int_lit(self.typ.len() as i64);
                 let access_perm =
                     ctx.iarray
                         .array_acc_expr(arg_var, ast.int_lit(0), length, ast.full_perm());

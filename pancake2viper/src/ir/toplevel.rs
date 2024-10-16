@@ -5,6 +5,7 @@ pub struct FnDec {
     pub fname: String,
     pub args: Vec<Arg>,
     pub body: Stmt,
+    pub retvar: String,
 }
 
 #[derive(Debug, Clone)]

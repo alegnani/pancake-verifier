@@ -185,17 +185,8 @@ impl<'a> ViperEncodeCtx<'a> {
         "return_label"
     }
 
-    fn return_var_name(&self) -> &'static str {
+    pub fn return_var_name(&self) -> &'static str {
         "retval"
-    }
-
-    pub fn return_var(&self) -> (viper::LocalVarDecl, viper::Expr) {
-        (
-            self.ast
-                .local_var_decl(self.return_var_name(), self.ast.int_type()),
-            self.ast
-                .local_var(self.return_var_name(), self.ast.int_type()),
-        )
     }
 
     pub fn new_while_ctx(&mut self) {

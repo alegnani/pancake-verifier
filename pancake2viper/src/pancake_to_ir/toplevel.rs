@@ -31,6 +31,7 @@ impl TryToIR for pancake::FnDec {
             fname: self.fname,
             args,
             body,
+            retvar: "retval".into(),
         })
     }
 }

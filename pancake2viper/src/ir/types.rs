@@ -1,9 +1,10 @@
 use crate::{
     ir,
-    utils::{Shape, ToShape, ToType, TranslationError, TryToShape, TypeContext, TypeResolution},
+    utils::{
+        ExprTypeResolution, Shape, ToType, TranslationError, TryToShape, TypeContext,
+        TypeResolution,
+    },
 };
-
-use super::{FnDec, Stmt};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
@@ -15,18 +16,36 @@ pub enum Type {
     Wildcard,
 }
 
-impl TypeResolution for ir::Expr {
-    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
+impl ExprTypeResolution for ir::Expr {
+    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError> {
+        use ir::Expr::*;
         match self {
-            ir::Expr::Quantified(quant) => quant.decls.resolve_type(ctx),
-            _ => Ok(()),
+            Const(_) | LoadByte(_) | Shift(_) | BaseAddr | BytesInWord | ArrayAccess(_)
+            | FieldAccessChain(_) => Ok(Type::Int),
+            BinOp(_) => Ok(Type::Int), // FIXME
+            UnOp(_) => Ok(Type::Int),
+            AccessPredicate(_) => Ok(Type::Bool),
+            Var(name) => ctx.get_type_no_mangle(name),
+            Label(_) => unreachable!(),
+            Struct(struc) => Ok(struc.to_shape(ctx)?.to_type()),
+            Field(field) => Ok(field.to_shape(ctx)?.to_type()),
+            Load(load) => Ok(load.shape.to_type()),
+            MethodCall(call) => ctx.get_function_type(&call.fname),
+            FunctionCall(call) => ctx.get_function_type(&call.fname),
+            UnfoldingIn(fold) => fold.expr.resolve_type(ctx),
+            Ternary(tern) => tern.left.resolve_type(ctx),
+            Quantified(quant) => {
+                quant.decls.resolve_type(ctx)?;
+                Ok(Type::Bool)
+            }
         }
     }
 }
 
 impl TypeResolution for ir::Annotation {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
-        self.expr.resolve_type(ctx)
+        self.expr.resolve_type(ctx)?;
+        Ok(())
     }
 }
 
@@ -46,6 +65,11 @@ impl TypeResolution for ir::Stmt {
                 let if_type = i.if_branch.resolve_type(ctx);
                 ignore_unknown(if_type)?;
                 i.else_branch.resolve_type(ctx)
+            }
+            ir::Stmt::Assign(ass) => {
+                let rhs_type = ass.rhs.resolve_type(ctx)?;
+                ctx.set_type(ass.lhs.clone(), rhs_type);
+                Ok(())
             }
             ir::Stmt::Annotation(annot) => annot.resolve_type(ctx),
             ir::Stmt::While(w) => w.body.resolve_type(ctx),
@@ -74,6 +98,15 @@ impl<T: TypeResolution> TypeResolution for Option<T> {
     }
 }
 
+impl<T: ExprTypeResolution> ExprTypeResolution for Option<T> {
+    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError> {
+        match self {
+            Some(t) => t.resolve_type(ctx),
+            None => Ok(Type::Void),
+        }
+    }
+}
+
 impl TypeResolution for ir::Arg {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
         ctx.set_type(self.name.clone(), self.typ.clone());
@@ -85,12 +118,16 @@ impl TypeResolution for ir::FnDec {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
         self.args.resolve_type(ctx)?;
         self.body.resolve_type(ctx)?;
-        let returns = Self::collect_returns(&self.body, ctx)?;
-        if returns.is_empty() {
-            Err(TranslationError::UnknownReturnType(self.fname.clone()))
-        } else {
-            ctx.set_type(self.fname.clone(), returns[0].clone());
-            Ok(())
+        let ret_type = ctx.get_type_no_mangle(&self.retvar);
+        match ret_type {
+            Ok(typ) => {
+                ctx.set_type(self.fname.clone(), typ);
+                Ok(())
+            }
+            Err(TranslationError::UnknownShape(_)) => {
+                Err(TranslationError::UnknownReturnType(self.fname.clone()))
+            }
+            Err(e) => Err(e),
         }
     }
 }
@@ -133,27 +170,6 @@ impl TypeResolution for ir::AbstractMethod {
         };
         ctx.set_type(self.name.clone(), shape);
         Ok(())
-    }
-}
-
-impl FnDec {
-    pub fn collect_returns(body: &Stmt, ctx: &TypeContext) -> Result<Vec<Type>, TranslationError> {
-        match body {
-            Stmt::Seq(seqn) => Ok(seqn
-                .stmts
-                .iter()
-                .flat_map(|s| Self::collect_returns(s, ctx))
-                .flatten()
-                .collect()),
-            Stmt::Definition(def) => Self::collect_returns(&def.scope, ctx),
-            Stmt::Return(ret) => match ret.value.to_shape(ctx) {
-                Ok(s) => Ok(vec![s.to_type()]),
-                Err(TranslationError::UnknownReturnType(_))
-                | Err(TranslationError::UnknownShape(_)) => Ok(vec![]),
-                Err(e) => Err(e),
-            },
-            _ => Ok(vec![]),
-        }
     }
 }
 

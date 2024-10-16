@@ -1,6 +1,6 @@
 use viper::{AstFactory, Expr, LocalVarDecl};
 
-use crate::ir;
+use crate::ir::{self, Type};
 
 use super::{
     errors::ToViperError, shape::Shape, EncodeOptions, Mangler, TranslationError, TypeContext,
@@ -22,6 +22,10 @@ pub trait Mangleable {
 
 pub trait TypeResolution {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError>;
+}
+
+pub trait ExprTypeResolution {
+    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError>;
 }
 
 pub trait TryToViper<'a> {

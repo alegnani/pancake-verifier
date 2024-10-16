@@ -148,11 +148,17 @@ impl TryToIR for pancake::While {
 }
 
 impl TryToIR for pancake::Return {
-    type Output = ir::Return;
+    type Output = ir::Seq;
 
     fn to_ir(self) -> Result<Self::Output, TranslationError> {
         Ok(Self::Output {
-            value: self.value.to_ir()?,
+            stmts: vec![
+                ir::Stmt::Assign(ir::Assign {
+                    lhs: "retval".into(),
+                    rhs: self.value.to_ir()?,
+                }),
+                ir::Stmt::Return,
+            ],
         })
     }
 }
@@ -172,15 +178,21 @@ impl TryToIR for pancake::Call {
 }
 
 impl TryToIR for pancake::TailCall {
-    type Output = ir::Return;
+    type Output = ir::Seq;
 
     fn to_ir(self) -> Result<Self::Output, TranslationError> {
         let args = self.args.to_ir()?;
         Ok(Self::Output {
-            value: ir::Expr::MethodCall(ir::MethodCall {
-                fname: self.fname.get_label()?,
-                args,
-            }),
+            stmts: vec![
+                ir::Stmt::Assign(ir::Assign {
+                    lhs: "retval".into(),
+                    rhs: ir::Expr::MethodCall(ir::MethodCall {
+                        fname: self.fname.get_label()?,
+                        args,
+                    }),
+                }),
+                ir::Stmt::Return,
+            ],
         })
     }
 }
@@ -218,9 +230,9 @@ impl TryToIR for pancake::Stmt {
             While(w) => Self::Output::While(w.to_ir()?),
             Break => Self::Output::Break,
             Continue => Self::Output::Continue,
-            Return(r) => Self::Output::Return(r.to_ir()?),
+            Return(r) => Self::Output::Seq(r.to_ir()?),
             Call(call) => Self::Output::Call(call.to_ir()?),
-            TailCall(call) => Self::Output::Return(call.to_ir()?),
+            TailCall(call) => Self::Output::Seq(call.to_ir()?),
             ExtCall(call) => Self::Output::ExtCall(call.to_ir()?),
             Raise(_) | Tick => panic!("Raise and Tick are not implemented in Pancake"),
         })

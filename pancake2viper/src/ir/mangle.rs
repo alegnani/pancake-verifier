@@ -88,7 +88,7 @@ impl Mangleable for ir::Stmt {
     fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
         use ir::Stmt::*;
         match self {
-            Skip | Break | Continue => (),
+            Skip | Break | Continue | Return => (),
             Annotation(annot) => annot.mangle(mangler)?,
             Definition(def) => {
                 def.rhs.mangle(mangler)?;
@@ -138,7 +138,6 @@ impl Mangleable for ir::Stmt {
                 call.args.mangle(mangler)?;
                 call.fname = Mangler::mangle_fn(&call.fname)
             }
-            Return(r) => r.value.mangle(mangler)?,
         };
         Ok(())
     }
@@ -155,6 +154,7 @@ impl Mangleable for ir::FnDec {
     fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
         mangler.switch_ctx(self.fname.clone());
         self.fname = Mangler::mangle_fn(&self.fname);
+        self.retvar = mangler.new_mangled_var(self.retvar.clone(), VariableType::Argument)?;
         self.args.mangle(mangler)?;
         self.body.mangle(mangler)
     }

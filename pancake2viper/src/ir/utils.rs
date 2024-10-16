@@ -1,7 +1,9 @@
+use crate::utils::Shape;
+
 use super::{
     expression::{Expr, Struct},
     statement::MemOpBytes,
-    Arg, Decl,
+    Arg, Decl, Type,
 };
 
 impl Struct {
@@ -35,5 +37,21 @@ impl From<Decl> for Arg {
             name: value.name,
             typ: value.typ,
         }
+    }
+}
+
+impl Type {
+    pub fn len(&self) -> usize {
+        match self {
+            Type::Void => 0,
+            Type::Int | Type::Bool => 1,
+            Type::Struct(inner) => inner.iter().map(Shape::len).sum(),
+            _ => panic!("Unbounded length"),
+        }
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }

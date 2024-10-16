@@ -57,7 +57,7 @@ impl<'a> TryToViper<'a> for FnDec {
         Ok(ast.method(
             &self.fname,
             &args_local_decls,
-            &[ctx.return_var().0],
+            &[ast.local_var_decl(&self.retvar, ctx.get_type(&self.retvar)?.to_viper_type(ctx))],
             &pres,
             &ctx.posts,
             Some(body),
