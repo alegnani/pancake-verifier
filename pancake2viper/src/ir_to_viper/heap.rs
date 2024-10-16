@@ -3,7 +3,7 @@ use viper::{BinOpBv, BvSize::BV64, UnOpBv};
 use crate::ir;
 
 use crate::utils::{
-    Mangler, Shape, ToViperError, TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
+    Mangler, Shape, ToType, ToViperError, TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
 };
 
 impl<'a> TryToViper<'a> for ir::Load {
@@ -31,7 +31,7 @@ impl<'a> TryToViper<'a> for ir::Load {
             let fresh_str = Mangler::fresh_varname();
             let (fresh_decl, fresh) = ast.new_var(&fresh_str, iarray.get_type());
             let length = ast.int_lit(self.shape.len() as i64);
-            ctx.set_type(fresh_str, self.shape);
+            ctx.set_type(fresh_str, self.shape.to_type());
 
             let slice = iarray.create_slice_m(ctx.heap_var().1, word_addr, length, fresh);
             ctx.declarations.push(fresh_decl);

@@ -1,9 +1,19 @@
 use crate::{
     ir,
-    utils::{Shape, ToShape, TranslationError, TryToShape, TypeContext, TypeResolution},
+    utils::{Shape, ToShape, ToType, TranslationError, TryToShape, TypeContext, TypeResolution},
 };
 
 use super::{FnDec, Stmt};
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Type {
+    Void,
+    Int,
+    Bool,
+    Struct(Vec<Shape>),
+    Array,
+    Wildcard,
+}
 
 impl TypeResolution for ir::Expr {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
@@ -25,7 +35,7 @@ impl TypeResolution for ir::Stmt {
         match self {
             ir::Stmt::Definition(def) => {
                 match def.rhs.to_shape(ctx) {
-                    Ok(shape) => ctx.set_type(def.lhs.clone(), shape),
+                    Ok(shape) => ctx.set_type(def.lhs.clone(), shape.to_type()),
                     Err(TranslationError::UnknownReturnType(_))
                     | Err(TranslationError::UnknownShape(_)) => (), // TODO: do something
                     Err(e) => return Err(e),
@@ -66,7 +76,7 @@ impl<T: TypeResolution> TypeResolution for Option<T> {
 
 impl TypeResolution for ir::Arg {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
-        ctx.set_type(self.name.clone(), self.shape.clone());
+        ctx.set_type(self.name.clone(), self.typ.clone());
         Ok(())
     }
 }
@@ -87,7 +97,7 @@ impl TypeResolution for ir::FnDec {
 
 impl TypeResolution for ir::Decl {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
-        ctx.set_type(self.name.clone(), self.typ.to_shape(ctx));
+        ctx.set_type(self.name.clone(), self.typ.clone());
         Ok(())
     }
 }
@@ -96,7 +106,7 @@ impl TypeResolution for ir::Predicate {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
         self.args.resolve_type(ctx)?;
         self.body.resolve_type(ctx)?;
-        ctx.set_type(self.name.clone(), Shape::Simple);
+        ctx.set_type(self.name.clone(), Type::Bool);
         Ok(())
     }
 }
@@ -106,7 +116,7 @@ impl TypeResolution for ir::Function {
         self.args.resolve_type(ctx)?;
         self.body.resolve_type(ctx)?;
         self.preposts.resolve_type(ctx)?;
-        ctx.set_type(self.name.clone(), self.typ.to_shape(ctx));
+        ctx.set_type(self.name.clone(), self.typ.clone());
         Ok(())
     }
 }
@@ -117,7 +127,7 @@ impl TypeResolution for ir::AbstractMethod {
         self.rettyps.resolve_type(ctx)?;
         assert!(self.rettyps.len() <= 1); // TODO: add support for multiple returns
         let shape = if self.rettyps.is_empty() {
-            Shape::Simple
+            Type::Void
         } else {
             ctx.get_type_no_mangle(&self.rettyps[0].name).unwrap()
         };
@@ -127,7 +137,7 @@ impl TypeResolution for ir::AbstractMethod {
 }
 
 impl FnDec {
-    pub fn collect_returns(body: &Stmt, ctx: &TypeContext) -> Result<Vec<Shape>, TranslationError> {
+    pub fn collect_returns(body: &Stmt, ctx: &TypeContext) -> Result<Vec<Type>, TranslationError> {
         match body {
             Stmt::Seq(seqn) => Ok(seqn
                 .stmts
@@ -137,7 +147,7 @@ impl FnDec {
                 .collect()),
             Stmt::Definition(def) => Self::collect_returns(&def.scope, ctx),
             Stmt::Return(ret) => match ret.value.to_shape(ctx) {
-                Ok(s) => Ok(vec![s]),
+                Ok(s) => Ok(vec![s.to_type()]),
                 Err(TranslationError::UnknownReturnType(_))
                 | Err(TranslationError::UnknownShape(_)) => Ok(vec![]),
                 Err(e) => Err(e),

@@ -1,13 +1,9 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     sync::{LazyLock, Mutex},
 };
 
-use super::{MangleError, TranslationMode};
-
-lazy_static::lazy_static! {
-    pub static ref RESERVED: HashSet<&'static str> = HashSet::from(["heap", "retval", "read", "write", "wildcard", "acc", "alen"]);
-}
+use super::{MangleError, TranslationMode, RESERVED};
 
 static COUNTER: LazyLock<Mutex<u64>> = LazyLock::new(|| Mutex::new(0));
 
@@ -54,7 +50,7 @@ impl Mangler {
         name: String,
         typ: VariableType,
     ) -> Result<String, MangleError> {
-        if RESERVED.contains(name.as_str()) {
+        if RESERVED.contains_key(name.as_str()) {
             return Err(MangleError::ReservedKeyword(name));
         }
         let mangled = format!("{}_{}_{}", self.get_fname(), &name, get_inc_counter());
@@ -92,7 +88,7 @@ impl Mangler {
     }
 
     pub fn mangle_var<'a>(&'a self, var: &'a str) -> Result<&'a str, MangleError> {
-        if RESERVED.contains(var) {
+        if RESERVED.contains_key(var) {
             return Ok(var);
         }
         let maybe_arg = self.arg_map.get(var);

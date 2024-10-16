@@ -9,3 +9,4 @@ pub mod utils;
 pub use expression::*;
 pub use statement::*;
 pub use toplevel::*;
+pub use types::Type;

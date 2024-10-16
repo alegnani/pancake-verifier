@@ -210,17 +210,6 @@ impl<'a> TryToViper<'a> for ir::Field {
     }
 }
 
-impl<'a> ToViperType<'a> for ir::Type {
-    fn to_viper_type(&self, ctx: &ViperEncodeCtx<'a>) -> viper::Type<'a> {
-        let ast = ctx.ast;
-        match self {
-            Self::Bool => ast.bool_type(),
-            Self::Int => ast.int_type(),
-            Self::IArray => ctx.iarray.get_type(),
-        }
-    }
-}
-
 impl<'a> ToViper<'a> for ir::Decl {
     type Output = viper::LocalVarDecl<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {

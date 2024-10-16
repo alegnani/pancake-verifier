@@ -1,5 +1,4 @@
 use super::{Annotation, Decl, Expr, Stmt, Type};
-use crate::utils::Shape;
 
 #[derive(Debug, Clone)]
 pub struct FnDec {
@@ -11,7 +10,7 @@ pub struct FnDec {
 #[derive(Debug, Clone)]
 pub struct Arg {
     pub name: String,
-    pub shape: Shape,
+    pub typ: Type,
 }
 
 #[derive(Debug, Clone)]

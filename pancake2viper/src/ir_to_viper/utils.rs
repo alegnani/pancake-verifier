@@ -1,7 +1,7 @@
 use viper::Expr;
 
 use crate::{
-    ir::Arg,
+    ir::{self, Arg},
     utils::{Shape, ToViper, ToViperError, ToViperType, TryToViper, ViperEncodeCtx, ViperUtils},
 };
 
@@ -29,17 +29,30 @@ impl Arg {
     /// as a precondition in the method.
     pub fn permission<'a>(&self, ctx: &ViperEncodeCtx<'a>) -> Option<Expr<'a>> {
         let ast = ctx.ast;
-        match self.shape {
-            Shape::Simple => None,
-            Shape::Nested(_) => {
-                let arg_var = ctx.ast.new_var(&self.name, self.shape.to_viper_type(ctx)).1;
-                let length = ast.int_lit(self.shape.len() as i64);
+        match &self.typ {
+            ir::Type::Struct(inner) => {
+                let arg_var = ctx.ast.new_var(&self.name, self.typ.to_viper_type(ctx)).1;
+                let len: usize = inner.iter().map(Shape::len).sum();
+                let length = ast.int_lit(len as i64);
                 let access_perm =
                     ctx.iarray
                         .array_acc_expr(arg_var, ast.int_lit(0), length, ast.full_perm());
                 let length_pre = ast.eq_cmp(ctx.iarray.len_f(arg_var), length);
                 Some(ast.and(length_pre, access_perm))
             }
+            _ => None,
+        }
+    }
+}
+
+impl<'a> ToViperType<'a> for ir::Type {
+    fn to_viper_type(&self, ctx: &ViperEncodeCtx<'a>) -> viper::Type<'a> {
+        let ast = ctx.ast;
+        match self {
+            ir::Type::Bool => ast.bool_type(),
+            ir::Type::Int => ast.int_type(),
+            ir::Type::Array | ir::Type::Struct(_) => ctx.iarray.get_type(),
+            x => panic!("Want type of {:?}", x),
         }
     }
 }

@@ -1,7 +1,18 @@
 use crate::{
     ir,
-    utils::{Shape, ShapeError, ToShape, TranslationError, TryToShape, TypeContext},
+    utils::{Shape, ShapeError, TranslationError, TryToShape, TypeContext},
 };
+
+impl TryToShape for ir::Type {
+    fn to_shape(&self, _ctx: &TypeContext) -> Result<Shape, TranslationError> {
+        use ir::Type::*;
+        Ok(match self {
+            Bool | Int => Shape::Simple,
+            Struct(shape) => Shape::Nested(shape.clone()),
+            x => panic!("Toshape of type {:?}", x),
+        })
+    }
+}
 
 impl TryToShape for ir::Struct {
     fn to_shape(&self, ctx: &TypeContext) -> Result<Shape, TranslationError> {
@@ -27,16 +38,6 @@ impl TryToShape for ir::Field {
     }
 }
 
-impl ToShape for ir::Type {
-    fn to_shape(&self, _ctx: &TypeContext) -> Shape {
-        use ir::Type::*;
-        match self {
-            Bool | Int => Shape::Simple,
-            IArray => Shape::Nested(vec![]),
-        }
-    }
-}
-
 impl TryToShape for ir::Expr {
     fn to_shape(&self, ctx: &TypeContext) -> Result<Shape, TranslationError> {
         use ir::Expr::*;
@@ -44,13 +45,13 @@ impl TryToShape for ir::Expr {
             Field(field) => field.to_shape(ctx),
             Struct(struc) => struc.to_shape(ctx),
             UnfoldingIn(unfold) => unfold.expr.to_shape(ctx),
-            MethodCall(call) => ctx.get_function_type(&call.fname),
-            FunctionCall(call) => ctx.get_function_type(&call.fname),
+            MethodCall(call) => ctx.get_function_type(&call.fname)?.to_shape(ctx),
+            FunctionCall(call) => ctx.get_function_type(&call.fname)?.to_shape(ctx),
             x => Ok(match x {
                 Const(_) | UnOp(_) | BinOp(_) | Shift(_) | LoadByte(_) | Quantified(_)
                 | ArrayAccess(_) | AccessPredicate(_) | FieldAccessChain(_) | BaseAddr
                 | BytesInWord => Shape::Simple,
-                Var(var) => ctx.get_type_no_mangle(var)?,
+                Var(var) => ctx.get_type_no_mangle(var)?.to_shape(ctx)?,
                 Label(_) => unreachable!("ToShape for Expr::Label"),
                 Load(load) => load.shape.clone(),
                 _ => unreachable!(),

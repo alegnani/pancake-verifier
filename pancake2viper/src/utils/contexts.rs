@@ -2,12 +2,12 @@ use std::collections::{HashMap, HashSet};
 
 use viper::{AstFactory, Declaration, LocalVarDecl};
 
-use crate::{ir::AnnotationType, viper_prelude::IArrayHelper};
-
-use super::{
-    mangler::{Mangler, RESERVED},
-    Shape, TranslationError,
+use crate::{
+    ir::{types::Type, AnnotationType},
+    viper_prelude::IArrayHelper,
 };
+
+use super::{mangler::Mangler, Shape, TranslationError, RESERVED};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum TranslationMode {
@@ -38,16 +38,15 @@ impl From<AnnotationType> for TranslationMode {
 
 #[derive(Debug, Clone)]
 pub struct TypeContext {
-    type_map: HashMap<String, Shape>,
+    type_map: HashMap<String, Type>,
 }
 
 impl TypeContext {
     pub fn new() -> Self {
-        let mut type_map: HashMap<String, Shape> = HashMap::new();
-        for &keyword in RESERVED.iter() {
-            type_map.insert(keyword.into(), Shape::Simple);
-        }
-        type_map.insert("heap".into(), Shape::Nested(vec![])); // FIXME hack to have heap be of type IArray
+        let type_map = RESERVED
+            .iter()
+            .map(|(&s, t)| (s.to_owned(), t.clone()))
+            .collect();
         Self { type_map }
     }
 
@@ -55,22 +54,22 @@ impl TypeContext {
         self.clone()
     }
 
-    pub fn get_type_no_mangle(&self, var: &str) -> Result<Shape, TranslationError> {
+    pub fn get_type_no_mangle(&self, var: &str) -> Result<Type, TranslationError> {
         self.type_map
             .get(var)
             .cloned()
             .ok_or(TranslationError::UnknownShape(var.to_owned()))
     }
 
-    pub fn get_function_type(&self, fname: &str) -> Result<Shape, TranslationError> {
+    pub fn get_function_type(&self, fname: &str) -> Result<Type, TranslationError> {
         self.type_map
             .get(fname)
             .cloned()
             .ok_or(TranslationError::UnknownReturnType(fname.to_owned()))
     }
 
-    pub fn set_type(&mut self, var: String, shape: Shape) {
-        self.type_map.insert(var, shape);
+    pub fn set_type(&mut self, var: String, typ: Type) {
+        self.type_map.insert(var, typ);
     }
 
     pub fn size(&self) -> usize {
@@ -233,16 +232,16 @@ impl<'a> ViperEncodeCtx<'a> {
         self.predicates.contains(ident)
     }
 
-    pub fn get_type(&self, var: &str) -> Result<Shape, TranslationError> {
+    pub fn get_type(&self, var: &str) -> Result<Type, TranslationError> {
         self.types.get_type_no_mangle(var)
     }
 
-    pub fn get_function_type(&self, fname: &str) -> Result<Shape, TranslationError> {
+    pub fn get_function_type(&self, fname: &str) -> Result<Type, TranslationError> {
         self.types.get_function_type(fname)
     }
 
-    pub fn set_type(&mut self, var: String, shape: Shape) {
-        self.types.set_type(var, shape);
+    pub fn set_type(&mut self, var: String, typ: Type) {
+        self.types.set_type(var, typ);
     }
 
     pub fn type_ctx(&self) -> &TypeContext {

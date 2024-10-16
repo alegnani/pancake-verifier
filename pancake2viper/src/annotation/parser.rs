@@ -254,7 +254,7 @@ impl FromPestPair for Type {
         match pair.as_rule() {
             Rule::bool_t => Self::Bool,
             Rule::int_t => Self::Int,
-            Rule::iarray_t => Self::IArray,
+            Rule::iarray_t => Self::Array,
             x => panic!("Failed to parse Type, got {:?}", x),
         }
     }

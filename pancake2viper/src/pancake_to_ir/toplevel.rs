@@ -1,17 +1,8 @@
 use crate::{
     annotation::{parse_function, parse_method, parse_predicate},
     ir, pancake,
-    utils::{TranslationError, TryToIR},
+    utils::{ToType, TranslationError, TryToIR},
 };
-
-impl From<pancake::Arg> for ir::Arg {
-    fn from(value: pancake::Arg) -> Self {
-        Self {
-            name: value.name,
-            shape: value.shape,
-        }
-    }
-}
 
 impl TryToIR for pancake::Arg {
     type Output = ir::Arg;
@@ -19,7 +10,7 @@ impl TryToIR for pancake::Arg {
     fn to_ir(self) -> Result<Self::Output, TranslationError> {
         Ok(Self::Output {
             name: self.name,
-            shape: self.shape,
+            typ: self.shape.to_type(),
         })
     }
 }

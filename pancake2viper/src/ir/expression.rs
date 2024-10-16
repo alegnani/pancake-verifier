@@ -2,6 +2,8 @@ use strum::EnumString;
 
 use crate::utils::Shape;
 
+use super::Type;
+
 #[derive(Debug, Clone)]
 pub enum Expr {
     Const(i64),
@@ -130,13 +132,6 @@ pub struct Shift {
     pub shifttype: ShiftType,
     pub value: Box<Expr>,
     pub amount: u64,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum Type {
-    Bool,
-    Int,
-    IArray,
 }
 
 #[derive(Debug, Clone)]

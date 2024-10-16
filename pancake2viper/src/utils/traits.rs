@@ -1,4 +1,6 @@
-use viper::{AstFactory, Expr, LocalVarDecl, Type};
+use viper::{AstFactory, Expr, LocalVarDecl};
+
+use crate::ir;
 
 use super::{
     errors::ToViperError, shape::Shape, EncodeOptions, Mangler, TranslationError, TypeContext,
@@ -50,6 +52,14 @@ pub trait TryToShape {
     fn to_shape(&self, ctx: &TypeContext) -> Result<Shape, TranslationError>;
 }
 
+pub trait TryToType {
+    fn to_type(&self, ctx: &TypeContext) -> Result<ir::Type, TranslationError>;
+}
+
+pub trait ToType {
+    fn to_type(&self) -> ir::Type;
+}
+
 pub trait ProgramToViper<'a> {
     fn to_viper(
         self,
@@ -60,7 +70,7 @@ pub trait ProgramToViper<'a> {
 }
 
 pub trait ViperUtils<'a> {
-    fn new_var(&self, name: &str, typ: Type) -> (LocalVarDecl<'a>, Expr<'a>);
+    fn new_var(&self, name: &str, typ: viper::Type) -> (LocalVarDecl<'a>, Expr<'a>);
     fn zero(&self) -> Expr<'a>;
     fn one(&self) -> Expr<'a>;
     fn two(&self) -> Expr<'a>;

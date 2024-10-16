@@ -13,11 +13,8 @@ use crate::ir::*;
 impl<'a> ToViper<'a> for Arg {
     type Output = viper::LocalVarDecl<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
-        // XXX move
-        // let mangled_arg = ctx.mangler.new_arg(self.name.clone());
-        // ctx.set_type(mangled_arg.clone(), self.shape.clone());
         ctx.ast
-            .local_var_decl(&self.name, self.shape.to_viper_type(ctx))
+            .local_var_decl(&self.name, self.typ.to_viper_type(ctx))
     }
 }
 

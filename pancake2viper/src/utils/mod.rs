@@ -5,9 +5,24 @@ mod misc;
 mod shape;
 mod traits;
 
+use std::collections::HashMap;
+
 pub use contexts::*;
 pub use errors::*;
 pub use mangler::{Mangler, VariableType};
 pub use misc::*;
 pub use shape::Shape;
 pub use traits::*;
+
+use crate::ir::types::Type;
+
+lazy_static::lazy_static! {
+    pub static ref RESERVED: HashMap<&'static str, Type> = HashMap::from([
+        ("heap", Type::Array),
+        ("retval", Type::Int), // FIXME: change this
+        ("read", Type::Void),
+        ("write", Type::Void), ("wildcard", Type::Void),
+        ("acc", Type::Bool),
+        ("alen", Type::Int)
+    ]);
+}
