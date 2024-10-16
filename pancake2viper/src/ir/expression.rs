@@ -26,6 +26,7 @@ pub enum Expr {
     FieldAccessChain(FieldAccessChain),
     UnfoldingIn(UnfoldingIn),
     Ternary(Ternary),
+    AccessSlice(AccessSlice),
 }
 
 #[derive(Debug, Clone)]
@@ -177,4 +178,19 @@ pub struct Ternary {
     pub cond: Box<Expr>,
     pub left: Box<Expr>,
     pub right: Box<Expr>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum SliceType {
+    Inclusive,
+    Exclusive,
+}
+
+#[derive(Debug, Clone)]
+pub struct AccessSlice {
+    pub field: Box<Expr>,
+    pub typ: SliceType,
+    pub lower: i64,
+    pub upper: i64,
+    pub perm: Permission,
 }
