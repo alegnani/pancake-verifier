@@ -53,7 +53,11 @@ pub fn parse_predicate(pred: &str) -> Predicate {
     } else {
         Some(parse_expr(body))
     };
-    Predicate { name, args, body }
+    Predicate {
+        name,
+        args: args.into_iter().map(Arg::from).collect(),
+        body,
+    }
 }
 
 pub fn parse_function(func: &str) -> Function {
@@ -72,7 +76,7 @@ pub fn parse_function(func: &str) -> Function {
     };
     Function {
         name,
-        args,
+        args: args.into_iter().map(Arg::from).collect(),
         typ,
         preposts,
         body,
@@ -90,7 +94,7 @@ pub fn parse_method(met: &str) -> AbstractMethod {
         .collect();
     AbstractMethod {
         name,
-        args,
+        args: args.into_iter().map(Arg::from).collect(),
         rettyps,
         preposts,
     }

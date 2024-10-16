@@ -1,6 +1,9 @@
+use crate::utils::Shape;
+
 use super::{
     expression::{Expr, Struct},
     statement::MemOpBytes,
+    Arg, Decl, Type,
 };
 
 impl Struct {
@@ -24,6 +27,24 @@ impl MemOpBytes {
         match self {
             Self::Byte => 8,
             Self::HalfWord => 32,
+        }
+    }
+}
+
+impl From<Type> for Shape {
+    fn from(value: Type) -> Self {
+        match value {
+            Type::Bool | Type::Int => Shape::Simple,
+            Type::IArray => Shape::Nested(vec![]),
+        }
+    }
+}
+
+impl From<Decl> for Arg {
+    fn from(value: Decl) -> Self {
+        Self {
+            name: value.name,
+            shape: value.typ.into(),
         }
     }
 }

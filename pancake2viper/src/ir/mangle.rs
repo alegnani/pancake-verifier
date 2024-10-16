@@ -9,6 +9,15 @@ impl<T: Mangleable> Mangleable for Vec<T> {
     }
 }
 
+impl<T: Mangleable> Mangleable for Option<T> {
+    fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
+        match self {
+            Some(e) => e.mangle(mangler),
+            None => Ok(()),
+        }
+    }
+}
+
 impl Mangleable for ir::Decl {
     fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
         self.name = mangler.new_mangled_var(self.name.clone(), VariableType::Variable)?;
@@ -144,7 +153,7 @@ impl Mangleable for ir::Arg {
 
 impl Mangleable for ir::FnDec {
     fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
-        mangler.set_fname(self.fname.clone());
+        mangler.switch_ctx(self.fname.clone());
         self.fname = Mangler::mangle_fn(&self.fname);
         self.args.mangle(mangler)?;
         self.body.mangle(mangler)
@@ -153,27 +162,27 @@ impl Mangleable for ir::FnDec {
 
 impl Mangleable for ir::Predicate {
     fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
-        mangler.set_fname(self.name.clone());
+        mangler.switch_ctx(self.name.clone());
         self.name = Mangler::mangle_fn(&self.name);
         self.args.mangle(mangler)?;
-        self.body.as_mut().map(|b| b.mangle(mangler)).transpose()?;
-        Ok(())
+        self.body.mangle(mangler)
     }
 }
 
 impl Mangleable for ir::Function {
     fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
-        mangler.set_fname(self.name.clone());
+        mangler.switch_ctx(self.name.clone());
         self.name = Mangler::mangle_fn(&self.name);
         self.args.mangle(mangler)?;
-        self.body.as_mut().map(|b| b.mangle(mangler)).transpose()?;
-        self.preposts.mangle(mangler)
+        println!("Mangling fun: {:#?}", mangler);
+        self.preposts.mangle(mangler)?;
+        self.body.mangle(mangler)
     }
 }
 
 impl Mangleable for ir::AbstractMethod {
     fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
-        mangler.set_fname(self.name.clone());
+        mangler.switch_ctx(self.name.clone());
         self.name = Mangler::mangle_fn(&self.name);
         self.args.mangle(mangler)?;
         self.preposts.mangle(mangler)

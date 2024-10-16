@@ -43,6 +43,12 @@ impl Mangler {
         }
     }
 
+    fn clean_local(&mut self) {
+        self.annot_map.clear();
+        self.var_map.clear();
+        self.arg_map.clear();
+    }
+
     pub fn new_mangled_var(
         &mut self,
         name: String,
@@ -107,15 +113,12 @@ impl Mangler {
             .expect("Mangler's current function name not set")
     }
 
-    pub fn set_fname(&mut self, fname: String) {
+    pub fn switch_ctx(&mut self, fname: String) {
         self.fname = Some(fname);
+        self.clean_local();
     }
 
     pub fn mangle_fn(fname: &str) -> String {
         format!("f_{}", fname)
     }
-
-    // pub fn demangle_fn(mangled:& str) -> String {
-
-    // }
 }

@@ -16,6 +16,12 @@ impl TypeResolution for ir::Expr {
     }
 }
 
+impl TypeResolution for ir::Annotation {
+    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
+        self.expr.resolve_type(ctx)
+    }
+}
+
 impl TypeResolution for ir::Stmt {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
         match self {
@@ -33,7 +39,7 @@ impl TypeResolution for ir::Stmt {
                 ignore_unknown(if_type)?;
                 i.else_branch.resolve_type(ctx)
             }
-            ir::Stmt::Annotation(annot) => annot.expr.resolve_type(ctx),
+            ir::Stmt::Annotation(annot) => annot.resolve_type(ctx),
             ir::Stmt::While(w) => w.body.resolve_type(ctx),
             ir::Stmt::Seq(seq) => seq.stmts.resolve_type(ctx),
             _ => Ok(()),
@@ -101,6 +107,7 @@ impl TypeResolution for ir::Function {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
         self.args.resolve_type(ctx)?;
         self.body.resolve_type(ctx)?;
+        self.preposts.resolve_type(ctx)?;
         ctx.set_type(self.name.clone(), self.typ.to_shape(ctx));
         Ok(())
     }

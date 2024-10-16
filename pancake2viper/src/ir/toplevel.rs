@@ -17,14 +17,14 @@ pub struct Arg {
 #[derive(Debug, Clone)]
 pub struct Predicate {
     pub name: String,
-    pub args: Vec<Decl>,
+    pub args: Vec<Arg>,
     pub body: Option<Expr>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Function {
     pub name: String,
-    pub args: Vec<Decl>,
+    pub args: Vec<Arg>,
     pub typ: Type,
     pub preposts: Vec<Annotation>,
     pub body: Option<Expr>,
@@ -33,7 +33,7 @@ pub struct Function {
 #[derive(Debug, Clone)]
 pub struct AbstractMethod {
     pub name: String,
-    pub args: Vec<Decl>,
+    pub args: Vec<Arg>,
     pub rettyps: Vec<Decl>,
     pub preposts: Vec<Annotation>,
 }
