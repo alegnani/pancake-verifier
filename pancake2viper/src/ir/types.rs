@@ -2,10 +2,19 @@ use std::fmt::Debug;
 
 use crate::{
     ir,
-    utils::{Shape, TranslationError, TryToShape, TypeContext, TypeResolution},
+    utils::{Shape, ToShape, TranslationError, TryToShape, TypeContext, TypeResolution},
 };
 
 use super::{FnDec, Stmt};
+
+impl TypeResolution for ir::Expr {
+    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
+        match self {
+            ir::Expr::Quantified(quant) => quant.decls.resolve_type(ctx),
+            _ => Ok(()),
+        }
+    }
+}
 
 impl TypeResolution for ir::Stmt {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
@@ -21,14 +30,10 @@ impl TypeResolution for ir::Stmt {
             }
             ir::Stmt::If(i) => {
                 let if_type = i.if_branch.resolve_type(ctx);
-                match if_type {
-                    Ok(_)
-                    | Err(TranslationError::UnknownReturnType(_))
-                    | Err(TranslationError::UnknownShape(_)) => (),
-                    x => return x,
-                }
+                ignore_unknown(if_type)?;
                 i.else_branch.resolve_type(ctx)
             }
+            ir::Stmt::Annotation(annot) => annot.expr.resolve_type(ctx),
             ir::Stmt::While(w) => w.body.resolve_type(ctx),
             ir::Stmt::Seq(seq) => seq.stmts.resolve_type(ctx),
             _ => Ok(()),
@@ -36,19 +41,22 @@ impl TypeResolution for ir::Stmt {
     }
 }
 
-impl<T: TypeResolution + Debug> TypeResolution for Vec<T> {
+impl<T: TypeResolution> TypeResolution for Vec<T> {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
-        let mut ret = Ok(());
         for stmt in self {
             let typ = stmt.resolve_type(ctx);
-            match typ {
-                Ok(_)
-                | Err(TranslationError::UnknownReturnType(_))
-                | Err(TranslationError::UnknownShape(_)) => (),
-                x => ret = x,
-            }
+            ignore_unknown(typ)?;
         }
-        ret
+        Ok(())
+    }
+}
+
+impl<T: TypeResolution> TypeResolution for Option<T> {
+    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
+        match self {
+            Some(t) => t.resolve_type(ctx),
+            None => Ok(()),
+        }
     }
 }
 
@@ -70,6 +78,46 @@ impl TypeResolution for ir::FnDec {
             ctx.set_type(self.fname.clone(), returns[0].clone());
             Ok(())
         }
+    }
+}
+
+impl TypeResolution for ir::Decl {
+    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
+        ctx.set_type(self.name.clone(), self.typ.to_shape(ctx));
+        Ok(())
+    }
+}
+
+impl TypeResolution for ir::Predicate {
+    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
+        self.args.resolve_type(ctx)?;
+        self.body.resolve_type(ctx)?;
+        ctx.set_type(self.name.clone(), Shape::Simple);
+        Ok(())
+    }
+}
+
+impl TypeResolution for ir::Function {
+    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
+        self.args.resolve_type(ctx)?;
+        self.body.resolve_type(ctx)?;
+        ctx.set_type(self.name.clone(), self.typ.to_shape(ctx));
+        Ok(())
+    }
+}
+
+impl TypeResolution for ir::AbstractMethod {
+    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
+        self.args.resolve_type(ctx)?;
+        self.rettyps.resolve_type(ctx)?;
+        assert!(self.rettyps.len() <= 1); // TODO: add support for multiple returns
+        let shape = if self.rettyps.is_empty() {
+            Shape::Simple
+        } else {
+            ctx.get_type_no_mangle(&self.rettyps[0].name).unwrap()
+        };
+        ctx.set_type(self.name.clone(), shape);
+        Ok(())
     }
 }
 
@@ -99,13 +147,10 @@ impl ir::Program {
         let mut ctx = TypeContext::new();
         let mut prev_size = ctx.size();
         loop {
-            let typ = self.functions.resolve_type(&mut ctx);
-            match typ {
-                Ok(_)
-                | Err(TranslationError::UnknownReturnType(_))
-                | Err(TranslationError::UnknownShape(_)) => (),
-                Err(x) => return Err(x),
-            }
+            ignore_unknown(self.viper_functions.resolve_type(&mut ctx))?;
+            ignore_unknown(self.predicates.resolve_type(&mut ctx))?;
+            ignore_unknown(self.methods.resolve_type(&mut ctx))?;
+            ignore_unknown(self.functions.resolve_type(&mut ctx))?;
             let new_size = ctx.size();
             if new_size == prev_size {
                 break;
@@ -113,5 +158,14 @@ impl ir::Program {
             prev_size = new_size;
         }
         Ok(ctx)
+    }
+}
+
+fn ignore_unknown(result: Result<(), TranslationError>) -> Result<(), TranslationError> {
+    match result {
+        Ok(_)
+        | Err(TranslationError::UnknownReturnType(_))
+        | Err(TranslationError::UnknownShape(_)) => Ok(()),
+        Err(x) => Err(x),
     }
 }

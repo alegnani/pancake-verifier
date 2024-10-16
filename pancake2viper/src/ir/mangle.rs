@@ -185,6 +185,8 @@ impl Mangleable for ir::Program {
         self.viper_functions.mangle(mangler)?;
         self.predicates.mangle(mangler)?;
         self.methods.mangle(mangler)?;
-        self.functions.mangle(mangler)
+        self.functions
+            .iter_mut()
+            .try_for_each(|e| e.mangle(&mut mangler.clone()))
     }
 }
