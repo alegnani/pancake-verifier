@@ -41,6 +41,7 @@ pub struct Assign {
 pub enum MemOpBytes {
     Byte,
     HalfWord,
+    Word,
 }
 
 #[derive(Debug, Clone)]

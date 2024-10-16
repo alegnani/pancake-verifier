@@ -2,7 +2,7 @@ use viper::Expr;
 
 use crate::{
     ir::{self, Arg, FnDec, Type},
-    utils::{Shape, ToViper, ToViperError, ToViperType, TryToViper, ViperEncodeCtx, ViperUtils},
+    utils::{ToViper, ToViperError, ToViperType, TryToViper, ViperEncodeCtx, ViperUtils},
 };
 
 impl<'a, T: TryToViper<'a>> TryToViper<'a> for Vec<T> {

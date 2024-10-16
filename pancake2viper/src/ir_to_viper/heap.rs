@@ -10,16 +10,15 @@ impl<'a> TryToViper<'a> for ir::Load {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let zero = ast.int_lit(0);
-        let eight = ast.int_lit(8);
+        let bytes_in_word = ast.int_lit(ctx.options.word_size as i64 / 8);
         let iarray = ctx.iarray;
         let addr_exp = self.address.to_viper(ctx)?;
-        let word_addr = ast.div(addr_exp, eight);
+        let word_addr = ast.div(addr_exp, bytes_in_word);
 
         if self.assert && ctx.options.assert_aligned_accesses {
-            // assert addr % 8 == 0
+            // assert addr % @biw == 0
             let assertion = ast.assert(
-                ast.eq_cmp(ast.module(addr_exp, eight), zero),
+                ast.eq_cmp(ast.module(addr_exp, bytes_in_word), ast.zero()),
                 ast.no_position(),
             );
             ctx.stack.push(assertion);
@@ -45,12 +44,12 @@ impl<'a> TryToViper<'a> for ir::LoadByte {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let eight = ast.int_lit(8);
+        let bytes_in_word = ast.int_lit(ctx.options.word_size as i64 / 8);
 
         let byte_address = self.address.clone().to_viper(ctx)?;
-        let word_offset = ast.module(byte_address, eight);
+        let word_offset = ast.module(byte_address, bytes_in_word);
         let byte_mask = ast.backend_bv64_lit(255);
-        let shift_amount = ast.int_to_backend_bv(BV64, ast.mul(eight, word_offset));
+        let shift_amount = ast.int_to_backend_bv(BV64, ast.mul(bytes_in_word, word_offset));
 
         let load = ir::Expr::Load(ir::Load {
             shape: Shape::Simple,
@@ -80,23 +79,21 @@ impl<'a> TryToViper<'a> for ir::Store {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let zero = ast.int_lit(0);
-        let eight = ast.int_lit(8);
+        let bytes_in_word = ast.int_lit(ctx.options.word_size as i64 / 8);
         let iarray = ctx.iarray;
         let addr_expr = self.address.to_viper(ctx)?;
 
-        // FIXME: change this to match word size
-        // assert addr % 8 == 0
+        // assert addr % @biw == 0
         let assertion = if ctx.options.assert_aligned_accesses {
             ast.assert(
-                ast.eq_cmp(ast.module(addr_expr, eight), zero),
+                ast.eq_cmp(ast.module(addr_expr, bytes_in_word), ast.zero()),
                 ast.no_position(),
             )
         } else {
             ast.comment("skipping alignment assertion")
         };
 
-        let word_addr = ast.div(addr_expr, eight);
+        let word_addr = ast.div(addr_expr, bytes_in_word);
         let rhs_shape = self.value.to_shape(ctx.typectx_get_mut())?;
         let rhs = self.value.to_viper(ctx)?;
 
@@ -105,7 +102,7 @@ impl<'a> TryToViper<'a> for ir::Store {
         } else {
             iarray.copy_slice_m(
                 rhs,
-                zero,
+                ast.zero(),
                 ctx.heap_var().1,
                 word_addr,
                 ast.int_lit(rhs_shape.len() as i64),
@@ -116,15 +113,13 @@ impl<'a> TryToViper<'a> for ir::Store {
     }
 }
 
-// FIXME: change this to match word size
 impl<'a> TryToViper<'a> for ir::StoreBits {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let bits = self.size.bits();
         let ast = ctx.ast;
         let iarray = ctx.iarray;
-        let eight = ast.int_lit(8);
-        let zero = ast.int_lit(0);
+        let bytes_in_word = ast.int_lit(ctx.options.word_size as i64 / 8);
 
         let assertion = if ctx.options.assert_aligned_accesses && self.size.bits() != 8 {
             ast.assert(
@@ -133,7 +128,7 @@ impl<'a> TryToViper<'a> for ir::StoreBits {
                         self.address.clone().to_viper(ctx)?,
                         ast.int_lit(bits as i64 / 8),
                     ),
-                    zero,
+                    ast.zero(),
                 ),
                 ast.no_position(),
             )
@@ -142,11 +137,10 @@ impl<'a> TryToViper<'a> for ir::StoreBits {
         };
 
         let byte_address = self.address.to_viper(ctx)?;
-        // TODO: this assumes that words are 64 bits (8 bytes)
-        let word_offset = ast.module(byte_address, eight);
+        let word_offset = ast.module(byte_address, bytes_in_word);
         let word_address = ast.sub(byte_address, word_offset);
         let bit_mask = ast.backend_bv64_lit(2_u64.pow(bits) - 1);
-        let shift_amount = ast.int_to_backend_bv(BV64, ast.mul(eight, word_offset));
+        let shift_amount = ast.int_to_backend_bv(BV64, ast.mul(bytes_in_word, word_offset));
         let mask = ast.bv_binop(BinOpBv::BvShl, BV64, bit_mask, shift_amount);
         let inv_mask = ast.bv_unnop(UnOpBv::Not, BV64, mask);
         let value = ast.bv_binop(
@@ -173,12 +167,12 @@ impl<'a> TryToViper<'a> for ir::StoreBits {
 impl<'a> TryToViper<'a> for ir::SharedStore {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
-        let ast = ctx.ast;
-        Ok(ast.method_call(
-            "shared_store",
-            &[self.address.to_viper(ctx)?, self.value.to_viper(ctx)?],
-            &[],
-        ))
+        ir::SharedStoreBits {
+            address: self.address,
+            value: self.value,
+            size: ctx.options.word_size.into(),
+        }
+        .to_viper(ctx)
     }
 }
 
@@ -187,23 +181,31 @@ impl<'a> TryToViper<'a> for ir::SharedStoreBits {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        Ok(ast.method_call(
-            "shared_store",
-            &[self.address.to_viper(ctx)?, self.value.to_viper(ctx)?],
-            &[],
-        ))
+        let addr_expr = self.address.to_viper(ctx)?;
+        let bytes_in_word = ast.int_lit(ctx.options.word_size as i64 / 8);
+        let assertion = if ctx.options.assert_aligned_accesses && self.size.bits() != 8 {
+            ast.assert(
+                ast.eq_cmp(ast.module(addr_expr, bytes_in_word), ast.zero()),
+                ast.no_position(),
+            )
+        } else {
+            ast.comment("skipping alignment assertion")
+        };
+        let store_stmt =
+            ast.method_call("shared_store", &[addr_expr, self.value.to_viper(ctx)?], &[]);
+        Ok(ast.seqn(&[assertion, store_stmt], &[]))
     }
 }
 
 impl<'a> TryToViper<'a> for ir::SharedLoad {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
-        let ast = ctx.ast;
-        Ok(ast.method_call(
-            "shared_load",
-            &[self.address.to_viper(ctx)?],
-            &[self.dst.to_viper(ctx)?],
-        ))
+        ir::SharedLoadBits {
+            address: self.address,
+            dst: self.dst,
+            size: ctx.options.word_size.into(),
+        }
+        .to_viper(ctx)
     }
 }
 
@@ -211,10 +213,26 @@ impl<'a> TryToViper<'a> for ir::SharedLoadBits {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        Ok(ast.method_call(
+        let addr_expr = self.address.to_viper(ctx)?;
+        let bytes_in_word = ast.int_lit(ctx.options.word_size as i64 / 8);
+        // assert addr % @biw == 0
+        let assertion = if ctx.options.assert_aligned_accesses && self.size.bits() != 8 {
+            ast.assert(
+                ast.eq_cmp(ast.module(addr_expr, bytes_in_word), ast.zero()),
+                ast.no_position(),
+            )
+        } else {
+            ast.comment("skipping alignment assertion")
+        };
+        let load_stmt = ast.method_call(
             "shared_load",
-            &[self.address.to_viper(ctx)?],
+            &[
+                addr_expr,
+                // `int_lit` takes i64, therefore it can't hold the upper bound for u64 integers in Pancake
+                ast.mul(ast.int_lit(4), ast.int_lit(2i64.pow(self.size.bits() - 2))),
+            ],
             &[self.dst.to_viper(ctx)?],
-        ))
+        );
+        Ok(ast.seqn(&[assertion, load_stmt], &[]))
     }
 }
