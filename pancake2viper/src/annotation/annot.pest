@@ -50,7 +50,7 @@ expr = !{ prefix? ~ primary ~ postfix? ~ (infix ~ prefix? ~ primary ~ postfix?)*
                 ashr = { ">>" }
                 lshl = { "<<" }
 
-    primary = _{ "(" ~ expr ~ ")" | unfolding | int_lit | quantified | acc_pred | acc_slice | f_call | field_acc | ident | biw | base }
+    primary = _{ "(" ~ expr ~ ")" | unfolding | int_lit | quantified | acc_pred | acc_slice | old | f_call | field_acc | ident | biw | base }
 
         quantified = { (forall | exists) ~ decl ~ ("," ~ decl)* ~ "::" ~ triggers ~ expr }
             forall = { "forall" }
@@ -67,6 +67,7 @@ expr = !{ prefix? ~ primary ~ postfix? ~ (infix ~ prefix? ~ primary ~ postfix?)*
                 perm_frac = { integer ~ "/" ~ integer }
                 perm_var = { ident }
 
+        old = {"old(" ~ expr ~ ")" }
         f_call = {ident ~ "(" ~ (expr ~ ("," ~ expr)* | "") ~ ")" }
         unfolding = { "unfolding" ~ f_call ~ "in" ~ expr }
         biw = { "@biw" }

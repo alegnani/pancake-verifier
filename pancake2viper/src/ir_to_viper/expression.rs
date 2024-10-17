@@ -249,6 +249,7 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
                 let arr = args[0];
                 ctx.iarray.len_f(arr)
             }
+            "f_old" => ast.old(args[0]),
             pred if ctx.is_predicate(pred) => {
                 args.insert(0, ctx.heap_var().1);
                 ast.predicate_access_predicate(ast.predicate_access(&args, pred), ast.full_perm())
@@ -437,6 +438,7 @@ impl<'a> TryToViper<'a> for ir::Expr {
                 Label(_) => todo!(), // XXX: not sure if we need this
                 BaseAddr => ast.int_lit(0),
                 BytesInWord => ast.int_lit(ctx.options.word_size as i64 / 8),
+                Old(old) => ast.old(old.expr.to_viper(ctx)?),
                 _ => unreachable!(),
             }),
         }
