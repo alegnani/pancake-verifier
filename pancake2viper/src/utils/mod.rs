@@ -20,8 +20,10 @@ lazy_static::lazy_static! {
     pub static ref RESERVED: HashMap<&'static str, Type> = HashMap::from([
         ("heap", Type::Array),
         ("read", Type::Void),
-        ("write", Type::Void), ("wildcard", Type::Void),
+        ("write", Type::Void),
+        ("wildcard", Type::Void),
         ("acc", Type::Bool),
-        ("alen", Type::Int)
+        ("alen", Type::Int),
+        ("old", Type::Wildcard)
     ]);
 }
