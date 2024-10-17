@@ -111,7 +111,7 @@ pub struct EncodeOptions {
 impl Default for EncodeOptions {
     fn default() -> Self {
         Self {
-            expr_unrolling: false,
+            expr_unrolling: true,
             assert_aligned_accesses: true,
             word_size: 64,
             heap_size: 16 * 1024,

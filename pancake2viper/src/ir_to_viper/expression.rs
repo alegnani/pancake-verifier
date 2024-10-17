@@ -2,11 +2,11 @@ use viper::BinOpBv;
 use viper::BvSize::BV64;
 
 use crate::utils::{
-    Mangler, Shape, ToViper, ToViperError, ToViperType, TryToShape, TryToViper, ViperEncodeCtx,
-    ViperUtils,
+    Mangler, Shape, ToType, ToViper, ToViperError, ToViperType, TryToShape, TryToViper,
+    ViperEncodeCtx, ViperUtils,
 };
 
-use crate::ir::{self};
+use crate::ir::{self, Type};
 
 impl ir::Expr {
     pub fn cond_to_viper<'a>(
@@ -99,24 +99,27 @@ impl<'a> TryToViper<'a> for ir::BinOp {
                 }
             }
         };
-        //         if ctx.options.expr_unrolling {
-        //     let typ = ast.int_type();
-        //     let fresh = ctx.fresh_var();
-        //     let (var_decl, var) = ast.new_var(&fresh, typ);
-        //     ctx.set_type(fresh, Shape::Simple);
-        //     let right = expr.to_viper(ctx);
-        //     let rhs = translate_op(self.optype, acc, right);
-        //     let ass = ast.local_var_assign(var, rhs);
-        //     ctx.declarations.push(var_decl);
-        //     ctx.stack.push(ass);
-
-        //     (ctx, var)
-        // } else {
-        Ok(translate_op(
+        let binop = translate_op(
             self.optype,
             self.left.to_viper(ctx)?,
             self.right.to_viper(ctx)?,
-        ))
+        );
+        Ok(if ctx.options.expr_unrolling {
+            let typ = if is_annot {
+                self.optype.to_type()
+            } else {
+                Type::Int
+            };
+            let fresh = Mangler::fresh_varname();
+            let fresh_var = ast.new_var(&fresh, typ.to_viper_type(ctx));
+            ctx.set_type(fresh, typ);
+            let ass = ast.local_var_assign(fresh_var.1, binop);
+            ctx.declarations.push(fresh_var.0);
+            ctx.stack.push(ass);
+            fresh_var.1
+        } else {
+            binop
+        })
     }
 }
 
