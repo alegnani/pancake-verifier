@@ -61,11 +61,7 @@ impl FnDec {
             struc @ Type::Struct(_) => {
                 let retval = ast.local_var(&self.retvar, struc.to_viper_type(ctx));
                 let len = ast.int_lit(struc.len() as i64);
-                vec![
-                    ast.eq_cmp(ctx.iarray.len_f(retval), len),
-                    ctx.iarray
-                        .array_acc_expr(retval, ast.int_lit(0), len, ctx.ast.full_perm()),
-                ]
+                vec![ast.eq_cmp(ctx.iarray.len_f(retval), len)]
             }
             _ => unreachable!(),
         }
