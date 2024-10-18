@@ -124,6 +124,9 @@ pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
             Rule::quantified => Expr::Quantified(Quantified::from_pest(primary)),
             Rule::expr => parse_expr(primary.into_inner()),
             Rule::ident => Expr::Var(primary.as_str().to_owned()),
+            Rule::old => Expr::Old(Old {
+                expr: Box::new(parse_expr(primary.into_inner())),
+            }),
             Rule::f_call => Expr::FunctionCall(FunctionCall::from_pest(primary)),
             Rule::acc_slice => Expr::AccessSlice(AccessSlice::from_pest(primary)),
             Rule::acc_pred => Expr::AccessPredicate(AccessPredicate::from_pest(primary)),

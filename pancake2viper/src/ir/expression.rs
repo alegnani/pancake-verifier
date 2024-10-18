@@ -27,6 +27,7 @@ pub enum Expr {
     UnfoldingIn(UnfoldingIn),
     Ternary(Ternary),
     AccessSlice(AccessSlice),
+    Old(Old),
 }
 
 #[derive(Debug, Clone)]
@@ -193,4 +194,9 @@ pub struct AccessSlice {
     pub lower: i64,
     pub upper: i64,
     pub perm: Permission,
+}
+
+#[derive(Debug, Clone)]
+pub struct Old {
+    pub expr: Box<Expr>,
 }

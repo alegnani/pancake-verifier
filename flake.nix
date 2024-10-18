@@ -30,6 +30,7 @@
             polyml
             jdk11
             z3
+            rust-analyzer
           ];
 
           # change this to your local installation of Viper and cake
@@ -40,6 +41,7 @@
           VIPER_HOME = "${VIPER_INSTALL}/backends";
           JAVA_HOME = "${jdk11}";
           Z3_EXE = "${VIPER_INSTALL}/z3/bin/z3";
+          BOOGIE_EXE = "${VIPER_INSTALL}/boogie/Binaries/Boogie";
 
           LD_LIBRARY_PATH = "${jdk11}/lib/openjdk/lib/server:${lib.makeLibraryPath buildInputs}";
           nativeBuildInputs = [ rustPlatform.bindgenHook ];

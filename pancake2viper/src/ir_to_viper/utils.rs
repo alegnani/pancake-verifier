@@ -25,19 +25,16 @@ impl Arg {
     /// Generates preconditions for an argument
     ///
     /// If an `Arg` is not of shape `1` it is encoded as an `IArray`.
-    /// Therefore it needs both access permissions to the slots and its length
-    /// as a precondition in the method.
+    /// We can automatically infer the length of the `IArray` given we know its shape.
     pub fn permission<'a>(&self, ctx: &ViperEncodeCtx<'a>) -> Option<Expr<'a>> {
         let ast = ctx.ast;
+
         match &self.typ {
             ir::Type::Struct(_) => {
                 let arg_var = ctx.ast.new_var(&self.name, self.typ.to_viper_type(ctx)).1;
                 let length = ast.int_lit(self.typ.len() as i64);
-                let access_perm =
-                    ctx.iarray
-                        .array_acc_expr(arg_var, ast.int_lit(0), length, ast.full_perm());
                 let length_pre = ast.eq_cmp(ctx.iarray.len_f(arg_var), length);
-                Some(ast.and(length_pre, access_perm))
+                Some(length_pre)
             }
             _ => None,
         }

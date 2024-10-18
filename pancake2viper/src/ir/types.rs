@@ -38,6 +38,7 @@ impl ExprTypeResolution for ir::Expr {
                 quant.decls.resolve_type(ctx)?;
                 Ok(Type::Bool)
             }
+            Old(old) => old.expr.resolve_type(ctx),
         }
     }
 }
