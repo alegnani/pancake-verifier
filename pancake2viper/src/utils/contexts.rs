@@ -7,7 +7,7 @@ use crate::{
     viper_prelude::IArrayHelper,
 };
 
-use super::{mangler::Mangler, Shape, TranslationError, RESERVED};
+use super::{mangler::Mangler, TranslationError, ViperUtils, RESERVED};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum TranslationMode {
@@ -106,6 +106,8 @@ pub struct EncodeOptions {
     pub assert_aligned_accesses: bool,
     pub word_size: u64,
     pub heap_size: u64,
+    pub check_overflows: bool,
+    pub bounded_arithmetic: bool,
 }
 
 impl Default for EncodeOptions {
@@ -115,6 +117,8 @@ impl Default for EncodeOptions {
             assert_aligned_accesses: true,
             word_size: 64,
             heap_size: 16 * 1024,
+            check_overflows: true,
+            bounded_arithmetic: true,
         }
     }
 }
@@ -245,5 +249,20 @@ impl<'a> ViperEncodeCtx<'a> {
 
     pub fn typectx_get_mut(&mut self) -> &mut TypeContext {
         &mut self.types
+    }
+
+    pub fn word_values(&self) -> viper::Expr<'a> {
+        let ast = self.ast;
+        ast.mul(
+            ast.int_lit(4),
+            ast.int_lit(2i64.pow(self.options.word_size as u32 - 2)),
+        )
+    }
+
+    pub fn word_bound(&self, expr: viper::Expr<'a>) -> viper::Expr<'a> {
+        let ast = self.ast;
+        let lower_bound = ast.le_cmp(ast.zero(), expr);
+        let upper_bound = ast.lt_cmp(expr, self.word_values());
+        ast.and(lower_bound, upper_bound)
     }
 }

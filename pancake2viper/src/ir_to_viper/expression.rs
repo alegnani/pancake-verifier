@@ -1,12 +1,12 @@
-use viper::BinOpBv;
 use viper::BvSize::BV64;
+use viper::{AstFactory, BinOpBv};
 
 use crate::utils::{
     Mangler, Shape, ToType, ToViper, ToViperError, ToViperType, TryToShape, TryToViper,
     ViperEncodeCtx, ViperUtils,
 };
 
-use crate::ir::{self, Type};
+use crate::ir::{self, BinOpType, Type};
 
 impl ir::Expr {
     pub fn cond_to_viper<'a>(
@@ -47,64 +47,72 @@ impl<'a> TryToViper<'a> for ir::UnOp {
     }
 }
 
+fn translate_op<'a>(
+    ast: viper::AstFactory<'a>,
+    optype: BinOpType,
+    left: viper::Expr<'a>,
+    right: viper::Expr<'a>,
+) -> viper::Expr<'a> {
+    use ir::BinOpType::*;
+    match optype {
+        Add => ast.add(left, right),
+        Sub => ast.sub(left, right),
+        Mul => ast.mul(left, right),
+        Div => ast.div(left, right),
+        Modulo => ast.module(left, right),
+        Imp => ast.implies(left, right),
+        Iff => ast.eq_cmp(left, right),
+        BoolAnd => ast.and(left, right),
+        BoolOr => ast.or(left, right),
+        ViperNotEqual => ast.ne_cmp(left, right),
+        ViperEqual => ast.eq_cmp(left, right),
+        PancakeNotEqual => ast.ne_cmp(left, right),
+        PancakeEqual => ast.eq_cmp(left, right),
+        Lt => ast.lt_cmp(left, right),
+        Lte => ast.le_cmp(left, right),
+        Gt => ast.gt_cmp(left, right),
+        Gte => ast.ge_cmp(left, right),
+        x @ (BitAnd | BitOr | BitXor) => {
+            let lbv = ast.int_to_backend_bv(BV64, left);
+            let rbv = ast.int_to_backend_bv(BV64, right);
+            let bvop = match x {
+                BitAnd => ast.bv_binop(BinOpBv::BitAnd, BV64, lbv, rbv),
+                BitOr => ast.bv_binop(BinOpBv::BitOr, BV64, lbv, rbv),
+                BitXor => ast.bv_binop(BinOpBv::BitXor, BV64, lbv, rbv),
+                _ => unreachable!(),
+            };
+            ast.backend_bv_to_int(BV64, bvop)
+        }
+    }
+}
+
 impl<'a> TryToViper<'a> for ir::BinOp {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let is_annot = ctx.get_mode().is_annot();
-        let translate_op = |optype, left, right| {
-            let one = ast.int_lit(1);
-            let zero = ast.int_lit(0);
-            use ir::BinOpType::*;
-            match optype {
-                Add => ast.add(left, right),
-                Sub => ast.sub(left, right),
-                Mul => ast.mul(left, right),
-                Div => ast.div(left, right),
-                Modulo => ast.module(left, right),
-                Imp => ast.implies(left, right),
-                Iff => ast.eq_cmp(left, right),
-                BoolAnd => ast.and(left, right),
-                BoolOr => ast.or(left, right),
-                ViperNotEqual => ast.ne_cmp(left, right),
-                ViperEqual => ast.eq_cmp(left, right),
-
-                x @ (PancakeNotEqual | PancakeEqual | Lt | Lte | Gt | Gte) => {
-                    let cond = match x {
-                        PancakeNotEqual => ast.ne_cmp(left, right),
-                        PancakeEqual => ast.eq_cmp(left, right),
-                        Lt => ast.lt_cmp(left, right),
-                        Lte => ast.le_cmp(left, right),
-                        Gt => ast.gt_cmp(left, right),
-                        Gte => ast.ge_cmp(left, right),
-                        _ => unreachable!(),
-                    };
-                    if is_annot {
-                        cond
-                    } else {
-                        ast.cond_exp(cond, one, zero)
-                    }
-                }
-
-                x @ (BitAnd | BitOr | BitXor) => {
-                    let lbv = ast.int_to_backend_bv(BV64, left);
-                    let rbv = ast.int_to_backend_bv(BV64, right);
-                    let bvop = match x {
-                        BitAnd => ast.bv_binop(BinOpBv::BitAnd, BV64, lbv, rbv),
-                        BitOr => ast.bv_binop(BinOpBv::BitOr, BV64, lbv, rbv),
-                        BitXor => ast.bv_binop(BinOpBv::BitXor, BV64, lbv, rbv),
-                        _ => unreachable!(),
-                    };
-                    ast.backend_bv_to_int(BV64, bvop)
-                }
-            }
-        };
         let binop = translate_op(
+            ast,
             self.optype,
             self.left.to_viper(ctx)?,
             self.right.to_viper(ctx)?,
         );
-        Ok(if ctx.options.expr_unrolling && !is_annot {
+        let binop = if !is_annot {
+            use BinOpType::*;
+            match self.optype {
+                Add | Sub | Mul if ctx.options.bounded_arithmetic => {
+                    ast.module(binop, ctx.word_values())
+                }
+                Lt | Lte | Gt | Gte | PancakeEqual | PancakeNotEqual => {
+                    ast.cond_exp(binop, ast.one(), ast.zero())
+                }
+                _ => binop,
+            }
+        } else {
+            binop
+        };
+
+        if ctx.options.expr_unrolling && !is_annot {
             let typ = if is_annot {
                 self.optype.to_type()
             } else {
@@ -116,10 +124,13 @@ impl<'a> TryToViper<'a> for ir::BinOp {
             let ass = ast.local_var_assign(fresh_var.1, binop);
             ctx.declarations.push(fresh_var.0);
             ctx.stack.push(ass);
-            fresh_var.1
+
+            let assertion = ast.assert(ctx.word_bound(fresh_var.1), ast.no_position());
+            ctx.stack.push(assertion);
+            Ok(fresh_var.1)
         } else {
-            binop
-        })
+            Ok(binop)
+        }
     }
 }
 

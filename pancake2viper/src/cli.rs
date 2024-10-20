@@ -17,6 +17,18 @@ pub struct CliOptions {
     )]
     pub tac: bool,
 
+    #[arg(
+        long,
+        help = "Check that variables don't under- or overflow their size"
+    )]
+    pub check_overflows: bool,
+
+    #[arg(
+        long,
+        help = "Model arithmetic operations as bounded (implicit under- or overflows)"
+    )]
+    pub bounded_arithmetic: bool,
+
     #[arg(long, help = "Removes assertions for alignment of memory operations")]
     pub disable_assert_alignment: bool,
 
@@ -67,6 +79,8 @@ impl From<CliOptions> for EncodeOptions {
             assert_aligned_accesses: !value.disable_assert_alignment,
             word_size: value.word_size.into(),
             heap_size: value.heap_size,
+            check_overflows: value.check_overflows,
+            bounded_arithmetic: value.bounded_arithmetic,
         }
     }
 }
