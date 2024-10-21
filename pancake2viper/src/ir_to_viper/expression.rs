@@ -1,9 +1,9 @@
+use viper::BinOpBv;
 use viper::BvSize::BV64;
-use viper::{AstFactory, BinOpBv};
 
 use crate::utils::{
-    Mangler, Shape, ToType, ToViper, ToViperError, ToViperType, TryToShape, TryToViper,
-    ViperEncodeCtx, ViperUtils,
+    Mangler, Shape, ToType, ToViper, ToViperError, ToViperType, TranslationMode, TryToShape,
+    TryToViper, ViperEncodeCtx, ViperUtils,
 };
 
 use crate::ir::{self, BinOpType, Type};
@@ -19,7 +19,10 @@ impl ir::Expr {
                 self.to_shape(ctx.typectx_get_mut())?,
             ));
         }
-        Ok(ast.ne_cmp(self.to_viper(ctx)?, ast.int_lit(0)))
+        ctx.set_mode(TranslationMode::WhileCond);
+        let cond = self.to_viper(ctx)?;
+        ctx.set_mode(TranslationMode::Normal);
+        Ok(ast.ne_cmp(cond, ast.int_lit(0)))
     }
 
     // TODO: this could well be a function pointer. If we stick to only using
@@ -125,8 +128,18 @@ impl<'a> TryToViper<'a> for ir::BinOp {
             ctx.declarations.push(fresh_var.0);
             ctx.stack.push(ass);
 
-            let assertion = ast.assert(ctx.word_bound(fresh_var.1), ast.no_position());
-            ctx.stack.push(assertion);
+            if let TranslationMode::WhileCond = ctx.get_mode() {
+                let assumption = ast.inhale(ast.eq_cmp(fresh_var.1, binop), ast.no_position());
+                ctx.while_stack.push(assumption);
+            }
+
+            if ctx.options.check_overflows {
+                let assertion = ast.assert(ctx.word_bound(fresh_var.1), ast.no_position());
+                ctx.stack.push(assertion);
+                if let TranslationMode::WhileCond = ctx.get_mode() {
+                    ctx.while_stack.push(assertion);
+                }
+            }
             Ok(fresh_var.1)
         } else {
             Ok(binop)

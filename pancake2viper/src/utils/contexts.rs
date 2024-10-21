@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use viper::{AstFactory, Declaration, LocalVarDecl};
 
 use crate::{
-    ir::{types::Type, AnnotationType},
+    ir::{self, types::Type, AnnotationType},
     viper_prelude::IArrayHelper,
 };
 
@@ -15,12 +15,13 @@ pub enum TranslationMode {
     Normal,
     PrePost,
     Assertion,
+    WhileCond,
 }
 
 impl TranslationMode {
     pub fn is_annot(&self) -> bool {
         match self {
-            Self::Normal => false,
+            Self::Normal | Self::WhileCond => false,
             Self::Assertion | Self::PrePost => true,
         }
     }
@@ -87,6 +88,7 @@ pub struct ViperEncodeCtx<'a> {
     mode: TranslationMode,
     pub ast: AstFactory<'a>,
     pub stack: Vec<viper::Stmt<'a>>,
+    pub while_stack: Vec<viper::Stmt<'a>>,
     pub declarations: Vec<viper::LocalVarDecl<'a>>,
     while_counter: u64,
     types: TypeContext,
@@ -134,6 +136,7 @@ impl<'a> ViperEncodeCtx<'a> {
             mode: TranslationMode::Normal,
             ast,
             stack: vec![],
+            while_stack: vec![],
             declarations: vec![],
             types,
             while_counter: 0,
@@ -152,6 +155,7 @@ impl<'a> ViperEncodeCtx<'a> {
             mode: self.mode,
             ast: self.ast,
             stack: vec![],
+            while_stack: vec![],
             declarations: vec![],
             types: self.types.child(),
             while_counter: self.while_counter,
