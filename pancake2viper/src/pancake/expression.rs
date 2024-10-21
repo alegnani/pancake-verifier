@@ -77,7 +77,6 @@ pub struct Shift {
 
 #[derive(Debug, Clone)]
 pub struct ExprCall {
-    pub expected_rettype: Shape,
     pub fname: Box<Expr>,
     pub args: Vec<Expr>,
 }

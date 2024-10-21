@@ -98,16 +98,14 @@ impl Expr {
             })),
             [Symbol(base)] if base == "BaseAddr" => Ok(Self::BaseAddr),
             [Symbol(bytes)] if bytes == "BytesInWord" => Ok(Self::BytesInWord),
-            [Symbol(op), List(label), List(args), Symbol(ret)] if op == "call" => {
+            [Symbol(op), List(label), List(args), Symbol(_ret)] if op == "call" => {
                 Ok(Self::Call(ExprCall {
-                    expected_rettype: Shape::parse(ret)?,
                     fname: Box::new(Self::parse(label)?),
                     args: Self::parse_slice(args)?,
                 }))
             }
             [Symbol(op), List(label), List(args), Int(_)] if op == "call" => {
                 Ok(Self::Call(ExprCall {
-                    expected_rettype: Shape::Simple,
                     fname: Box::new(Self::parse(label)?),
                     args: Self::parse_slice(args)?,
                 }))
@@ -263,14 +261,12 @@ impl Stmt {
             })),
             [Symbol(op), List(label), List(args), Symbol(ret)] if op == "call" => {
                 Ok(Self::Call(Call {
-                    rettype: ret.into(),
                     fname: Expr::parse(label)?,
                     args: Expr::parse_slice(args)?,
                 }))
             }
             [Symbol(op), List(label), List(args), Int(_ret)] if op == "call" => {
                 Ok(Self::Call(Call {
-                    rettype: "todo_call".into(),
                     fname: Expr::parse(label)?,
                     args: Expr::parse_slice(args)?,
                 }))
