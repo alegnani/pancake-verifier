@@ -36,12 +36,13 @@ impl TryToIR for pancake::Load {
     }
 }
 
-impl TryToIR for pancake::LoadByte {
-    type Output = ir::LoadByte;
+impl TryToIR for pancake::LoadBits {
+    type Output = ir::LoadBits;
 
     fn to_ir(self) -> Result<Self::Output, crate::utils::TranslationError> {
         Ok(Self::Output {
             address: Box::new(self.address.to_ir()?),
+            size: self.size.to_ir()?,
         })
     }
 }
@@ -152,7 +153,7 @@ impl TryToIR for pancake::Expr {
             Struct(struc) => Self::Output::Struct(struc.to_ir()?),
             Field(field) => Self::Output::Field(field.to_ir()?),
             Load(load) => Self::Output::Load(load.to_ir()?),
-            LoadByte(load) => Self::Output::LoadByte(load.to_ir()?),
+            LoadBits(load) => Self::Output::LoadBits(load.to_ir()?),
             Op(o) if o.operands.len() == 1 => Self::Output::UnOp(o.to_ir()?),
             Op(o) => Self::Output::BinOp(o.to_ir()?),
             Shift(shift) => Self::Output::Shift(shift.to_ir()?),

@@ -116,7 +116,6 @@ pub struct While {
 
 #[derive(Debug, Clone)]
 pub struct Call {
-    pub rettype: String,
     pub fname: Expr,
     pub args: Vec<Expr>,
 }
