@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use viper::{AstFactory, Declaration, LocalVarDecl};
 
 use crate::{
-    ir::{self, types::Type, AnnotationType},
+    ir::{types::Type, AnnotationType},
     viper_prelude::IArrayHelper,
 };
 
