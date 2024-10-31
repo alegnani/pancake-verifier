@@ -2,7 +2,7 @@ use strum::EnumString;
 
 use crate::utils::Shape;
 
-use super::Type;
+use super::{MemOpBytes, Type};
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -12,7 +12,7 @@ pub enum Expr {
     Struct(Struct),
     Field(Field),
     Load(Load),
-    LoadByte(LoadByte),
+    LoadBits(LoadBits),
     BinOp(BinOp),
     UnOp(UnOp),
     Shift(Shift),
@@ -49,8 +49,9 @@ pub struct Load {
 }
 
 #[derive(Debug, Clone)]
-pub struct LoadByte {
+pub struct LoadBits {
     pub address: Box<Expr>,
+    pub size: MemOpBytes,
 }
 
 #[derive(Debug, Clone)]

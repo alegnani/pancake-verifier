@@ -20,7 +20,7 @@ impl ExprTypeResolution for ir::Expr {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError> {
         use ir::Expr::*;
         match self {
-            Const(_) | LoadByte(_) | Shift(_) | BaseAddr | BytesInWord | ArrayAccess(_)
+            Const(_) | LoadBits(_) | Shift(_) | BaseAddr | BytesInWord | ArrayAccess(_)
             | FieldAccessChain(_) => Ok(Type::Int),
             BinOp(_) => Ok(Type::Int), // FIXME
             UnOp(_) => Ok(Type::Int),

@@ -30,6 +30,10 @@ impl MemOpBytes {
             Self::Word => 64,
         }
     }
+
+    pub fn bytes(&self) -> u32 {
+        self.bits() / 8
+    }
 }
 
 impl From<u64> for MemOpBytes {

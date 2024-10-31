@@ -35,7 +35,7 @@ impl Mangleable for ir::Expr {
             Struct(struc) => struc.elements.mangle(mangler)?,
             Field(field) => field.obj.mangle(mangler)?,
             Load(load) => load.address.mangle(mangler)?,
-            LoadByte(load) => load.address.mangle(mangler)?,
+            LoadBits(load) => load.address.mangle(mangler)?,
             UnOp(op) => op.right.mangle(mangler)?,
             BinOp(op) => {
                 op.left.mangle(mangler)?;
