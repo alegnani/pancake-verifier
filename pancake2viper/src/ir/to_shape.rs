@@ -48,7 +48,7 @@ impl TryToShape for ir::Expr {
             MethodCall(call) => ctx.get_function_type(&call.fname)?.to_shape(ctx),
             FunctionCall(call) => ctx.get_function_type(&call.fname)?.to_shape(ctx),
             x => Ok(match x {
-                Const(_) | UnOp(_) | BinOp(_) | Shift(_) | LoadByte(_) | Quantified(_)
+                Const(_) | UnOp(_) | BinOp(_) | Shift(_) | LoadBits(_) | Quantified(_)
                 | ArrayAccess(_) | AccessPredicate(_) | FieldAccessChain(_) | BaseAddr
                 | BytesInWord => Shape::Simple,
                 Var(var) => ctx.get_type_no_mangle(var)?.to_shape(ctx)?,

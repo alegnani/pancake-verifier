@@ -429,7 +429,7 @@ impl<'a> TryToViper<'a> for ir::Expr {
             AccessPredicate(acc) => acc.to_viper(ctx),
             UnfoldingIn(u) => u.to_viper(ctx),
             Load(load) => load.to_viper(ctx),
-            LoadByte(load) => load.to_viper(ctx),
+            LoadBits(load) => load.to_viper(ctx),
             Ternary(ternary) => ternary.to_viper(ctx),
             AccessSlice(slice) => slice.to_viper(ctx),
             x => Ok(match x {

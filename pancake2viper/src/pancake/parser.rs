@@ -73,8 +73,9 @@ impl Expr {
                 obj: Box::new(Self::parse(exp)?),
             })),
             [Symbol(memloadbyte), List(exp)] if memloadbyte == "MemLoadByte" => {
-                Ok(Self::LoadByte(LoadByte {
+                Ok(Self::LoadBits(LoadBits {
                     address: Box::new(Self::parse(exp)?),
+                    size: MemOpBytes::Byte,
                 }))
             }
             [Symbol(memload), Symbol(shape), List(exp)] if memload == "MemLoad" => {
@@ -193,7 +194,7 @@ impl Stmt {
                 Ok(Self::SharedStoreBits(SharedStoreBits {
                     address: Expr::parse(addr)?,
                     value: Expr::parse(exp)?,
-                    size: MemOpBytes::Byte,
+                    size: MemOpBytes::HalfWord,
                 }))
             }
 
