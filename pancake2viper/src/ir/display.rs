@@ -55,7 +55,7 @@ impl Display for Expr {
             Self::BaseAddr => write!(f, "@base"),
             Self::BytesInWord => write!(f, "@biw"),
             Self::UnOp(op) => write!(f, "{}{}", op.optype, op.right),
-            Self::BinOp(op) => write!(f, "(){} {} {})", op.left, op.optype, op.right),
+            Self::BinOp(op) => write!(f, "({} {} {})", op.left, op.optype, op.right),
             Self::Shift(shift) => {
                 write!(f, "(){} {} {})", shift.value, shift.shifttype, shift.amount)
             }
