@@ -1,5 +1,4 @@
 fun dostuff() {
-    /*@ ensures acc(retval[0..2], read) @*/
     /*@ ensures retval.0 == 1 @*/
     /*@ ensures retval.1 == 2 @*/
     return < 1, 2 >;

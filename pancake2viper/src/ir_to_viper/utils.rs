@@ -68,14 +68,24 @@ impl FnDec {
                 let retval = ast.local_var(&self.retvar, struc.to_viper_type(ctx));
                 let len = ast.int_lit(struc.len() as i64);
                 let len_post = ast.eq_cmp(ctx.iarray.len_f(retval), len);
+                // Access to returned struct
+                let perm = ctx
+                    .iarray
+                    .array_acc_expr(retval, ast.zero(), len, ast.full_perm());
+
                 // Bound of all elements
                 let i = ast.new_var("i", ast.int_type());
                 let guard = ast.and(
                     ast.le_cmp(ast.zero(), i.1),
                     ast.lt_cmp(i.1, ctx.iarray.len_f(retval)),
                 );
+                let bounded = ast.forall(
+                    &[i.0],
+                    &[],
+                    ast.implies(guard, ctx.utils.bounded_f(ctx.iarray.access(retval, i.1))),
+                );
 
-                vec![len_post]
+                vec![len_post, perm, bounded]
             }
             _ => unreachable!(),
         }
