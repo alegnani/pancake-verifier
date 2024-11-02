@@ -134,7 +134,7 @@ impl<'a> TryToViper<'a> for ir::BinOp {
             }
 
             if ctx.options.check_overflows {
-                let assertion = ast.assert(ctx.word_bound(fresh_var.1), ast.no_position());
+                let assertion = ast.assert(ctx.utils.bounded_f(fresh_var.1), ast.no_position());
                 ctx.stack.push(assertion);
                 if let TranslationMode::WhileCond = ctx.get_mode() {
                     ctx.while_stack.push(assertion);

@@ -4,7 +4,7 @@ use viper::{AstFactory, Declaration, LocalVarDecl};
 
 use crate::{
     ir::{types::Type, AnnotationType},
-    viper_prelude::IArrayHelper,
+    viper_prelude::{utils::Utils, IArrayHelper},
 };
 
 use super::{mangler::Mangler, TranslationError, ViperUtils, RESERVED};
@@ -93,6 +93,7 @@ pub struct ViperEncodeCtx<'a> {
     while_counter: u64,
     types: TypeContext,
     pub iarray: IArrayHelper<'a>,
+    pub utils: Utils<'a>,
     pub options: EncodeOptions,
 
     pub pres: Vec<viper::Expr<'a>>,
@@ -120,7 +121,7 @@ impl Default for EncodeOptions {
             word_size: 64,
             heap_size: 16 * 1024,
             check_overflows: true,
-            bounded_arithmetic: true,
+            bounded_arithmetic: false,
         }
     }
 }
@@ -141,6 +142,7 @@ impl<'a> ViperEncodeCtx<'a> {
             types,
             while_counter: 0,
             iarray: IArrayHelper::new(ast),
+            utils: Utils::new(ast),
             options,
             pres: vec![],
             posts: vec![],
@@ -160,6 +162,7 @@ impl<'a> ViperEncodeCtx<'a> {
             types: self.types.child(),
             while_counter: self.while_counter,
             iarray: self.iarray,
+            utils: self.utils,
             options: self.options,
             pres: vec![],
             posts: vec![],
@@ -261,12 +264,5 @@ impl<'a> ViperEncodeCtx<'a> {
             ast.int_lit(4),
             ast.int_lit(2i64.pow(self.options.word_size as u32 - 2)),
         )
-    }
-
-    pub fn word_bound(&self, expr: viper::Expr<'a>) -> viper::Expr<'a> {
-        let ast = self.ast;
-        let lower_bound = ast.le_cmp(ast.zero(), expr);
-        let upper_bound = ast.lt_cmp(expr, self.word_values());
-        ast.and(lower_bound, upper_bound)
     }
 }
