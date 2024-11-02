@@ -26,16 +26,18 @@ impl Arg {
     ///
     /// If an `Arg` is not of shape `1` it is encoded as an `IArray`.
     /// We can automatically infer the length of the `IArray` given we know its shape.
-    pub fn permission<'a>(&self, ctx: &ViperEncodeCtx<'a>) -> Option<Expr<'a>> {
+    /// We also assert that all the elements of the IArray or the single Int are bounded
+    pub fn precondition<'a>(&self, ctx: &ViperEncodeCtx<'a>) -> Option<Expr<'a>> {
         let ast = ctx.ast;
+        let arg_var = ctx.ast.new_var(&self.name, self.typ.to_viper_type(ctx)).1;
 
         match &self.typ {
             ir::Type::Struct(_) => {
-                let arg_var = ctx.ast.new_var(&self.name, self.typ.to_viper_type(ctx)).1;
                 let length = ast.int_lit(self.typ.len() as i64);
                 let length_pre = ast.eq_cmp(ctx.iarray.len_f(arg_var), length);
                 Some(length_pre)
             }
+            ir::Type::Int => Some(ctx.utils.bounded_f(arg_var)),
             _ => None,
         }
     }
@@ -54,14 +56,26 @@ impl<'a> ToViperType<'a> for ir::Type {
 }
 
 impl FnDec {
-    pub fn permission<'a>(&self, ctx: &ViperEncodeCtx<'a>) -> Vec<Expr<'a>> {
+    pub fn postcondition<'a>(&self, ctx: &ViperEncodeCtx<'a>) -> Vec<Expr<'a>> {
         let ast = ctx.ast;
         match ctx.get_type(&self.retvar).unwrap() {
-            Type::Int => vec![],
+            Type::Int => {
+                let retval = ast.local_var(&self.retvar, ast.int_type());
+                vec![ctx.utils.bounded_f(retval)]
+            }
             struc @ Type::Struct(_) => {
+                // Length of the returned `IArray`
                 let retval = ast.local_var(&self.retvar, struc.to_viper_type(ctx));
                 let len = ast.int_lit(struc.len() as i64);
-                vec![ast.eq_cmp(ctx.iarray.len_f(retval), len)]
+                let len_post = ast.eq_cmp(ctx.iarray.len_f(retval), len);
+                // Bound of all elements
+                let i = ast.new_var("i", ast.int_type());
+                let guard = ast.and(
+                    ast.le_cmp(ast.zero(), i.1),
+                    ast.lt_cmp(i.1, ctx.iarray.len_f(retval)),
+                );
+
+                vec![len_post]
             }
             _ => unreachable!(),
         }
