@@ -2,11 +2,11 @@ use viper::BinOpBv;
 use viper::BvSize::BV64;
 
 use crate::utils::{
-    Mangler, Shape, ToViper, ToViperError, ToViperType, TryToShape, TryToViper, ViperEncodeCtx,
-    ViperUtils,
+    Mangler, Shape, ToType, ToViper, ToViperError, ToViperType, TranslationMode, TryToShape,
+    TryToViper, ViperEncodeCtx, ViperUtils,
 };
 
-use crate::ir::{self};
+use crate::ir::{self, BinOpType, Type};
 
 impl ir::Expr {
     pub fn cond_to_viper<'a>(
@@ -19,7 +19,10 @@ impl ir::Expr {
                 self.to_shape(ctx.typectx_get_mut())?,
             ));
         }
-        Ok(ast.ne_cmp(self.to_viper(ctx)?, ast.int_lit(0)))
+        ctx.set_mode(TranslationMode::WhileCond);
+        let cond = self.to_viper(ctx)?;
+        ctx.set_mode(TranslationMode::Normal);
+        Ok(ast.ne_cmp(cond, ast.int_lit(0)))
     }
 
     // TODO: this could well be a function pointer. If we stick to only using
@@ -47,76 +50,100 @@ impl<'a> TryToViper<'a> for ir::UnOp {
     }
 }
 
+fn translate_op<'a>(
+    ast: viper::AstFactory<'a>,
+    optype: BinOpType,
+    left: viper::Expr<'a>,
+    right: viper::Expr<'a>,
+) -> viper::Expr<'a> {
+    use ir::BinOpType::*;
+    match optype {
+        Add => ast.add(left, right),
+        Sub => ast.sub(left, right),
+        Mul => ast.mul(left, right),
+        Div => ast.div(left, right),
+        Modulo => ast.module(left, right),
+        Imp => ast.implies(left, right),
+        Iff => ast.eq_cmp(left, right),
+        BoolAnd => ast.and(left, right),
+        BoolOr => ast.or(left, right),
+        ViperNotEqual => ast.ne_cmp(left, right),
+        ViperEqual => ast.eq_cmp(left, right),
+        PancakeNotEqual => ast.ne_cmp(left, right),
+        PancakeEqual => ast.eq_cmp(left, right),
+        Lt => ast.lt_cmp(left, right),
+        Lte => ast.le_cmp(left, right),
+        Gt => ast.gt_cmp(left, right),
+        Gte => ast.ge_cmp(left, right),
+        x @ (BitAnd | BitOr | BitXor) => {
+            let lbv = ast.int_to_backend_bv(BV64, left);
+            let rbv = ast.int_to_backend_bv(BV64, right);
+            let bvop = match x {
+                BitAnd => ast.bv_binop(BinOpBv::BitAnd, BV64, lbv, rbv),
+                BitOr => ast.bv_binop(BinOpBv::BitOr, BV64, lbv, rbv),
+                BitXor => ast.bv_binop(BinOpBv::BitXor, BV64, lbv, rbv),
+                _ => unreachable!(),
+            };
+            ast.backend_bv_to_int(BV64, bvop)
+        }
+    }
+}
+
 impl<'a> TryToViper<'a> for ir::BinOp {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let is_annot = ctx.get_mode().is_annot();
-        let translate_op = |optype, left, right| {
-            let one = ast.int_lit(1);
-            let zero = ast.int_lit(0);
-            use ir::BinOpType::*;
-            match optype {
-                Add => ast.add(left, right),
-                Sub => ast.sub(left, right),
-                Mul => ast.mul(left, right),
-                Div => ast.div(left, right),
-                Modulo => ast.module(left, right),
-                Imp => ast.implies(left, right),
-                Iff => ast.eq_cmp(left, right),
-                BoolAnd => ast.and(left, right),
-                BoolOr => ast.or(left, right),
-                ViperNotEqual => ast.ne_cmp(left, right),
-                ViperEqual => ast.eq_cmp(left, right),
-
-                x @ (PancakeNotEqual | PancakeEqual | Lt | Lte | Gt | Gte) => {
-                    let cond = match x {
-                        PancakeNotEqual => ast.ne_cmp(left, right),
-                        PancakeEqual => ast.eq_cmp(left, right),
-                        Lt => ast.lt_cmp(left, right),
-                        Lte => ast.le_cmp(left, right),
-                        Gt => ast.gt_cmp(left, right),
-                        Gte => ast.ge_cmp(left, right),
-                        _ => unreachable!(),
-                    };
-                    if is_annot {
-                        cond
-                    } else {
-                        ast.cond_exp(cond, one, zero)
-                    }
-                }
-
-                x @ (BitAnd | BitOr | BitXor) => {
-                    let lbv = ast.int_to_backend_bv(BV64, left);
-                    let rbv = ast.int_to_backend_bv(BV64, right);
-                    let bvop = match x {
-                        BitAnd => ast.bv_binop(BinOpBv::BitAnd, BV64, lbv, rbv),
-                        BitOr => ast.bv_binop(BinOpBv::BitOr, BV64, lbv, rbv),
-                        BitXor => ast.bv_binop(BinOpBv::BitXor, BV64, lbv, rbv),
-                        _ => unreachable!(),
-                    };
-                    ast.backend_bv_to_int(BV64, bvop)
-                }
-            }
-        };
-        //         if ctx.options.expr_unrolling {
-        //     let typ = ast.int_type();
-        //     let fresh = ctx.fresh_var();
-        //     let (var_decl, var) = ast.new_var(&fresh, typ);
-        //     ctx.set_type(fresh, Shape::Simple);
-        //     let right = expr.to_viper(ctx);
-        //     let rhs = translate_op(self.optype, acc, right);
-        //     let ass = ast.local_var_assign(var, rhs);
-        //     ctx.declarations.push(var_decl);
-        //     ctx.stack.push(ass);
-
-        //     (ctx, var)
-        // } else {
-        Ok(translate_op(
+        let binop = translate_op(
+            ast,
             self.optype,
             self.left.to_viper(ctx)?,
             self.right.to_viper(ctx)?,
-        ))
+        );
+        let binop = if !is_annot {
+            use BinOpType::*;
+            match self.optype {
+                Add | Sub | Mul if ctx.options.bounded_arithmetic => {
+                    ast.module(binop, ctx.word_values())
+                }
+                Lt | Lte | Gt | Gte | PancakeEqual | PancakeNotEqual => {
+                    ast.cond_exp(binop, ast.one(), ast.zero())
+                }
+                _ => binop,
+            }
+        } else {
+            binop
+        };
+
+        if ctx.options.expr_unrolling && !is_annot {
+            let typ = if is_annot {
+                self.optype.to_type()
+            } else {
+                Type::Int
+            };
+            let fresh = Mangler::fresh_varname();
+            let fresh_var = ast.new_var(&fresh, typ.to_viper_type(ctx));
+            ctx.set_type(fresh, typ);
+            let ass = ast.local_var_assign(fresh_var.1, binop);
+            ctx.declarations.push(fresh_var.0);
+            ctx.stack.push(ass);
+
+            if let TranslationMode::WhileCond = ctx.get_mode() {
+                let assumption = ast.inhale(ast.eq_cmp(fresh_var.1, binop), ast.no_position());
+                ctx.while_stack.push(assumption);
+            }
+
+            if ctx.options.check_overflows {
+                let assertion = ast.assert(ctx.utils.bounded_f(fresh_var.1), ast.no_position());
+                ctx.stack.push(assertion);
+                if let TranslationMode::WhileCond = ctx.get_mode() {
+                    ctx.while_stack.push(assertion);
+                }
+            }
+            Ok(fresh_var.1)
+        } else {
+            Ok(binop)
+        }
     }
 }
 
@@ -254,6 +281,7 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
                 args.insert(0, ctx.heap_var().1);
                 ast.predicate_access_predicate(ast.predicate_access(&args, pred), ast.full_perm())
             }
+            "f_bounded" => ctx.utils.bounded_f(args[0]),
             fname => {
                 args.insert(0, ctx.heap_var().1);
                 let ret_type = ctx

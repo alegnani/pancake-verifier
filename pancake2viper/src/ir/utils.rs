@@ -1,9 +1,9 @@
-use crate::utils::Shape;
+use crate::utils::{Shape, ToType};
 
 use super::{
     expression::{Expr, Struct},
     statement::MemOpBytes,
-    Arg, Decl, Type,
+    Arg, BinOpType, Decl, Type,
 };
 
 impl Struct {
@@ -69,5 +69,16 @@ impl Type {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+}
+
+impl ToType for BinOpType {
+    fn to_type(&self) -> super::Type {
+        use BinOpType::*;
+        match self {
+            Gt | Gte | Lt | Lte | BoolAnd | BoolOr | ViperEqual | ViperNotEqual => Type::Bool,
+            PancakeEqual | PancakeNotEqual => Type::Bool, // FIXME: enforce `===` vs `==`
+            _ => Type::Int,
+        }
     }
 }
