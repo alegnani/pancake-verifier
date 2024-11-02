@@ -281,6 +281,7 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
                 args.insert(0, ctx.heap_var().1);
                 ast.predicate_access_predicate(ast.predicate_access(&args, pred), ast.full_perm())
             }
+            "f_bounded" => ctx.utils.bounded_f(args[0]),
             fname => {
                 args.insert(0, ctx.heap_var().1);
                 let ret_type = ctx
