@@ -462,6 +462,10 @@ impl<'a> TryToViper<'a> for ir::Expr {
             AccessSlice(slice) => slice.to_viper(ctx),
             x => Ok(match x {
                 Const(c) => ast.int_lit(c),
+                Var(name) if name == "result" => ast.result_with_pos(
+                    ctx.get_type("result")?.to_viper_type(ctx),
+                    ast.no_position(),
+                ),
                 Var(name) => ast.local_var(&name, ctx.get_type(&name)?.to_viper_type(ctx)),
                 Label(_) => todo!(), // XXX: not sure if we need this
                 BaseAddr => ast.int_lit(0),

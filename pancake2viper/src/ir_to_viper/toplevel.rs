@@ -106,6 +106,10 @@ impl<'a> TryToViper<'a> for Function {
             return Err(ToViperError::InvalidAnnotation(others));
         }
 
+        // set the type of `result` so it can be used in post-conditions
+        ctx.typectx_get_mut()
+            .set_type("result".into(), self.typ.clone());
+
         let pres = pres
             .into_iter()
             .map(|e| e.expr.to_viper(ctx))
