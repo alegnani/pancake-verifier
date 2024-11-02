@@ -6,6 +6,7 @@ fun main() {
 }
 
 fun foo(1 x) {
+    /*@ ensures 0 <= retval && retval < 256 @*/
     return x;
 }
 
