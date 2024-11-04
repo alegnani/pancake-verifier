@@ -138,7 +138,7 @@ impl<'a> TryToViper<'a> for ir::Assign {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let lhs_shape = ctx.get_type(&self.lhs)?;
-        let rhs_shape = self.rhs.to_shape(ctx.typectx_get())?;
+        // let rhs_shape = self.rhs.to_shape(ctx.typectx_get())?;
         // FIXME: add type checking
         // if lhs_shape != rhs_shape {
         //     return Err(ToViperError::MismatchedShapes(lhs_shape, rhs_shape));

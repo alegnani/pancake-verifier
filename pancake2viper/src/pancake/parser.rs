@@ -260,7 +260,7 @@ impl Stmt {
                 cond: Expr::parse(cond)?,
                 body: Box::new(Self::parse_symbol(body)?),
             })),
-            [Symbol(op), List(label), List(args), Symbol(ret)] if op == "call" => {
+            [Symbol(op), List(label), List(args), Symbol(_ret)] if op == "call" => {
                 Ok(Self::Call(Call {
                     fname: Expr::parse(label)?,
                     args: Expr::parse_slice(args)?,

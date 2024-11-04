@@ -7,7 +7,7 @@ use crate::{
     viper_prelude::{utils::Utils, IArrayHelper},
 };
 
-use super::{mangler::Mangler, TranslationError, ViperUtils, RESERVED};
+use super::{mangler::Mangler, TranslationError, RESERVED};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum TranslationMode {

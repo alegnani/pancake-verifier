@@ -3,7 +3,6 @@ use std::env;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use anyhow::anyhow;
 use dashmap::DashMap;
 use expanduser::expanduser;
 use notification::ShowMessage;
@@ -15,8 +14,6 @@ use tokio::sync::Mutex;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
-
-use tracing::{event, Level};
 
 // #[derive(Debug)]
 struct Backend {
