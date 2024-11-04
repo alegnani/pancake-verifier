@@ -1,4 +1,4 @@
-name: Build binaries
+name: Run tests
 
 on:
   push:
@@ -8,7 +8,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
 
     env:
@@ -68,17 +68,5 @@ jobs:
         run: |
           echo "CAKE_ML=${CAKE_ML_INSTALL}/cake" >> $GITHUB_ENV
 
-      - name: Build 
-        run: cargo build --release --verbose
-
-      - name: Save pancake2viper
-        uses: actions/upload-artifact@v4
-        with:
-          name: pancake2viper
-          path: target/release/pancake2viper
-
-      - name: Save language server
-        uses: actions/upload-artifact@v4
-        with:
-          name: pancake-language-server
-          path: target/release/pancake-language-server
+      - name: Run tests
+        run: cargo test -p pancake2viper --release --verbose -- --test-threads=1
