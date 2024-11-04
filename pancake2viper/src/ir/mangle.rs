@@ -52,6 +52,7 @@ impl Mangleable for ir::Expr {
             }
             Quantified(quant) => {
                 quant.decls.mangle(mangler)?;
+                quant.triggers.mangle(mangler)?;
                 quant.body.mangle(mangler)?
             }
             ArrayAccess(access) => {
@@ -69,6 +70,7 @@ impl Mangleable for ir::Expr {
                 tern.left.mangle(mangler)?;
                 tern.right.mangle(mangler)?
             }
+            // XXX: should the indices be expressions instead of ints?
             AccessSlice(slice) => slice.field.mangle(mangler)?,
             Old(old) => old.expr.mangle(mangler)?,
         }
