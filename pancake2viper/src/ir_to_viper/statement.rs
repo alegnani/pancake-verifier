@@ -11,7 +11,9 @@ impl<'a> TryToViper<'a> for ir::Stmt {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         use ir::Stmt::*;
-        ctx.stack.push(ast.comment(&format!("Stmt: {}", self)));
+        if ctx.options.debug_comments {
+            ctx.stack.push(ast.comment(&format!("Stmt: {}", self)));
+        }
         let stmt = match self {
             Skip => ast.comment("skip"),
             Break => ast.goto(&ctx.outer_break_label()),

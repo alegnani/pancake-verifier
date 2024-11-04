@@ -111,6 +111,7 @@ pub struct EncodeOptions {
     pub heap_size: u64,
     pub check_overflows: bool,
     pub bounded_arithmetic: bool,
+    pub debug_comments: bool,
 }
 
 impl Default for EncodeOptions {
@@ -122,6 +123,7 @@ impl Default for EncodeOptions {
             heap_size: 16 * 1024,
             check_overflows: true,
             bounded_arithmetic: false,
+            debug_comments: false,
         }
     }
 }

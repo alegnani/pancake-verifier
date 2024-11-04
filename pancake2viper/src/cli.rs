@@ -70,6 +70,9 @@ pub struct CliOptions {
 
     #[arg(short, long, help = "Verify the Pancake code")]
     pub verify: bool,
+
+    #[arg(long, help = "Add debug comments to transpiled Viper")]
+    pub debug_comments: bool,
 }
 
 impl From<CliOptions> for EncodeOptions {
@@ -81,6 +84,7 @@ impl From<CliOptions> for EncodeOptions {
             heap_size: value.heap_size,
             check_overflows: value.check_overflows,
             bounded_arithmetic: value.bounded_arithmetic,
+            debug_comments: value.debug_comments,
         }
     }
 }
