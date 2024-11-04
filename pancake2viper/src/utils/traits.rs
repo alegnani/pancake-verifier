@@ -25,7 +25,7 @@ pub trait TypeResolution {
 }
 
 pub trait ExprTypeResolution {
-    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError>;
+    fn resolve_expr_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError>;
 }
 
 pub trait TryToViper<'a> {

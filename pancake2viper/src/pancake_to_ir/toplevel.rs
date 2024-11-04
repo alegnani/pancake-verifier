@@ -4,6 +4,8 @@ use crate::{
     utils::{ToType, TranslationError, TryToIR},
 };
 
+use super::utils::stmt_annotation_push;
+
 impl TryToIR for pancake::Arg {
     type Output = ir::Arg;
 
@@ -20,17 +22,20 @@ impl TryToIR for pancake::FnDec {
 
     fn to_ir(self) -> Result<Self::Output, TranslationError> {
         let args = self.args.to_ir()?;
-        let body = args.iter().fold(self.body.to_ir()?, |scope, arg| {
+        let mut body = args.iter().fold(self.body.to_ir()?, |scope, arg| {
             ir::Stmt::Definition(ir::Definition {
                 lhs: arg.name.clone(),
                 rhs: ir::Expr::Var(arg.name.clone()),
                 scope: Box::new(scope),
             })
         });
+        let (pres, posts) = stmt_annotation_push(&mut body);
         Ok(Self::Output {
             fname: self.fname,
             args,
             body,
+            pres,
+            posts,
             retvar: "retval".into(),
         })
     }

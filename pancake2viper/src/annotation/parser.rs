@@ -60,14 +60,35 @@ pub fn parse_predicate(pred: &str) -> Predicate {
     }
 }
 
+fn partition_annotation_types(
+    annotations: Vec<Annotation>,
+) -> (Vec<Annotation>, Vec<Annotation>, Vec<Annotation>) {
+    let (pres, others): (Vec<_>, Vec<_>) = annotations
+        .into_iter()
+        .partition(|e| matches!(e.typ, AnnotationType::Precondition));
+    let (posts, others): (Vec<_>, Vec<_>) = others
+        .into_iter()
+        .partition(|e| matches!(e.typ, AnnotationType::Postcondition));
+    (pres, posts, others)
+}
+
 pub fn parse_function(func: &str) -> Function {
     let (name, args, mut pair) = parse_toplevel_common(func, Rule::function);
     let typ = Type::from_pest(pair.next().unwrap());
-    let preposts = pair.next().unwrap().into_inner();
-    let preposts = preposts
-        .into_iter()
+
+    let preposts = pair
+        .next()
+        .unwrap()
+        .into_inner()
         .map(|e| parse_annot(e.as_str())) // XXX: this is stupid
         .collect();
+    let (pres, posts, others) = partition_annotation_types(preposts);
+    if !others.is_empty() {
+        panic!("Invalid annotation in Function pre-/post-condition");
+    }
+    let pres = pres.into_iter().map(|a| a.expr).collect();
+    let posts = posts.into_iter().map(|a| a.expr).collect();
+
     let body = pair.next().unwrap().into_inner();
     let body = if body.len() == 0 {
         None
@@ -78,7 +99,8 @@ pub fn parse_function(func: &str) -> Function {
         name,
         args: args.into_iter().map(Arg::from).collect(),
         typ,
-        preposts,
+        pres,
+        posts,
         body,
     }
 }
@@ -87,16 +109,26 @@ pub fn parse_method(met: &str) -> AbstractMethod {
     let (name, args, mut pair) = parse_toplevel_common(met, Rule::method);
     let rettyps = pair.next().unwrap().into_inner();
     let rettyps = rettyps.into_iter().map(|d| Decl::from_pest(d)).collect();
-    let preposts = pair.next().unwrap().into_inner();
-    let preposts = preposts
-        .into_iter()
+    let preposts = pair
+        .next()
+        .unwrap()
+        .into_inner()
         .map(|e| parse_annot(e.as_str()))
         .collect();
+
+    let (pres, posts, others) = partition_annotation_types(preposts);
+    if !others.is_empty() {
+        panic!("Invalid annotation in Function pre-/post-condition");
+    }
+    let pres = pres.into_iter().map(|a| a.expr).collect();
+    let posts = posts.into_iter().map(|a| a.expr).collect();
+
     AbstractMethod {
         name,
         args: args.into_iter().map(Arg::from).collect(),
         rettyps,
-        preposts,
+        pres,
+        posts,
     }
 }
 

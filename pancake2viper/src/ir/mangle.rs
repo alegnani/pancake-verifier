@@ -160,6 +160,8 @@ impl Mangleable for ir::FnDec {
         self.fname = Mangler::mangle_fn(&self.fname);
         self.retvar = mangler.new_mangled_var(self.retvar.clone(), VariableType::Argument)?;
         self.args.mangle(mangler)?;
+        self.pres.mangle(mangler)?;
+        self.posts.mangle(mangler)?;
         self.body.mangle(mangler)
     }
 }
@@ -178,7 +180,8 @@ impl Mangleable for ir::Function {
         mangler.switch_ctx(self.name.clone());
         self.name = Mangler::mangle_fn(&self.name);
         self.args.mangle(mangler)?;
-        self.preposts.mangle(mangler)?;
+        self.pres.mangle(mangler)?;
+        self.posts.mangle(mangler)?;
         self.body.mangle(mangler)
     }
 }
@@ -188,7 +191,8 @@ impl Mangleable for ir::AbstractMethod {
         mangler.switch_ctx(self.name.clone());
         self.name = Mangler::mangle_fn(&self.name);
         self.args.mangle(mangler)?;
-        self.preposts.mangle(mangler)
+        self.pres.mangle(mangler)?;
+        self.posts.mangle(mangler)
     }
 }
 

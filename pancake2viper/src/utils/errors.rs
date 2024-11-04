@@ -18,8 +18,8 @@ pub enum ToViperError {
     InvalidFold(ir::Expr),
     #[error("Assignment shape mismatch: Lhs: {0:?}, Rhs: {1:?}")]
     MismatchedShapes(Shape, Shape),
-    #[error("Only preconditions and postconditions can be specified, got {0:?}")]
-    InvalidAnnotation(Vec<ir::Annotation>),
+    #[error("Can't specify pre-/post-conditions in this position, consider moving it up")]
+    InvalidAnnotation,
 }
 
 #[derive(Error, Debug)]

@@ -118,9 +118,7 @@ impl<'a> TryToViper<'a> for ir::Definition {
         let ass = ast.local_var_assign(var.1, self.rhs.to_viper(ctx)?);
         let mut scope_ctx = ctx.child();
         let scope = self.scope.to_viper(&mut scope_ctx)?;
-        // Push not consumed invariants, pre- and postconditions up
-        ctx.pres.append(&mut scope_ctx.pres);
-        ctx.posts.append(&mut scope_ctx.posts);
+        // Push not consumed invariants up
         ctx.invariants.append(&mut scope_ctx.invariants);
 
         let decls = ctx.pop_decls();
@@ -207,22 +205,17 @@ impl<'a> TryToViper<'a> for ir::Annotation {
                 let body = self.expr.to_viper(ctx)?;
                 ctx.set_mode(TranslationMode::Normal);
                 ctx.mangler.clear_annot_var();
-                Ok(match x {
-                    Assertion => ast.assert(body, no_pos),
-                    Assumption | Inhale => ast.inhale(body, no_pos),
-                    Exhale => ast.exhale(body, no_pos),
-                    Refutation => ast.refute(body, no_pos),
-                    x @ (Invariant | Precondition | Postcondition) => {
-                        match x {
-                            Invariant => ctx.invariants.push(body),
-                            Precondition => ctx.pres.push(body),
-                            Postcondition => ctx.posts.push(body),
-                            _ => unreachable!(),
-                        };
-                        ast.comment("annotation pushed")
+                match x {
+                    Assertion => Ok(ast.assert(body, no_pos)),
+                    Assumption | Inhale => Ok(ast.inhale(body, no_pos)),
+                    Exhale => Ok(ast.exhale(body, no_pos)),
+                    Refutation => Ok(ast.refute(body, no_pos)),
+                    Invariant => {
+                        ctx.invariants.push(body);
+                        Ok(ast.comment("invariant pushed"))
                     }
-                    _ => unreachable!(),
-                })
+                    x => Err(ToViperError::InvalidAnnotation),
+                }
             }
         }
     }
