@@ -1,4 +1,6 @@
-WHITESPACE = _{ " " | "\t" | NEWLINE }
+// The Pancake compiler converts newlines and tabs into multiple characters '\' 'n' 
+// instead of using the newline character.
+WHITESPACE = _{ " " | "\\t" | "\t" | "\\r" | "\\n" | NEWLINE }
 
 integer = @{ ASCII_DIGIT+ }
 ident = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_" )* }
