@@ -11,6 +11,9 @@ impl<'a> TryToViper<'a> for ir::Stmt {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         use ir::Stmt::*;
+        if ctx.options.debug_comments {
+            ctx.stack.push(ast.comment(&format!("Stmt: {}", self)));
+        }
         let stmt = match self {
             Skip => ast.comment("skip"),
             Break => ast.goto(&ctx.outer_break_label()),
@@ -75,9 +78,11 @@ impl<'a> TryToViper<'a> for ir::While {
 
         let decls = ctx.pop_decls();
 
-        let mut body_seq = ctx.stack.clone();
+        let mut body_seq = ctx.while_stack.clone();
         body_seq.push(body);
         body_seq.push(ast.label(&ctx.current_continue_label(), &[]));
+        body_seq.extend(ctx.stack.clone());
+
         let body = ast.seqn(&body_seq, &[]);
 
         ctx.stack.push(ast.while_stmt(
@@ -86,6 +91,7 @@ impl<'a> TryToViper<'a> for ir::While {
             body,
         ));
         ctx.stack.push(ast.label(&ctx.current_break_label(), &[]));
+        ctx.stack.append(&mut ctx.while_stack);
         let seq = ast.seqn(&ctx.stack, &decls);
         ctx.stack.clear();
         Ok(seq)

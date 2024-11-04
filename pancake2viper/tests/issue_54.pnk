@@ -1,0 +1,4 @@
+fun main() {
+    /*@ requires forall i: Int:: { heap[i] } i >= 0 && i < 3 ==> acc(heap[i]) @*/
+    return 0;
+}

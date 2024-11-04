@@ -53,7 +53,7 @@ impl Mangler {
         if RESERVED.contains_key(name.as_str()) {
             return Err(MangleError::ReservedKeyword(name));
         }
-        let mangled = format!("{}_{}_{}", self.get_fname(), &name, get_inc_counter());
+        let mangled = format!("{}_{}", &name, get_inc_counter());
         let map = match (&typ, self.mode) {
             (VariableType::Variable, TranslationMode::Normal) => &mut self.var_map,
             (VariableType::Variable, _) => &mut self.annot_map,
@@ -95,7 +95,7 @@ impl Mangler {
         let maybe_annot = self.annot_map.get(var);
         let maybe_var = self.var_map.get(var);
         match self.mode {
-            TranslationMode::Normal => maybe_var.or(maybe_arg),
+            TranslationMode::Normal | TranslationMode::WhileCond => maybe_var.or(maybe_arg),
             TranslationMode::Assertion => maybe_annot.or(maybe_var),
             TranslationMode::PrePost => maybe_annot.or(maybe_arg),
         }

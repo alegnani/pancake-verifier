@@ -1,0 +1,8 @@
+fun foo() {
+    return < 0, 1>;
+}
+
+fun main() {
+    var 2 y = foo();
+    return y.0;
+}

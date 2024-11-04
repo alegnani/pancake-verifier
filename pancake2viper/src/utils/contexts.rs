@@ -4,10 +4,10 @@ use viper::{AstFactory, Declaration, LocalVarDecl};
 
 use crate::{
     ir::{types::Type, AnnotationType},
-    viper_prelude::IArrayHelper,
+    viper_prelude::{utils::Utils, IArrayHelper},
 };
 
-use super::{mangler::Mangler, Shape, TranslationError, RESERVED};
+use super::{mangler::Mangler, TranslationError, ViperUtils, RESERVED};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum TranslationMode {
@@ -15,12 +15,13 @@ pub enum TranslationMode {
     Normal,
     PrePost,
     Assertion,
+    WhileCond,
 }
 
 impl TranslationMode {
     pub fn is_annot(&self) -> bool {
         match self {
-            Self::Normal => false,
+            Self::Normal | Self::WhileCond => false,
             Self::Assertion | Self::PrePost => true,
         }
     }
@@ -87,10 +88,12 @@ pub struct ViperEncodeCtx<'a> {
     mode: TranslationMode,
     pub ast: AstFactory<'a>,
     pub stack: Vec<viper::Stmt<'a>>,
+    pub while_stack: Vec<viper::Stmt<'a>>,
     pub declarations: Vec<viper::LocalVarDecl<'a>>,
     while_counter: u64,
     types: TypeContext,
     pub iarray: IArrayHelper<'a>,
+    pub utils: Utils<'a>,
     pub options: EncodeOptions,
 
     pub pres: Vec<viper::Expr<'a>>,
@@ -106,15 +109,21 @@ pub struct EncodeOptions {
     pub assert_aligned_accesses: bool,
     pub word_size: u64,
     pub heap_size: u64,
+    pub check_overflows: bool,
+    pub bounded_arithmetic: bool,
+    pub debug_comments: bool,
 }
 
 impl Default for EncodeOptions {
     fn default() -> Self {
         Self {
-            expr_unrolling: false,
+            expr_unrolling: true,
             assert_aligned_accesses: true,
             word_size: 64,
             heap_size: 16 * 1024,
+            check_overflows: true,
+            bounded_arithmetic: false,
+            debug_comments: false,
         }
     }
 }
@@ -130,10 +139,12 @@ impl<'a> ViperEncodeCtx<'a> {
             mode: TranslationMode::Normal,
             ast,
             stack: vec![],
+            while_stack: vec![],
             declarations: vec![],
             types,
             while_counter: 0,
             iarray: IArrayHelper::new(ast),
+            utils: Utils::new(ast),
             options,
             pres: vec![],
             posts: vec![],
@@ -148,10 +159,12 @@ impl<'a> ViperEncodeCtx<'a> {
             mode: self.mode,
             ast: self.ast,
             stack: vec![],
+            while_stack: vec![],
             declarations: vec![],
             types: self.types.child(),
             while_counter: self.while_counter,
             iarray: self.iarray,
+            utils: self.utils,
             options: self.options,
             pres: vec![],
             posts: vec![],
@@ -245,5 +258,13 @@ impl<'a> ViperEncodeCtx<'a> {
 
     pub fn typectx_get_mut(&mut self) -> &mut TypeContext {
         &mut self.types
+    }
+
+    pub fn word_values(&self) -> viper::Expr<'a> {
+        let ast = self.ast;
+        ast.mul(
+            ast.int_lit(4),
+            ast.int_lit(2i64.pow(self.options.word_size as u32 - 2)),
+        )
     }
 }

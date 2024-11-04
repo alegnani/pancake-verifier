@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use super::{errors::ShapeError, traits::ToViperType, ViperEncodeCtx};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -43,6 +45,25 @@ impl<'a> ToViperType<'a> for Shape {
         match self {
             Self::Simple => ctx.ast.int_type(),
             Self::Nested(_) => ctx.iarray.get_type(),
+        }
+    }
+}
+
+impl Display for Shape {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Simple => write!(f, "1"),
+            Self::Nested(inner) => {
+                write!(
+                    f,
+                    "{{{}}}",
+                    inner
+                        .iter()
+                        .map(Self::to_string)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
         }
     }
 }

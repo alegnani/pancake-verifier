@@ -27,11 +27,13 @@ impl<'a> TryToViper<'a> for FnDec {
         let mut pres = self
             .args
             .iter()
-            .filter_map(|a| a.permission(ctx))
+            .filter_map(|a| a.precondition(ctx))
             .collect::<Vec<_>>();
 
-        // add postcondition if returning struct
-        let mut posts = self.permission(ctx);
+        // Add postcondition:
+        // - length if returning struct
+        // - bound if returning word
+        let mut posts = self.postcondition(ctx);
 
         let mut args_local_decls = self.args.to_viper(ctx);
 
@@ -103,6 +105,10 @@ impl<'a> TryToViper<'a> for Function {
         if !others.is_empty() {
             return Err(ToViperError::InvalidAnnotation(others));
         }
+
+        // set the type of `result` so it can be used in post-conditions
+        ctx.typectx_get_mut()
+            .set_type("result".into(), self.typ.clone());
 
         let pres = pres
             .into_iter()
@@ -205,7 +211,7 @@ impl<'a> ProgramToViper<'a> for Program {
                 f.to_viper(&mut ctx)
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let (domains, fields, mut methods, fs) = create_viper_prelude(ast);
+        let (domains, fields, mut methods, fs) = create_viper_prelude(ast, options);
         methods.extend(abstract_methods.iter());
         methods.extend(program_methods.iter());
         functions.extend(fs.iter());
