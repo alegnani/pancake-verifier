@@ -192,8 +192,8 @@ pub enum SliceType {
 pub struct AccessSlice {
     pub field: Box<Expr>,
     pub typ: SliceType,
-    pub lower: i64,
-    pub upper: i64,
+    pub lower: Box<Expr>,
+    pub upper: Box<Expr>,
     pub perm: Permission,
 }
 

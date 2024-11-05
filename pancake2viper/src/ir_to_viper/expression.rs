@@ -426,13 +426,15 @@ impl<'a> TryToViper<'a> for ir::AccessSlice {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let field = self.field.to_viper(ctx)?;
-        let lower = ast.int_lit(self.lower);
-        let length = self.upper - self.lower
-            + match self.typ {
+        let lower = self.lower.to_viper(ctx)?;
+        let upper = self.upper.to_viper(ctx)?;
+        let length = ast.add(
+            ast.sub(upper, lower),
+            ast.int_lit(match self.typ {
                 ir::SliceType::Exclusive => 0,
                 ir::SliceType::Inclusive => 1,
-            };
-        let length = ast.int_lit(length);
+            }),
+        );
         let perm = self.perm.to_viper(ctx);
         Ok(ctx.iarray.array_acc_expr(field, lower, length, perm))
     }

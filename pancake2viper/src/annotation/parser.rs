@@ -394,9 +394,9 @@ impl FromPestPair for AccessSlice {
     fn from_pest(pair: Pair<'_, Rule>) -> Self {
         let mut inner = pair.into_inner();
         let field = Box::new(parse_expr(Pairs::single(inner.next().unwrap())));
-        let lower = inner.next().unwrap().as_str().parse().unwrap();
+        let lower = Box::new(parse_expr(Pairs::single(inner.next().unwrap())));
         let typ = SliceType::from_pest(inner.next().unwrap());
-        let upper = inner.next().unwrap().as_str().parse().unwrap();
+        let upper = Box::new(parse_expr(Pairs::single(inner.next().unwrap())));
         let perm = inner
             .next()
             .map(Permission::from_pest)
