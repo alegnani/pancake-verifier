@@ -110,6 +110,7 @@ pub struct EncodeOptions {
     pub check_overflows: bool,
     pub bounded_arithmetic: bool,
     pub debug_comments: bool,
+    pub include_prelude: bool,
 }
 
 impl Default for EncodeOptions {
@@ -122,6 +123,7 @@ impl Default for EncodeOptions {
             check_overflows: true,
             bounded_arithmetic: false,
             debug_comments: false,
+            include_prelude: true,
         }
     }
 }

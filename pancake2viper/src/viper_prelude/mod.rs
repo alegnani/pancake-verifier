@@ -16,6 +16,9 @@ pub fn create_viper_prelude(
     ast: AstFactory,
     options: EncodeOptions,
 ) -> (Vec<Domain>, Vec<Field>, Vec<Method>, Vec<Function>) {
+    if !options.include_prelude {
+        return (vec![], vec![], vec![], vec![]);
+    }
     let iarray = IArrayHelper::new(ast);
     let domains = vec![iarray.domain, create_bv_domain(ast)];
     let fields = vec![iarray.field()];
