@@ -29,7 +29,7 @@ impl Mangleable for ir::Expr {
     fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
         use ir::Expr::*;
         match self {
-            Const(_) | BaseAddr | BytesInWord => (),
+            Const(_) | BaseAddr | BytesInWord | BoolLit(_) => (),
             Var(name) => *name = mangler.mangle_var(name)?.to_owned(),
             Label(label) => *label = Mangler::mangle_fn(label),
             Struct(struc) => struc.elements.mangle(mangler)?,

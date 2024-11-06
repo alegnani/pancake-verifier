@@ -464,6 +464,8 @@ impl<'a> TryToViper<'a> for ir::Expr {
             AccessSlice(slice) => slice.to_viper(ctx),
             x => Ok(match x {
                 Const(c) => ast.int_lit(c),
+                BoolLit(b) if b => ast.true_lit(),
+                BoolLit(b) if !b => ast.false_lit(),
                 Var(name) if name == "result" => ast.result_with_pos(
                     ctx.get_type("result")?.to_viper_type(ctx),
                     ast.no_position(),

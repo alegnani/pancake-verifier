@@ -1,6 +1,6 @@
 /* @ predicate full_heap_access() {
     (forall i: Int:: i >= 0 ) &&
-    1 == 1
+    true
 }
 @*/
 

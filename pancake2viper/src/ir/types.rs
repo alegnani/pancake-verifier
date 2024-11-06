@@ -23,6 +23,7 @@ impl ExprTypeResolution for ir::Expr {
             Const(_) | LoadBits(_) | Shift(_) | BaseAddr | BytesInWord | FieldAccessChain(_) => {
                 Ok(Type::Int)
             }
+            BoolLit(_) => Ok(Type::Bool),
             ArrayAccess(acc) => acc.resolve_expr_type(ctx),
             BinOp(op) => op.resolve_expr_type(ctx),
             UnOp(op) => op.resolve_expr_type(ctx),

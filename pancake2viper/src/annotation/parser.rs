@@ -166,6 +166,8 @@ pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
             Rule::unfolding => Expr::UnfoldingIn(UnfoldingIn::from_pest(primary)),
             Rule::base => Expr::BaseAddr,
             Rule::biw => Expr::BytesInWord,
+            Rule::true_lit => Expr::BoolLit(true),
+            Rule::false_lit => Expr::BoolLit(false),
             x => panic!("Unexpected annotation parsing rule: {:?}", x),
         })
         .map_prefix(|op, rhs| {

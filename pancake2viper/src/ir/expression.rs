@@ -7,6 +7,7 @@ use super::{MemOpBytes, Type};
 #[derive(Debug, Clone)]
 pub enum Expr {
     Const(i64),
+    BoolLit(bool),
     Var(String),
     Label(String),
     Struct(Struct),
