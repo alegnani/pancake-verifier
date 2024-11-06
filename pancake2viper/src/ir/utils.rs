@@ -3,7 +3,7 @@ use crate::utils::{Shape, ToType};
 use super::{
     expression::{Expr, Struct},
     statement::MemOpBytes,
-    Arg, BinOpType, Decl, Type,
+    Arg, BinOpType, Decl, Type, UnOpType,
 };
 
 impl Struct {
@@ -79,6 +79,15 @@ impl ToType for BinOpType {
             Gt | Gte | Lt | Lte | BoolAnd | BoolOr | ViperEqual | ViperNotEqual => Type::Bool,
             PancakeEqual | PancakeNotEqual => Type::Bool, // FIXME: enforce `===` vs `==`
             _ => Type::Int,
+        }
+    }
+}
+
+impl ToType for UnOpType {
+    fn to_type(&self) -> super::Type {
+        match self {
+            UnOpType::Minus => Type::Int,
+            UnOpType::Neg => Type::Bool,
         }
     }
 }

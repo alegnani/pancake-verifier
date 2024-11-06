@@ -1,8 +1,8 @@
 use crate::{
-    ir,
+    ir::{self, Expr},
     utils::{
-        ExprTypeResolution, Shape, ToType, TranslationError, TryToShape, TypeContext,
-        TypeResolution,
+        ExprTypeResolution, Shape, ShapeError::IRSimpleShapeFieldAccess, ToType, TranslationError,
+        TryToShape, TypeContext, TypeResolution,
     },
 };
 
@@ -20,10 +20,12 @@ impl ExprTypeResolution for ir::Expr {
     fn resolve_expr_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError> {
         use ir::Expr::*;
         match self {
-            Const(_) | LoadBits(_) | Shift(_) | BaseAddr | BytesInWord | ArrayAccess(_)
-            | FieldAccessChain(_) => Ok(Type::Int),
-            BinOp(_) => Ok(Type::Int), // FIXME
-            UnOp(_) => Ok(Type::Int),
+            Const(_) | LoadBits(_) | Shift(_) | BaseAddr | BytesInWord | FieldAccessChain(_) => {
+                Ok(Type::Int)
+            }
+            ArrayAccess(acc) => acc.resolve_expr_type(ctx),
+            BinOp(op) => op.resolve_expr_type(ctx),
+            UnOp(op) => op.resolve_expr_type(ctx),
             AccessPredicate(_) | AccessSlice(_) => Ok(Type::Bool),
             Var(name) => ctx.get_type_no_mangle(name),
             Label(_) => unreachable!(),
@@ -40,6 +42,44 @@ impl ExprTypeResolution for ir::Expr {
             }
             Old(old) => old.expr.resolve_expr_type(ctx),
         }
+    }
+}
+
+impl ExprTypeResolution for ir::ArrayAccess {
+    fn resolve_expr_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError> {
+        let obj_type = self.obj.resolve_expr_type(ctx)?;
+        assert_eq!(self.idx.resolve_expr_type(ctx)?, Type::Int);
+        match obj_type {
+            Type::Struct(inner) => Ok(match *self.idx {
+                Expr::Const(i) => inner[i as usize].to_type(),
+                _ => {
+                    let mut shapes = inner.iter();
+                    if let Some(head) = shapes.next() {
+                        assert!(shapes.all(|s| s == head), "Each nested struct, indexed by a non-constant value needs to have the same type");
+                    }
+                    inner[0].to_type()
+                }
+            }),
+            Type::Array => Ok(Type::Int),
+            _ => Err(TranslationError::ShapeError(IRSimpleShapeFieldAccess(
+                *self.obj.clone(),
+            ))),
+        }
+    }
+}
+
+impl ExprTypeResolution for ir::UnOp {
+    fn resolve_expr_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError> {
+        self.right.resolve_expr_type(ctx)?;
+        Ok(self.optype.to_type())
+    }
+}
+
+impl ExprTypeResolution for ir::BinOp {
+    fn resolve_expr_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError> {
+        self.left.resolve_expr_type(ctx)?;
+        self.right.resolve_expr_type(ctx)?;
+        Ok(self.optype.to_type())
     }
 }
 

@@ -1,0 +1,8 @@
+/*@ predicate stuff(s: {1}) {
+    1 == 1
+}
+@*/
+
+fun main() {
+    return 0;
+}
