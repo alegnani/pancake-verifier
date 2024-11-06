@@ -191,15 +191,26 @@ impl<'a> TryToViper<'a> for ir::Struct {
                 ast.no_position(),
             ),
         ];
-        let assignments = self
-            .flatten()
-            .into_iter()
-            .enumerate()
-            .map(|(idx, e)| {
-                let lhs = ctx.iarray.access(struct_var, ast.int_lit(idx as i64));
-                e.to_viper(ctx).map(|rhs| ast.field_assign(lhs, rhs))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+
+        let mut assignments = vec![];
+        let mut idx = 0;
+        for struct_element in self.flatten() {
+            let shape = struct_element.to_shape(ctx.typectx_get_mut())?;
+            let shape_len = shape.len();
+            let src_obj = struct_element.to_viper(ctx)?;
+            for offset in 0..shape_len {
+                let lhs = ctx
+                    .iarray
+                    .access(struct_var, ast.int_lit((idx + offset) as i64));
+                let rhs = match shape {
+                    Shape::Simple => src_obj,
+                    Shape::Nested(_) => ctx.iarray.access(src_obj, ast.int_lit(offset as i64)),
+                };
+                assignments.push(ast.field_assign(lhs, rhs))
+            }
+            idx += shape_len;
+        }
+
         assumptions.extend(assignments);
         ctx.declarations.push(struct_decl);
         ctx.stack.push(ast.seqn(&assumptions, &[]));
