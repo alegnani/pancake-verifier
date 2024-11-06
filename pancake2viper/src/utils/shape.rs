@@ -75,7 +75,7 @@ mod tests {
     #[test]
     fn parse_simple() {
         let s = "1";
-        let shape = Shape::parse(s).unwrap();
+        let shape = Shape::parse(s, crate::pancake::ShapeDelimiter::AngleBrackets).unwrap();
         assert_eq!(shape, Shape::Simple);
         assert_eq!(shape.len(), 1);
     }
@@ -83,7 +83,7 @@ mod tests {
     #[test]
     fn parse_nested1() {
         let s = "<1>";
-        let shape = Shape::parse(s).unwrap();
+        let shape = Shape::parse(s, crate::pancake::ShapeDelimiter::AngleBrackets).unwrap();
         assert_eq!(shape, Nested(vec![Simple]));
         assert_eq!(shape.len(), 1);
     }
@@ -91,7 +91,7 @@ mod tests {
     #[test]
     fn parse_nested2() {
         let s = "<1,<1,1>>";
-        let shape = Shape::parse(s).unwrap();
+        let shape = Shape::parse(s, crate::pancake::ShapeDelimiter::AngleBrackets).unwrap();
         assert_eq!(shape, Nested(vec![Simple, Nested(vec![Simple, Simple])]));
         assert_eq!(shape.len(), 3);
     }
@@ -99,7 +99,7 @@ mod tests {
     #[test]
     fn parse_nested3() {
         let s = "<1,<1,1,<1>>,<1,1>,1>";
-        let shape = Shape::parse(s).unwrap();
+        let shape = Shape::parse(s, crate::pancake::ShapeDelimiter::AngleBrackets).unwrap();
         assert_eq!(
             shape,
             Nested(vec![

@@ -80,14 +80,14 @@ impl Expr {
             }
             [Symbol(memload), Symbol(shape), List(exp)] if memload == "MemLoad" => {
                 Ok(Self::Load(Load {
-                    shape: Shape::parse(shape)?,
+                    shape: Shape::parse(shape, ShapeDelimiter::AngleBrackets)?,
                     address: Box::new(Self::parse(exp)?),
                     assert: true,
                 }))
             }
             [Symbol(memload), Int(shape), List(exp)] if memload == "MemLoad" => {
                 Ok(Self::Load(Load {
-                    shape: Shape::parse(&shape.to_string())?,
+                    shape: Shape::parse(&shape.to_string(), ShapeDelimiter::AngleBrackets)?,
                     address: Box::new(Self::parse(exp)?),
                     assert: true,
                 }))
@@ -356,7 +356,7 @@ impl Arg {
             List(args) => match &args[..] {
                 [Symbol(name), Symbol(colon), Symbol(shape)] if colon == ":" => Ok(Self {
                     name: name.clone(),
-                    shape: Shape::parse(shape)?,
+                    shape: Shape::parse(shape, ShapeDelimiter::AngleBrackets)?,
                 }),
                 [Symbol(name), Symbol(colon), Int(_)] if colon == ":" => Ok(Self {
                     name: name.clone(),
@@ -389,22 +389,33 @@ impl FnDec {
     }
 }
 
+pub enum ShapeDelimiter {
+    AngleBrackets,
+    CurlyBraces,
+}
+
 impl Shape {
-    pub fn parse(s: &str) -> anyhow::Result<Self> {
+    pub fn parse(s: &str, delimiter: ShapeDelimiter) -> anyhow::Result<Self> {
         if s == "1" {
             return Ok(Shape::Simple);
         }
+        let (open, close) = match delimiter {
+            ShapeDelimiter::AngleBrackets => ('<', '>'),
+            ShapeDelimiter::CurlyBraces => ('{', '}'),
+        };
         let mut stack = vec![];
         for c in s.chars() {
             match c {
-                '<' => stack.push(vec![]),
+                x if x == open => stack.push(vec![]),
                 '1' => stack
                     .last_mut()
                     .ok_or(anyhow!("Unexpected symbol '1'"))?
                     .push(Shape::Simple),
                 ',' => (),
-                '>' => {
-                    let item = stack.pop().ok_or(anyhow!("Unexpected symbol '>'"))?;
+                x if x == close => {
+                    let item = stack
+                        .pop()
+                        .ok_or(anyhow!("Unexpected symbol '{}'", close))?;
                     let shape = Shape::Nested(item);
                     if let Some(last) = stack.last_mut() {
                         last.push(shape);
