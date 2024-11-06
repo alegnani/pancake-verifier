@@ -3,6 +3,7 @@ use pest::pratt_parser::PrattParser;
 use pest::Parser;
 
 use crate::ir::*;
+use crate::utils::Shape;
 
 #[derive(pest_derive::Parser)]
 #[grammar = "annotation/annot.pest"]
@@ -291,6 +292,15 @@ impl FromPestPair for Type {
             Rule::bool_t => Self::Bool,
             Rule::int_t => Self::Int,
             Rule::iarray_t => Self::Array,
+            Rule::shape_t => {
+                let shape =
+                    Shape::parse(pair.as_str(), crate::pancake::ShapeDelimiter::CurlyBraces)
+                        .expect("Failed to parse shape");
+                match shape {
+                    Shape::Simple => Self::Int,
+                    Shape::Nested(inner) => Type::Struct(inner),
+                }
+            }
             x => panic!("Failed to parse Type, got {:?}", x),
         }
     }
