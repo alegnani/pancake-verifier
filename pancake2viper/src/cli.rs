@@ -79,6 +79,12 @@ pub struct CliOptions {
         help = "Does not include the transpilation prelude (helper functions)"
     )]
     pub disable_prelude: bool,
+
+    #[arg(
+        long,
+        help = "Does not add the postconditions for composite shape returns"
+    )]
+    pub disable_return_post: bool,
 }
 
 impl From<CliOptions> for EncodeOptions {
@@ -92,6 +98,7 @@ impl From<CliOptions> for EncodeOptions {
             bounded_arithmetic: value.bounded_arithmetic,
             debug_comments: value.debug_comments,
             include_prelude: !value.disable_prelude,
+            return_post: !value.disable_return_post,
         }
     }
 }

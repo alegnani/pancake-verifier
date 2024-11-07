@@ -85,7 +85,11 @@ impl FnDec {
                     ast.implies(guard, ctx.utils.bounded_f(ctx.iarray.access(retval, i.1))),
                 );
 
-                vec![len_post, perm, bounded]
+                if ctx.options.return_post {
+                    vec![len_post, perm, bounded]
+                } else {
+                    vec![len_post]
+                }
             }
             _ => unreachable!(),
         }
