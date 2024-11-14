@@ -1,9 +1,11 @@
+use std::ops::Add;
+
 use crate::utils::{Shape, ToType};
 
 use super::{
     expression::{Expr, Struct},
     statement::MemOpBytes,
-    Arg, BinOpType, Decl, Type, UnOpType,
+    Arg, BinOp, BinOpType, Decl, Type, UnOpType,
 };
 
 impl Struct {
@@ -89,5 +91,17 @@ impl ToType for UnOpType {
             UnOpType::Minus => Type::Int,
             UnOpType::Neg => Type::Bool,
         }
+    }
+}
+
+impl Add<i64> for Expr {
+    type Output = Self;
+
+    fn add(self, rhs: i64) -> Self::Output {
+        Expr::BinOp(BinOp {
+            optype: BinOpType::Add,
+            left: Box::new(self),
+            right: Box::new(Expr::Const(rhs)),
+        })
     }
 }

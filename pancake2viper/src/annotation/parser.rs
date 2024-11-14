@@ -46,6 +46,52 @@ pub fn parse_annot(annot: &str) -> Annotation {
     }
 }
 
+pub fn parse_shared(shared: &str) -> Shared {
+    match AnnotParser::parse(Rule::shared_prototype, shared) {
+        Ok(mut pairs) => {
+            let mut pair = pairs.next().unwrap().into_inner();
+            let bits = pair
+                .next()
+                .unwrap()
+                .as_str()
+                .trim_start_matches('u')
+                .parse()
+                .unwrap();
+            let name = pair.next().unwrap().as_str().to_owned();
+            let addr = pair.next().unwrap();
+            let (lower, upper, stride) = match addr.as_rule() {
+                Rule::expr => {
+                    let lower = parse_expr(Pairs::single(addr));
+                    let upper = lower.clone() + 1;
+                    (lower, upper, Expr::Const(1))
+                }
+                Rule::shared_range => {
+                    let mut inner = addr.into_inner();
+                    let lower = parse_expr(Pairs::single(inner.next().unwrap()));
+                    let upper = parse_expr(Pairs::single(inner.next().unwrap()));
+                    (lower, upper, Expr::Const(1))
+                }
+                Rule::shared_stride => {
+                    let mut inner = addr.into_inner();
+                    let lower = parse_expr(Pairs::single(inner.next().unwrap()));
+                    let upper = parse_expr(Pairs::single(inner.next().unwrap()));
+                    let stride = parse_expr(Pairs::single(inner.next().unwrap()));
+                    (lower, upper, stride)
+                }
+                x => panic!("Could not parse shared, got {:?}", x),
+            };
+            Shared {
+                name,
+                bits,
+                lower,
+                upper,
+                stride,
+            }
+        }
+        Err(e) => panic!("{:?}", e),
+    }
+}
+
 pub fn parse_predicate(pred: &str) -> Predicate {
     let (name, args, mut pair) = parse_toplevel_common(pred, Rule::predicate);
     let body = pair.next().unwrap().into_inner();

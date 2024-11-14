@@ -1,6 +1,6 @@
 use crate::utils::TranslationError;
 
-use super::{Expr, Function, Method, Predicate, Struct};
+use super::{Expr, Function, Method, Predicate, Shared, Struct};
 
 impl Struct {
     pub fn new(elements: Vec<Expr>) -> Self {
@@ -31,6 +31,12 @@ impl Function {
 }
 
 impl Method {
+    pub fn new(text: String) -> Self {
+        Self { text }
+    }
+}
+
+impl Shared {
     pub fn new(text: String) -> Self {
         Self { text }
     }

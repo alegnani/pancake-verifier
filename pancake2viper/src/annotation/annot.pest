@@ -107,3 +107,13 @@ function = { "/*" ~ "@" ~ "function" ~ ident ~ "(" ~ func_args ~ ")" ~ ":" ~ typ
 method = { "/*" ~ "@" ~ "method" ~ ident ~ "(" ~ method_args ~ ")" ~ method_ret ~ preposts ~ "@"? ~ "*/" }
     method_args = { (decl ~ ("," ~ decl)*) | "" }
     method_ret = { (":" ~ "(" ~ decl ~ ("," ~ decl)* ~ ")") | "" }
+
+
+// Shared memory annotations
+
+shared_prototype = @{ "/*@" ~ WHITESPACE* ~ "shared" ~ WHITESPACE+ ~ "u" ~ shared_bits ~ WHITESPACE+ ~ shared_name ~ "[" ~ WHITESPACE* ~ shared_mem ~ WHITESPACE* ~ "]" ~ WHITESPACE* ~ "@*/" }
+    shared_bits = !{ int_lit }
+    shared_name = !{ ident }
+    shared_mem = _{ shared_stride | shared_range | expr }
+        shared_range = !{ expr ~ ".." ~ expr }
+        shared_stride = !{ int_lit ~ ".." ~ expr ~ ":" ~ expr }

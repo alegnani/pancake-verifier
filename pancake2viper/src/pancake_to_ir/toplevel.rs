@@ -1,5 +1,5 @@
 use crate::{
-    annotation::{parse_function, parse_method, parse_predicate},
+    annotation::{parse_function, parse_method, parse_predicate, parse_shared},
     ir, pancake,
     utils::{ToType, TranslationError, TryToIR},
 };
@@ -65,6 +65,14 @@ impl TryToIR for pancake::Method {
     }
 }
 
+impl TryToIR for pancake::Shared {
+    type Output = ir::Shared;
+
+    fn to_ir(self) -> Result<Self::Output, TranslationError> {
+        Ok(parse_shared(&self.text))
+    }
+}
+
 impl TryFrom<pancake::Program> for ir::Program {
     type Error = TranslationError;
 
@@ -73,12 +81,14 @@ impl TryFrom<pancake::Program> for ir::Program {
         let predicates = value.predicates.to_ir()?;
         let functions = value.functions.to_ir()?;
         let methods = value.methods.to_ir()?;
+        let shared = value.shared.to_ir()?;
 
         Ok(ir::Program {
             functions,
             predicates,
             viper_functions,
             methods,
+            shared,
         })
     }
 }

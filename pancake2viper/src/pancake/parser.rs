@@ -456,6 +456,10 @@ impl Program {
             .into_iter()
             .map(Method::new)
             .collect();
+        let shared = Self::get_toplevel_annotations(&s, "shared")
+            .into_iter()
+            .map(Shared::new)
+            .collect();
 
         let functions = get_sexprs(s, cake_path)?
             .iter()
@@ -471,6 +475,7 @@ impl Program {
             predicates,
             viper_functions,
             methods,
+            shared,
         })
     }
 

@@ -43,9 +43,19 @@ pub struct AbstractMethod {
 }
 
 #[derive(Debug, Clone)]
+pub struct Shared {
+    pub name: String,
+    pub bits: u64,
+    pub lower: Expr,
+    pub upper: Expr,
+    pub stride: Expr,
+}
+
+#[derive(Debug, Clone)]
 pub struct Program {
     pub functions: Vec<FnDec>,
     pub predicates: Vec<Predicate>,
     pub viper_functions: Vec<Function>,
     pub methods: Vec<AbstractMethod>,
+    pub shared: Vec<Shared>,
 }

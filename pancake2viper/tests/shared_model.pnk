@@ -1,0 +1,8 @@
+/*@ shared u64 B[100] @*/
+/*@ shared u64 A[100..108] @*/
+/*@ shared u64 C[100..108:2] @*/
+
+
+fun main() {
+    return 0;
+}
