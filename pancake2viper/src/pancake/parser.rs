@@ -480,13 +480,7 @@ impl Program {
     }
 
     fn get_toplevel_annotations(s: &str, toplevel_str: &str) -> Vec<String> {
-        let re = Regex::new(&format!(
-            "(?s)/\\* ?@\\s*{}\\s*(.*?)\\s*(?:@\\*/|\\*/)",
-            toplevel_str
-        ))
-        .unwrap();
-        // TODO: change this back after parsing error in Pancake is fixed
-        // let re = Regex::new(r"(?s)/\*@\s*predicate\s*(.*?)\s*(?:@\*/|\*/)").unwrap();
+        let re = Regex::new(&format!("(?s)/@\\s*{}\\s*(.*?)\\s*@/", toplevel_str)).unwrap();
         re.captures_iter(s)
             .map(|capt| capt.get(0).unwrap().as_str().to_owned())
             .collect()

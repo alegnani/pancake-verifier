@@ -93,25 +93,24 @@ annotation = { annotation_keyword ~ expr }
         fold = { "fold" }
         unfold = { "unfold" }
 
-// TODO: change "/*" ~ "@" to "/*@" when Pancake parsing fixed
-predicate = { "/*" ~ "@" ~ "predicate" ~ ident ~ "(" ~ pred_args ~ ")" ~ pred_body ~ "@"? ~ "*/" }
+predicate = { "/@" ~ "predicate" ~ ident ~ "(" ~ pred_args ~ ")" ~ pred_body ~ "@/" }
     pred_args = { (decl ~ ("," ~ decl)*) | "" }
     pred_body = { ("{" ~ expr ~ "}") | "" }
 
 preposts = { annotation* }
 
-function = { "/*" ~ "@" ~ "function" ~ ident ~ "(" ~ func_args ~ ")" ~ ":" ~ type ~ preposts ~ func_body ~ "@"? ~ "*/" }
+function = { "/@" ~ "function" ~ ident ~ "(" ~ func_args ~ ")" ~ ":" ~ type ~ preposts ~ func_body ~ "@/" }
     func_args = { (decl ~ ("," ~ decl)*) | "" }
     func_body = { ("{" ~ expr ~ "}") | "" }
 
-method = { "/*" ~ "@" ~ "method" ~ ident ~ "(" ~ method_args ~ ")" ~ method_ret ~ preposts ~ "@"? ~ "*/" }
+method = { "/@" ~ "method" ~ ident ~ "(" ~ method_args ~ ")" ~ method_ret ~ preposts ~ "@/" }
     method_args = { (decl ~ ("," ~ decl)*) | "" }
     method_ret = { (":" ~ "(" ~ decl ~ ("," ~ decl)* ~ ")") | "" }
 
 
 // Shared memory annotations
 
-shared_prototype = @{ "/*@" ~ WHITESPACE* ~ "shared" ~ WHITESPACE+ ~ "u" ~ shared_bits ~ WHITESPACE+ ~ shared_name ~ "[" ~ WHITESPACE* ~ shared_mem ~ WHITESPACE* ~ "]" ~ WHITESPACE* ~ "@*/" }
+shared_prototype = @{ "/@" ~ WHITESPACE* ~ "shared" ~ WHITESPACE+ ~ "u" ~ shared_bits ~ WHITESPACE+ ~ shared_name ~ "[" ~ WHITESPACE* ~ shared_mem ~ WHITESPACE* ~ "]" ~ WHITESPACE* ~ "@/" }
     shared_bits = !{ int_lit }
     shared_name = !{ ident }
     shared_mem = _{ shared_stride | shared_range | expr }
