@@ -85,6 +85,9 @@ pub struct CliOptions {
         help = "Does not add the postconditions for composite shape returns"
     )]
     pub disable_return_post: bool,
+
+    #[arg(short, long, help = "Path to the shared memory model file")]
+    pub model_path: Option<String>,
 }
 
 impl From<CliOptions> for EncodeOptions {

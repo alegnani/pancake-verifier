@@ -5,7 +5,10 @@ use pancake2viper::{
     ir, pancake,
     utils::{ConstEval, Mangleable, Mangler, ProgramToViper, ViperHandle},
 };
-use std::{fs::File, io::Write};
+use std::{
+    fs::{self, File},
+    io::Write,
+};
 
 fn main() -> anyhow::Result<()> {
     let options = CliOptions::parse();
@@ -32,7 +35,14 @@ fn main() -> anyhow::Result<()> {
     let program: viper::Program<'_> = program.to_viper(ctx, viper.ast, encode_options)?;
     println!("DONE");
 
-    let transpiled = viper.pretty_print(program);
+    let mut transpiled = viper.pretty_print(program);
+    if let Some(path) = options.model_path {
+        let mut model = fs::read_to_string(path)
+            .map_err(|e| anyhow!(format!("Error: Could not read model ({})", e)))?;
+        model.push_str("\n\n");
+        model.push_str(&transpiled);
+        transpiled = model;
+    }
     if options.print_transpiled {
         println!("{}", transpiled);
     }
