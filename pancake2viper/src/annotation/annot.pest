@@ -115,4 +115,4 @@ shared_prototype = @{ "/@" ~ WHITESPACE* ~ "shared" ~ WHITESPACE+ ~ "u" ~ shared
     shared_name = !{ ident }
     shared_mem = _{ shared_stride | shared_range | expr }
         shared_range = !{ expr ~ ".." ~ expr }
-        shared_stride = !{ int_lit ~ ".." ~ expr ~ ":" ~ expr }
+        shared_stride = !{ expr ~ ".." ~ expr ~ ":" ~ expr }
