@@ -3,6 +3,7 @@
 /@ shared u64 C[300..332 : 2 * @biw] @/
 /@ shared u64 D[(200 + @biw)..200 + 4 * @biw] @/
 /@ shared u32 EIR[33554432 + 4.. (33554432+4+4) : 4] @/
+/@ shared u32 STAT[0x400.. (0x400+0x4+0x4)] @/
 
 
 fun main() {

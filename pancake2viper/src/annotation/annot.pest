@@ -12,7 +12,9 @@ type = _{ int_t | bool_t | iarray_t | shape_t }
     shape_t = { ("{" ~ shape_t ~ ("," ~ shape_t)* ~ "}") | "1" }
 decl = { ident ~ ":" ~ type }
 
-int_lit = @{ "-"? ~ integer}
+int_lit = { hex_lit | decimal_lit }
+    decimal_lit = @{ "-"? ~ integer}
+    hex_lit = @{ "0x" ~ integer}
 bool_lit = _{ true_lit | false_lit }
     true_lit = { "true" }
     false_lit = { "false" }
@@ -111,7 +113,7 @@ method = { "/@" ~ "method" ~ ident ~ "(" ~ method_args ~ ")" ~ method_ret ~ prep
 // Shared memory annotations
 
 shared_prototype = @{ "/@" ~ WHITESPACE* ~ "shared" ~ WHITESPACE+ ~ "u" ~ shared_bits ~ WHITESPACE+ ~ shared_name ~ "[" ~ WHITESPACE* ~ shared_mem ~ WHITESPACE* ~ "]" ~ WHITESPACE* ~ "@/" }
-    shared_bits = !{ int_lit }
+    shared_bits = !{ decimal_lit }
     shared_name = !{ ident }
     shared_mem = _{ shared_stride | shared_range | expr }
         shared_range = !{ expr ~ ".." ~ expr }

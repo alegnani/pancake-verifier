@@ -199,7 +199,7 @@ fn parse_toplevel_common(s: &str, rule: Rule) -> (String, Vec<Decl>, Pairs<Rule>
 pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
     PRATT_PARSER
         .map_primary(|primary| match primary.as_rule() {
-            Rule::int_lit => Expr::Const(primary.as_str().parse().unwrap()),
+            Rule::int_lit => Expr::Const(i64::from_pest(primary)),
             Rule::quantified => Expr::Quantified(Quantified::from_pest(primary)),
             Rule::expr => parse_expr(primary.into_inner()),
             Rule::ident => Expr::Var(primary.as_str().to_owned()),
@@ -265,6 +265,19 @@ pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
 // Translates from parsing tree to AST
 pub trait FromPestPair {
     fn from_pest(pair: Pair<'_, Rule>) -> Self;
+}
+
+impl FromPestPair for i64 {
+    fn from_pest(pair: Pair<'_, Rule>) -> Self {
+        let inner = pair.into_inner().next().unwrap();
+        match inner.as_rule() {
+            Rule::decimal_lit => inner.as_str().parse().unwrap(),
+            Rule::hex_lit => {
+                i64::from_str_radix(inner.as_str().trim_start_matches("0x"), 16).unwrap()
+            }
+            x => panic!("Failed to parse integer literal, got {:?}", x),
+        }
+    }
 }
 
 impl FromPestPair for ShiftType {
