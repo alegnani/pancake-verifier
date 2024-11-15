@@ -1,4 +1,4 @@
-use super::{Annotation, Decl, Expr, Stmt, Type};
+use super::{Decl, Expr, Stmt, Type};
 
 #[derive(Debug, Clone)]
 pub struct FnDec {
@@ -10,7 +10,7 @@ pub struct FnDec {
     pub retvar: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Arg {
     pub name: String,
     pub typ: Type,

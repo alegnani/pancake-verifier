@@ -4,7 +4,7 @@ use crate::utils::Shape;
 
 use super::{MemOpBytes, Type};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Expr {
     Const(i64),
     BoolLit(bool),
@@ -31,43 +31,43 @@ pub enum Expr {
     Old(Old),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Struct {
     pub elements: Vec<Expr>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Field {
     pub field_idx: usize,
     pub obj: Box<Expr>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Load {
     pub shape: Shape,
     pub address: Box<Expr>,
     pub assert: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LoadBits {
     pub address: Box<Expr>,
     pub size: MemOpBytes,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MethodCall {
     pub fname: String,
     pub args: Vec<Expr>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FunctionCall {
     pub fname: String,
     pub args: Vec<Expr>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Permission {
     Write,
     Read,
@@ -75,13 +75,13 @@ pub enum Permission {
     Fractional(i64, i64),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AccessPredicate {
     pub field: Box<Expr>,
     pub perm: Permission,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BinOpType {
     Add,
     Sub,
@@ -105,52 +105,52 @@ pub enum BinOpType {
     BoolOr,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BinOp {
     pub optype: BinOpType,
     pub left: Box<Expr>,
     pub right: Box<Expr>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum UnOpType {
     Neg,
     Minus,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UnOp {
     pub optype: UnOpType,
     pub right: Box<Expr>,
 }
 
-#[derive(EnumString, Debug, Clone, Copy)]
+#[derive(EnumString, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ShiftType {
     Lsl,
     Asr,
     Lsr,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Shift {
     pub shifttype: ShiftType,
     pub value: Box<Expr>,
     pub amount: u64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Decl {
     pub name: String,
     pub typ: Type,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Quantifier {
     Forall,
     Exists,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Quantified {
     pub quantifier: Quantifier,
     pub decls: Vec<Decl>,
@@ -158,38 +158,38 @@ pub struct Quantified {
     pub body: Box<Expr>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ArrayAccess {
     pub obj: Box<Expr>,
     pub idx: Box<Expr>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FieldAccessChain {
     pub obj: Box<Expr>,
     pub idxs: Vec<usize>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UnfoldingIn {
     pub pred: Box<Expr>,
     pub expr: Box<Expr>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Ternary {
     pub cond: Box<Expr>,
     pub left: Box<Expr>,
     pub right: Box<Expr>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SliceType {
     Inclusive,
     Exclusive,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AccessSlice {
     pub field: Box<Expr>,
     pub typ: SliceType,
@@ -198,7 +198,7 @@ pub struct AccessSlice {
     pub perm: Permission,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Old {
     pub expr: Box<Expr>,
 }
