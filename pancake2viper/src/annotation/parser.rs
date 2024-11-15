@@ -63,13 +63,13 @@ pub fn parse_shared(shared: &str) -> Shared {
                 Rule::expr => {
                     let lower = parse_expr(Pairs::single(addr));
                     let upper = lower.clone() + 1;
-                    (lower, upper, Expr::Const(1))
+                    (lower, upper, Expr::Const(bits as i64 / 8))
                 }
                 Rule::shared_range => {
                     let mut inner = addr.into_inner();
                     let lower = parse_expr(Pairs::single(inner.next().unwrap()));
                     let upper = parse_expr(Pairs::single(inner.next().unwrap()));
-                    (lower, upper, Expr::Const(1))
+                    (lower, upper, Expr::Const(bits as i64 / 8))
                 }
                 Rule::shared_stride => {
                     let mut inner = addr.into_inner();

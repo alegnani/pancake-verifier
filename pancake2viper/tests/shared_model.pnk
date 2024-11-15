@@ -1,8 +1,13 @@
-/@ shared u64 B[100] @/
-/@ shared u64 A[100..108] @/
-/@ shared u64 C[100..108:2] @/
+/@ shared u8 B[100] @/
+/@ shared u64 A[200..200 + @biw] @/
+/@ shared u64 C[300..332 : 2 * @biw] @/
+/@ shared u64 D[(200 + @biw)..200 + 4 * @biw] @/
+/@ shared u32 EIR[33554432 + 4.. (33554432+4+4) : 4] @/
 
 
 fun main() {
+    !stw 200, 42;
+    var x = 0;
+    !ld8 x, 100;
     return 0;
 }

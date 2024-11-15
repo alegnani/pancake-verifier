@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use viper::{AstFactory, Declaration, LocalVarDecl};
 
 use crate::{
-    ir::{types::Type, AnnotationType},
+    ir::{shared::SharedContext, types::Type, AnnotationType},
     viper_prelude::{utils::Utils, IArrayHelper},
 };
 
@@ -99,6 +99,7 @@ pub struct ViperEncodeCtx<'a> {
     pub invariants: Vec<viper::Expr<'a>>,
     predicates: HashSet<String>,
     pub mangler: Mangler,
+    pub shared: SharedContext,
 }
 
 #[derive(Clone, Copy)]
@@ -136,6 +137,7 @@ impl<'a> ViperEncodeCtx<'a> {
         predicates: HashSet<String>,
         ast: AstFactory<'a>,
         options: EncodeOptions,
+        shared: SharedContext,
     ) -> Self {
         Self {
             mode: TranslationMode::Normal,
@@ -151,6 +153,7 @@ impl<'a> ViperEncodeCtx<'a> {
             invariants: vec![],
             predicates,
             mangler: Mangler::default(),
+            shared,
         }
     }
 
@@ -169,6 +172,7 @@ impl<'a> ViperEncodeCtx<'a> {
             invariants: vec![],
             predicates: self.predicates.clone(),
             mangler: self.mangler.clone(),
+            shared: self.shared.clone(),
         }
     }
 

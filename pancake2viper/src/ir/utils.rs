@@ -28,6 +28,7 @@ impl MemOpBytes {
     pub fn bits(&self) -> u32 {
         match self {
             Self::Byte => 8,
+            Self::QuarterWord => 16,
             Self::HalfWord => 32,
             Self::Word => 64,
         }
@@ -42,6 +43,7 @@ impl From<u64> for MemOpBytes {
     fn from(value: u64) -> Self {
         match value {
             8 => Self::Byte,
+            16 => Self::QuarterWord,
             32 => Self::HalfWord,
             64 => Self::Word,
             x => panic!("invalid conversion from u64 to MemOpBytes, got {}", x),
@@ -123,7 +125,10 @@ impl UnOpType {
 
 impl BinOpType {
     pub fn is_arithmetic(&self) -> bool {
-        matches!(self, Self::Add | Self::Sub | Self::Div | Self::Modulo)
+        matches!(
+            self,
+            Self::Add | Self::Sub | Self::Div | Self::Mul | Self::Modulo
+        )
     }
 
     pub fn is_bitwise(&self) -> bool {

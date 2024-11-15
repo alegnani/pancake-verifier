@@ -37,10 +37,11 @@ pub struct Assign {
 
 // Stores
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemOpBytes {
     Byte,
     HalfWord,
+    QuarterWord,
     Word,
 }
 
