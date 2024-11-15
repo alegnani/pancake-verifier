@@ -44,7 +44,11 @@ fn main() -> anyhow::Result<()> {
     }
     if options.verify {
         println!("Verifying...");
-        println!("{}", viper.verify(program));
+        let (s, success) = viper.verify(program);
+        println!("{}", s);
+        if !success {
+            return Err(anyhow!("Failed verification"));
+        }
     }
 
     Ok(())

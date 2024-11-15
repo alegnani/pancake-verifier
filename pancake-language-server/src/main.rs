@@ -177,7 +177,7 @@ impl Backend {
         let program = program
             .to_viper(ctx, viper.ast, EncodeOptions::default())
             .unwrap();
-        let ver = viper.verify(program);
+        let ver = viper.verify(program).0;
         let result = serde_json::json!({
             "message": ver,
         });
