@@ -14,6 +14,7 @@ pub enum Type {
     Struct(Vec<Shape>),
     Array,
     Wildcard,
+    Ref,
 }
 
 impl ExprTypeResolution for ir::Expr {

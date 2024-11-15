@@ -64,6 +64,7 @@ impl<'a> TryToViper<'a> for FnDec {
         ctx.set_mode(TranslationMode::Normal);
 
         args_local_decls.insert(0, ctx.heap_var().0);
+        args_local_decls.insert(0, ctx.state_var().0);
 
         Ok(ast.method(
             &self.fname,
@@ -83,6 +84,7 @@ impl<'a> TryToViper<'a> for Predicate {
         let mut args = self.args.to_viper(ctx);
         let body = self.body.map(|e| e.to_viper(ctx)).transpose()?;
         args.insert(0, ctx.heap_var().0);
+        args.insert(0, ctx.state_var().0);
         Ok(ast.predicate(&self.name, &args, body))
     }
 }
@@ -102,6 +104,7 @@ impl<'a> TryToViper<'a> for Function {
         let body = self.body.map(|b| b.to_viper(ctx)).transpose()?;
 
         args.insert(0, ctx.heap_var().0);
+        args.insert(0, ctx.state_var().0);
         Ok(ast.function(
             &self.name,
             &args,
@@ -125,6 +128,7 @@ impl<'a> TryToViper<'a> for AbstractMethod {
         let posts = self.posts.to_viper(ctx)?;
 
         args.insert(0, ctx.heap_var().0);
+        args.insert(0, ctx.state_var().0);
         Ok(ast.method(&self.name, &args, &rettyps, &pres, &posts, None))
     }
 }

@@ -201,7 +201,7 @@ impl<'a> TryToViper<'a> for ir::SharedStoreBits {
                         "store_{}",
                         ctx.shared.get_method_name(*addr as u64, self.size)
                     ),
-                    &[ctx.heap_var().1, addr_expr, value],
+                    &[ctx.state_var().1, ctx.heap_var().1, addr_expr, value],
                     &[],
                 );
                 Ok(ast.seqn(&[assertion, store_stmt], &[]))
@@ -248,7 +248,7 @@ impl<'a> TryToViper<'a> for ir::SharedLoadBits {
                         "load_{}",
                         ctx.shared.get_method_name(*addr as u64, self.size)
                     ),
-                    &[ctx.heap_var().1, addr_expr],
+                    &[ctx.state_var().1, ctx.heap_var().1, addr_expr],
                     &[dst],
                 );
                 Ok(ast.seqn(&[assertion, store_stmt], &[]))

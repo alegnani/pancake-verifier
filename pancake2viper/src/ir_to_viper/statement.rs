@@ -175,6 +175,7 @@ impl<'a> TryToViper<'a> for ir::ExtCall {
         let ast = ctx.ast;
         let mut args = self.args.to_viper(ctx)?;
         args.insert(0, ctx.heap_var().1);
+        args.insert(0, ctx.state_var().1);
         Ok(ast.method_call(&self.fname, &args, &[]))
     }
 }
@@ -195,6 +196,7 @@ impl<'a> TryToViper<'a> for ir::Annotation {
                     };
                     let mut args = access.args.to_viper(ctx)?;
                     args.insert(0, ctx.heap_var().1);
+                    args.insert(0, ctx.state_var().1);
                     Ok(ast_node(ast.predicate_access_predicate(
                         ast.predicate_access(&args, &access.fname),
                         ast.full_perm(),

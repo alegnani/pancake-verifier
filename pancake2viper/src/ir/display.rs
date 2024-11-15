@@ -192,6 +192,7 @@ impl Display for Type {
             Self::Wildcard => write!(f, "*"),
             Self::Void => write!(f, "Void"),
             Self::Array => write!(f, "IArray"),
+            Self::Ref => write!(f, "Ref"),
         }
     }
 }

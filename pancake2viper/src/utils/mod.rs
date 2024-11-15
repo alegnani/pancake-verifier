@@ -27,5 +27,6 @@ lazy_static::lazy_static! {
         ("old", Type::Wildcard),
         ("bounded", Type::Bool),
         ("result", Type::Wildcard),
+        ("state", Type::Ref)
     ]);
 }

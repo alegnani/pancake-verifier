@@ -267,6 +267,13 @@ impl<'a> ViperEncodeCtx<'a> {
         )
     }
 
+    pub fn state_var(&self) -> (viper::LocalVarDecl, viper::Expr) {
+        (
+            self.ast.local_var_decl("state", self.ast.ref_type()),
+            self.ast.local_var("state", self.ast.ref_type()),
+        )
+    }
+
     pub fn set_mode(&mut self, mode: TranslationMode) {
         self.mode = mode;
     }

@@ -50,6 +50,7 @@ impl<'a> ToViperType<'a> for ir::Type {
             ir::Type::Bool => ast.bool_type(),
             ir::Type::Int => ast.int_type(),
             ir::Type::Array | ir::Type::Struct(_) => ctx.iarray.get_type(),
+            ir::Type::Ref => ast.ref_type(),
             x => panic!("Want type of {:?}", x),
         }
     }
