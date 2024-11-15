@@ -1,9 +1,12 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 use viper::{AstFactory, Declaration, LocalVarDecl};
 
 use crate::{
-    ir::{shared::SharedContext, types::Type, AnnotationType},
+    ir::{self, shared::SharedContext, types::Type, AnnotationType, FnDec},
     viper_prelude::{utils::Utils, IArrayHelper},
 };
 
@@ -40,6 +43,37 @@ impl From<AnnotationType> for TranslationMode {
 #[derive(Debug, Clone)]
 pub struct TypeContext {
     type_map: HashMap<String, Type>,
+}
+
+type Exprs = Vec<ir::Expr>;
+type Args = Vec<ir::Arg>;
+
+#[derive(Debug, Clone)]
+pub struct MethodContext(pub HashMap<String, (Exprs, Exprs, Args)>);
+
+impl MethodContext {
+    pub fn new(functions: &[FnDec]) -> Self {
+        let mut annot_ctx = HashMap::new();
+        for f in functions {
+            annot_ctx.insert(
+                f.fname.clone(),
+                (f.pres.clone(), f.posts.clone(), f.args.clone()),
+            );
+        }
+        Self(annot_ctx)
+    }
+
+    pub fn get_pre(&self, name: &str) -> &[ir::Expr] {
+        &self.0.get(name).unwrap().0
+    }
+
+    pub fn get_post(&self, name: &str) -> &[ir::Expr] {
+        &self.0.get(name).unwrap().1
+    }
+
+    pub fn get_args(&self, name: &str) -> &[ir::Arg] {
+        &self.0.get(name).unwrap().2
+    }
 }
 
 impl TypeContext {
@@ -95,11 +129,13 @@ pub struct ViperEncodeCtx<'a> {
     pub iarray: IArrayHelper<'a>,
     pub utils: Utils<'a>,
     pub options: EncodeOptions,
+    pub consume_stack: bool,
 
     pub invariants: Vec<viper::Expr<'a>>,
     predicates: HashSet<String>,
     pub mangler: Mangler,
-    pub shared: SharedContext,
+    pub shared: Rc<SharedContext>,
+    pub method: Rc<MethodContext>,
 }
 
 #[derive(Clone, Copy)]
@@ -137,7 +173,8 @@ impl<'a> ViperEncodeCtx<'a> {
         predicates: HashSet<String>,
         ast: AstFactory<'a>,
         options: EncodeOptions,
-        shared: SharedContext,
+        shared: Rc<SharedContext>,
+        annot: Rc<MethodContext>,
     ) -> Self {
         Self {
             mode: TranslationMode::Normal,
@@ -150,10 +187,12 @@ impl<'a> ViperEncodeCtx<'a> {
             iarray: IArrayHelper::new(ast),
             utils: Utils::new(ast),
             options,
+            consume_stack: true,
             invariants: vec![],
             predicates,
             mangler: Mangler::default(),
             shared,
+            method: annot,
         }
     }
 
@@ -169,10 +208,12 @@ impl<'a> ViperEncodeCtx<'a> {
             iarray: self.iarray,
             utils: self.utils,
             options: self.options,
+            consume_stack: self.consume_stack,
             invariants: vec![],
             predicates: self.predicates.clone(),
             mangler: self.mangler.clone(),
             shared: self.shared.clone(),
+            method: self.method.clone(),
         }
     }
 

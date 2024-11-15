@@ -37,12 +37,16 @@ impl<'a> TryToViper<'a> for ir::Stmt {
                 _ => unreachable!(),
             }?,
         };
-        ctx.stack.push(stmt);
-        let decls = ctx.pop_decls();
+        if ctx.consume_stack {
+            ctx.stack.push(stmt);
+            let decls = ctx.pop_decls();
 
-        let seq = ast.seqn(&ctx.stack, &decls);
-        ctx.stack.clear();
-        Ok(seq)
+            let seq = ast.seqn(&ctx.stack, &decls);
+            ctx.stack.clear();
+            Ok(seq)
+        } else {
+            Ok(stmt)
+        }
     }
 }
 

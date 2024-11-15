@@ -28,6 +28,14 @@ fn get_const(expr: &Expr) -> i64 {
 }
 
 impl SharedContext {
+    pub fn new(shared: &[Shared]) -> Self {
+        let mut se = Self::default();
+        for s in shared {
+            se.add(s);
+        }
+        se
+    }
+
     fn get_idx(bits: usize) -> usize {
         match bits {
             8 => 0,
@@ -38,7 +46,7 @@ impl SharedContext {
         }
     }
 
-    pub fn add(&mut self, shared: Shared) {
+    pub fn add(&mut self, shared: &Shared) {
         println!(
             "Registering shared memory functions {}_store and {}_load for addresses:",
             shared.name, shared.name
@@ -61,7 +69,7 @@ impl SharedContext {
         }
 
         self.mappings[idx].push(SharedInternal {
-            name: shared.name,
+            name: shared.name.clone(),
             size: shared.bits.into(),
             lower: lower as u64,
             upper: stride as u64,

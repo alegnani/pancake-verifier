@@ -1,11 +1,12 @@
 use std::collections::HashSet;
+use std::rc::Rc;
 
 use shared::SharedContext;
 use viper::AstFactory;
 
 use crate::utils::{
-    EncodeOptions, ProgramToViper, ToViper, ToViperError, ToViperType, TranslationMode, TryToViper,
-    TypeContext, ViperEncodeCtx,
+    EncodeOptions, MethodContext, ProgramToViper, ToViper, ToViperError, ToViperType,
+    TranslationMode, TryToViper, TypeContext, ViperEncodeCtx,
 };
 use crate::viper_prelude::create_viper_prelude;
 
@@ -135,10 +136,11 @@ impl<'a> ProgramToViper<'a> for Program {
         ast: AstFactory<'a>,
         options: EncodeOptions,
     ) -> Result<viper::Program<'a>, ToViperError> {
-        let mut shared = SharedContext::default();
-        for s in self.shared {
-            shared.add(s);
-        }
+        // Create context for shared memory accesses
+        let shared = Rc::new(SharedContext::new(&self.shared));
+        // Create method context for automatic unfolding/folding of function predicates
+        let method_ctx = Rc::new(MethodContext::new(&self.functions));
+
         let (predicates, predicate_names): (Vec<_>, HashSet<_>) = self
             .predicates
             .into_iter()
@@ -150,6 +152,7 @@ impl<'a> ProgramToViper<'a> for Program {
                     ast,
                     options,
                     shared.clone(),
+                    method_ctx.clone(),
                 );
                 ctx.set_mode(TranslationMode::PrePost);
 
@@ -168,6 +171,7 @@ impl<'a> ProgramToViper<'a> for Program {
                     ast,
                     options,
                     shared.clone(),
+                    method_ctx.clone(),
                 );
                 ctx.set_mode(TranslationMode::PrePost);
                 f.to_viper(&mut ctx)
@@ -184,6 +188,7 @@ impl<'a> ProgramToViper<'a> for Program {
                     ast,
                     options,
                     shared.clone(),
+                    method_ctx.clone(),
                 );
                 ctx.set_mode(TranslationMode::PrePost);
                 m.to_viper(&mut ctx)
@@ -200,6 +205,7 @@ impl<'a> ProgramToViper<'a> for Program {
                     ast,
                     options,
                     shared.clone(),
+                    method_ctx.clone(),
                 );
                 f.to_viper(&mut ctx)
             })
