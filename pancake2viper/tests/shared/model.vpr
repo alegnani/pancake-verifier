@@ -1,0 +1,47 @@
+method store_base8(heap: IArray, address: Int, value: Int)
+    requires address == 0
+    requires 0 <= value < 256
+
+method store_base32(heap: IArray, address: Int, value: Int)
+    requires address == 0
+    requires 0 <= value < 4294967296
+
+method store_base64(heap: IArray, address: Int, value: Int)
+    requires address == 0
+    requires 0 <= value < 4294967296 * 4294967296
+
+method load_base8(heap: IArray, address: Int) returns (retval: Int)
+    requires address == 0
+    ensures 0 <= retval < 256
+
+method load_base32(heap: IArray, address: Int) returns (retval: Int)
+    requires address == 0
+    ensures 0 <= retval < 4294967296
+
+method load_base64(heap: IArray, address: Int) returns (retval: Int)
+    requires address == 0
+    ensures 0 <= retval < 4294967296 * 4294967296
+
+method store_align(heap: IArray, address: Int, value: Int)
+    requires address == 4
+    requires 0 <= value < 4294967296
+
+method load_align(heap: IArray, address: Int) returns (retval: Int)
+    requires address == 4
+    ensures 0 <= retval < 4294967296
+
+method store_A(heap: IArray, address: Int, value: Int)
+    requires 200 <= address < 208
+    requires 0 <= value < 4294967296 * 4294967296
+
+method load_A(heap: IArray, address: Int) returns (retval: Int)
+    requires 200 <= address < 208
+    ensures 0 <= retval < 4294967296 * 4294967296
+
+method store_B(heap: IArray, address: Int, value: Int)
+    requires address == 100
+    requires 0 <= value < 256
+
+method load_B(heap: IArray, address: Int) returns (retval: Int)
+    requires address == 100
+    ensures 0 <= retval < 256

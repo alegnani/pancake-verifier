@@ -8,7 +8,7 @@ fn main() {
     let dest_path = PathBuf::from(out_dir).join("generated_tests.rs");
     let mut test_file = fs::File::create(dest_path).unwrap();
 
-    for entry in fs::read_dir("./tests").expect("Test directory not found") {
+    for entry in fs::read_dir("./tests/pass").expect("Test directory not found") {
         let entry = entry.unwrap();
         let file = entry.path().canonicalize().unwrap();
         let file_stem = file.file_stem().unwrap().to_str().unwrap();
@@ -28,4 +28,5 @@ fn main() {
             .unwrap();
         }
     }
+    // TODO: add shared memory model tests
 }

@@ -1,3 +1,7 @@
+/@ shared u8 base8[@base] @/
+/@ shared u32 base32[@base] @/
+/@ shared u64 base64[@base] @/
+
 fun main() {
     /@ requires acc(heap[0]) @/
     var x = 0;
