@@ -72,6 +72,10 @@ pub trait ConstEval {
     fn const_eval(self, options: &EncodeOptions) -> Self;
 }
 
+pub trait ExprSubstitution {
+    fn substitute(&mut self, old: &ir::Expr, new: &ir::Expr) -> bool;
+}
+
 pub trait ProgramToViper<'a> {
     fn to_viper(
         self,

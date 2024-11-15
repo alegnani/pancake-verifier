@@ -1,6 +1,9 @@
 use std::ops::Add;
 
-use crate::utils::{Shape, ToType};
+use crate::{
+    ir,
+    utils::{ExprSubstitution, Shape, ToType},
+};
 
 use super::{
     expression::{Expr, Struct},
@@ -176,5 +179,76 @@ impl ShiftType {
             ShiftType::Lsl => lhs << rhs,
             ShiftType::Lsr => ((lhs as u64) >> rhs) as i64,
         }
+    }
+}
+
+impl ExprSubstitution for Expr {
+    fn substitute(&mut self, old: &Expr, new: &Expr) -> bool {
+        if *self == *old {
+            *self = new.clone();
+            return true;
+        }
+        match self {
+            Self::AccessPredicate(acc) => acc.field.substitute(old, new),
+            Self::AccessSlice(acc) => {
+                let a = acc.field.substitute(old, new);
+                let b = acc.lower.substitute(old, new);
+                let c = acc.upper.substitute(old, new);
+                a || b || c
+            }
+            Self::ArrayAccess(acc) => {
+                let a = acc.obj.substitute(old, new);
+                let b = acc.idx.substitute(old, new);
+                a || b
+            }
+            Self::BinOp(op) => {
+                let a = op.left.substitute(old, new);
+                let b = op.right.substitute(old, new);
+                a || b
+            }
+            Self::UnOp(op) => op.right.substitute(old, new),
+            Self::Field(field) => field.obj.substitute(old, new),
+            Self::Load(load) => load.address.substitute(old, new),
+            Self::LoadBits(load) => load.address.substitute(old, new),
+            Self::Old(o) => o.expr.substitute(old, new),
+            Self::Shift(shift) => shift.value.substitute(old, new),
+            Self::Struct(s) => s.elements.substitute(old, new),
+            Self::Ternary(tern) => {
+                let a = tern.cond.substitute(old, new);
+                let b = tern.left.substitute(old, new);
+                let c = tern.right.substitute(old, new);
+                a || b || c
+            }
+            Self::MethodCall(call) => call.args.substitute(old, new),
+            Self::FunctionCall(call) => call.args.substitute(old, new),
+            Self::Quantified(quant) => quant.body.substitute(old, new),
+            Self::UnfoldingIn(fold) => {
+                let a = fold.pred.substitute(old, new);
+                let b = fold.expr.substitute(old, new);
+                a || b
+            }
+            Self::FieldAccessChain(acc) => acc.obj.substitute(old, new),
+            Self::BaseAddr
+            | Self::BoolLit(_)
+            | Self::Const(_)
+            | Self::Var(_)
+            | Self::Label(_)
+            | Self::BytesInWord => false,
+        }
+    }
+}
+
+impl ExprSubstitution for Vec<Expr> {
+    fn substitute(&mut self, old: &ir::Expr, new: &ir::Expr) -> bool {
+        let mut acc = false;
+        self.iter_mut()
+            .for_each(|e| acc = acc || e.substitute(old, new));
+        acc
+    }
+}
+
+impl From<Arg> for Expr {
+    fn from(value: Arg) -> Self {
+        Expr::Var(value.name)
     }
 }
