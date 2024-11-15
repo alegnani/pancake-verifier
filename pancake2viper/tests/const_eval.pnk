@@ -1,0 +1,5 @@
+fun main() {
+    var x = 1 << 40;
+    /*@ assert 2 * (1 << 39) == x @*/
+    return 1 + 2;
+}

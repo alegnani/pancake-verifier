@@ -1,3 +1,4 @@
+mod const_eval;
 mod display;
 mod expression;
 pub mod mangle;

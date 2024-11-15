@@ -7,7 +7,9 @@ use dashmap::DashMap;
 use expanduser::expanduser;
 use notification::ShowMessage;
 use pancake2viper::ir;
-use pancake2viper::utils::{EncodeOptions, Mangleable, Mangler, ProgramToViper, ViperHandle};
+use pancake2viper::utils::{
+    ConstEval, EncodeOptions, Mangleable, Mangler, ProgramToViper, ViperHandle,
+};
 
 use serde_json::Value;
 use tokio::sync::Mutex;
@@ -104,6 +106,7 @@ impl Backend {
         let mut mangler = Mangler::default();
         program.mangle(&mut mangler)?;
         let ctx = program.resolve_types()?;
+        let program = program.const_eval(&EncodeOptions::default());
         let program = program.to_viper(ctx, viper.ast, EncodeOptions::default())?;
 
         self.create_vpr_file(uri, viper.pretty_print(program)).await;
@@ -169,6 +172,7 @@ impl Backend {
         let mut program = self.get_current_ast().await;
         let mut mangler = Mangler::default();
         program.mangle(&mut mangler).unwrap();
+        let program = program.const_eval(&EncodeOptions::default());
         let ctx = program.resolve_types().unwrap();
         let program = program
             .to_viper(ctx, viper.ast, EncodeOptions::default())

@@ -3,7 +3,7 @@ use clap::Parser;
 use pancake2viper::{
     cli::CliOptions,
     ir, pancake,
-    utils::{Mangleable, Mangler, ProgramToViper, ViperHandle},
+    utils::{ConstEval, Mangleable, Mangler, ProgramToViper, ViperHandle},
 };
 use std::{fs::File, io::Write};
 
@@ -24,6 +24,9 @@ fn main() -> anyhow::Result<()> {
     println!("DONE");
     print!("Resolving types...");
     let ctx = program.resolve_types()?;
+    println!("DONE");
+    print!("Evaluating constant expressions...");
+    let program = program.const_eval(&encode_options);
     println!("DONE");
     print!("Transpiling to Viper...");
     let program: viper::Program<'_> = program.to_viper(ctx, viper.ast, encode_options)?;

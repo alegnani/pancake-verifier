@@ -64,6 +64,14 @@ pub trait ToType {
     fn to_type(&self) -> ir::Type;
 }
 
+pub trait ConstEvalExpr {
+    fn const_eval(self, options: &EncodeOptions) -> ir::Expr;
+}
+
+pub trait ConstEval {
+    fn const_eval(self, options: &EncodeOptions) -> Self;
+}
+
 pub trait ProgramToViper<'a> {
     fn to_viper(
         self,
