@@ -2,7 +2,7 @@ fun main() {
     var x = < < 0, < 1, 2 > >, < 3, 4 > >;
     var y = x.1.0;
     var z = x.0.1.0;
-    /*@ assert x.1.0 == y @*/
-    /*@ assert x.0.1.0 == z @*/
+    /@ assert x.1.0 == y @/
+    /@ assert x.0.1.0 == z @/
     return 0;
 }

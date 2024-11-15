@@ -1,12 +1,12 @@
 fun test() {
-    /*@ requires acc(heap[@base]) @*/
-    /*@ requires acc(heap[@base + 1]) @*/
+    /@ requires acc(heap[@base]) @/
+    /@ requires acc(heap[@base + 1]) @/
     var x = lds {1, 1} @base;
     var i = 0;
     while (true) {
-        /*@ invariant acc(heap[@base]) @*/
-        /*@ invariant acc(heap[@base + 1]) @*/
-        /*@ invariant 0 <= i && i <= 10 @*/
+        /@ invariant acc(heap[@base]) @/
+        /@ invariant acc(heap[@base + 1]) @/
+        /@ invariant 0 <= i && i <= 10 @/
         x = lds {1, 1} @base;
         st @base, x;
         if (i == 10) {

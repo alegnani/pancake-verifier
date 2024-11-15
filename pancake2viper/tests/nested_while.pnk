@@ -1,10 +1,10 @@
 fun sum() {
-    /*@ ensures retval == 50 @*/
+    /@ ensures retval == 50 @/
     var x = 0;
     var accu = 0;
     while (x < 100) {
-        /*@ invariant 0 <= x && x <= 100 @*/
-        /*@ invariant accu == x / 2 @*/
+        /@ invariant 0 <= x && x <= 100 @/
+        /@ invariant accu == x / 2 @/
         if (x & 1 == 0) {
             continue;
         }

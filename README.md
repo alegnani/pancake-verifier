@@ -58,14 +58,14 @@ From the Command Palette (Ctrl+Shift+P) the current file can be verified using t
 
 ```pancake
 fun sum(1 n) {
-    /*@ requires 0 <= n @*/
-    /*@ ensures retval == n * (n + 1) / 2 @*/
+    /@ requires 0 <= n @/
+    /@ ensures retval == n * (n + 1) / 2 @/
 
     var i = 0;
     var accu = 0;
     while (i < n) {
-        /*@ invariant 0 <= i && i <= n @*/
-        /*@ invariant accu == (i - 1) * i / 2 @*/
+        /@ invariant 0 <= i && i <= n @/
+        /@ invariant accu == (i - 1) * i / 2 @/
 
         accu = accu + i;
         i = i + 1;
@@ -76,7 +76,7 @@ fun sum(1 n) {
 
 The annotations possible in Pancake are mostly the same as the ones available in Viper. For further information follow the [Viper tutorial](https://viper.ethz.ch/tutorial).
 Note that they have to be specified inside the function body (only exception are predicates, which can be specified in the top level).
-Annotations in Pancake are specified inside special block comments `/*@ ... @*/`.
+Annotations in Pancake are specified inside special block comments `/@ ... @/`.
 
 There are some special reserved variables in annotations that are always available.
 These are the return value of the current function `retval` and the array representing the heap, `heap`.
@@ -112,21 +112,21 @@ As part of expressions the `unfolding <predicate>(...) in ...` construct can be 
 // predicate granting access to the 42nd word of the heap
 /* @ predicate IO() {
     acc(heap[42])
-} @*/
+} @/
 
 fun main() {
-    /*@ requires IO() @*/
-    /*@ ensures IO() @*/
+    /@ requires IO() @/
+    /@ ensures IO() @/
 
     // in order to reason about heap[42] we first need the access permission
     // to heap[42] which is folded in the IO predicate
-    /*@ requires unfolding IO() in heap[42] == 17 @*/
-    /*@ ensures unfolding IO() in heap[42] == 1337 @*/
+    /@ requires unfolding IO() in heap[42] == 17 @/
+    /@ ensures unfolding IO() in heap[42] == 1337 @/
 
-    /*@ unfold IO() @*/
-    /*@ assert heap[42] == 17 @*/
+    /@ unfold IO() @/
+    /@ assert heap[42] == 17 @/
     st @base + 42 * 8, 1337;
-    /*@ fold IO() @*/
+    /@ fold IO() @/
     return 0;
 }
 

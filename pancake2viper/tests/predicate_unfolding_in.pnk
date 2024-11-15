@@ -1,20 +1,20 @@
 // predicate granting access to the 42nd word of the heap
-/* @ predicate IO() {
+/@ predicate IO() {
     acc(heap[42])
-} @*/
+} @/
 
 fun main() {
-    /*@ requires IO() @*/
-    /*@ ensures IO() @*/
+    /@ requires IO() @/
+    /@ ensures IO() @/
 
     // in order to reason about heap[42] we first need the access permission
     // to heap[42] which is folded in the IO predicate
-    /*@ requires unfolding IO() in heap[42] == 17 @*/
-    /*@ ensures unfolding IO() in heap[42] == 1337 @*/
+    /@ requires unfolding IO() in heap[42] == 17 @/
+    /@ ensures unfolding IO() in heap[42] == 1337 @/
 
-    /*@ unfold IO() @*/
-    /*@ assert heap[42] == 17 @*/
+    /@ unfold IO() @/
+    /@ assert heap[42] == 17 @/
     st @base + 42 * 8, 1337;
-    /*@ fold IO() @*/
+    /@ fold IO() @/
     return 0;
 }

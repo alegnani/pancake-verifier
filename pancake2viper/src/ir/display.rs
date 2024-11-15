@@ -19,7 +19,7 @@ impl Display for Stmt {
             Self::If(i) => write!(f, "if ({}) ...", i.cond),
             Self::While(w) => write!(f, "while ({}) ...", w.cond),
             Self::Seq(_) => write!(f, "Sequence"),
-            Self::Annotation(annot) => write!(f, "/*@ {} {} @*/", annot.typ, annot.expr),
+            Self::Annotation(annot) => write!(f, "/@ {} {} @/", annot.typ, annot.expr),
             Self::Store(store) => write!(f, "st {}, {};", store.address, store.value),
             Self::StoreBits(store) => write!(
                 f,

@@ -1,13 +1,13 @@
-/* @ predicate IO() {
+/@ predicate IO() {
     acc(heap[42])
-} @*/
+} @/
 
 fun main() {
-    /*@ requires IO() @*/
-    /*@ ensures IO() @*/
+    /@ requires IO() @/
+    /@ ensures IO() @/
 
-    /*@ unfold IO() @*/
+    /@ unfold IO() @/
     st @base + 42 * 8, 1337;
-    /*@ fold IO() @*/
+    /@ fold IO() @/
     return 0;
 }

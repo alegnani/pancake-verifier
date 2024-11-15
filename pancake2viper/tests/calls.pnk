@@ -1,12 +1,12 @@
 // FFI defintions
-/* @ method ffiprint_int(a: Int, b: Int, c: Int, d: Int) @*/
+/@ method ffiprint_int(a: Int, b: Int, c: Int, d: Int) @/
 
 fun main() {
     return 0;
 }
 
 fun foo(1 x) {
-    /*@ ensures x == retval @*/
+    /@ ensures x == retval @/
     return x;
 }
 

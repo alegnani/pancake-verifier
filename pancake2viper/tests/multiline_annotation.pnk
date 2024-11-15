@@ -1,24 +1,24 @@
 fun main() 
 {
     // this works
-    /*@ requires forall i: Int:: i >= 0 && i < 3 ==> acc(heap[i]) @*/
+    /@ requires forall i: Int:: i >= 0 && i < 3 ==> acc(heap[i]) @/
 
     // this doesn't work
-    /*@ requires forall i: Int:: 
-	 i >= 0 && i < 3 ==> acc(heap[i]) @*/
+    /@ requires forall i: Int:: 
+	 i >= 0 && i < 3 ==> acc(heap[i]) @/
     
     // this works
-    /*@ assert forall i: Int:: i >= 0 && i < 3 ==> acc(heap[i]) @*/
+    /@ assert forall i: Int:: i >= 0 && i < 3 ==> acc(heap[i]) @/
 
     // this doesn't work
-    /*@ assert forall i: Int:: 
-      i >= 0 && i < 3 ==> acc(heap[i]) @*/
+    /@ assert forall i: Int:: 
+      i >= 0 && i < 3 ==> acc(heap[i]) @/
 
 
-	/*@ assert 1
+	/@ assert 1
         +
         0
-		== 1 @*/
+		== 1 @/
 	
     return 0;
 }

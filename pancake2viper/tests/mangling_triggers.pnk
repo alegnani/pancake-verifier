@@ -1,8 +1,8 @@
-/* @ predicate full_heap_access() {
+/@ predicate full_heap_access() {
     (forall i: Int:: i >= 0 ) &&
     true
 }
-@*/
+@/
 
 fun main() {
     return 0;

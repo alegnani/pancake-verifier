@@ -1,5 +1,5 @@
 fun plus_one(1 x) {
-    /*@ requires x <= 10000 @*/
+    /@ requires x <= 10000 @/
     return x + 1;
 }
 

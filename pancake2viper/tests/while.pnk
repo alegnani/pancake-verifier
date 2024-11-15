@@ -1,11 +1,11 @@
 fun sum(1 n) {
-    /*@ requires 0 <= n && n < 100000 @*/ // need upper bound for overflow of word
-    /*@ ensures retval == n * (n + 1) / 2 @*/
+    /@ requires 0 <= n && n < 100000 @/ // need upper bound for overflow of word
+    /@ ensures retval == n * (n + 1) / 2 @/
     var i = 0;
     var accu = 0;
     while (i < n) {
-        /*@ invariant 0 <= i && i <= n @*/
-        /*@ invariant accu == (((i - 1) * i) / 2) @*/
+        /@ invariant 0 <= i && i <= n @/
+        /@ invariant accu == (((i - 1) * i) / 2) @/
         accu = accu + i;
         i = i + 1;
     }

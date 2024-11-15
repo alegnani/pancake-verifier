@@ -1,9 +1,9 @@
 fun main() {
-    /*@ ensures retval == 9 @*/
+    /@ ensures retval == 9 @/
     var i = 0;
     while (i + 1 < 10) {
-        /*@ invariant i + 1 <= 10 @*/
-        /*@ invariant 0 <= i @*/
+        /@ invariant i + 1 <= 10 @/
+        /@ invariant 0 <= i @/
         i = i + 1;
     }
     return i;

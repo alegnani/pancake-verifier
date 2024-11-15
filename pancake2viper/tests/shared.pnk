@@ -1,10 +1,10 @@
 fun main() {
-    /*@ requires acc(heap[0]) @*/
+    /@ requires acc(heap[0]) @/
     var x = 0;
     !ldw x, @base;
     !ld8 x, @base;
-    /*@ assert 0 <= x && x < 256 @*/
+    /@ assert 0 <= x && x < 256 @/
     !ld32 x, @base;
-    /*@ assert 0 <= x && x < 1024 * 1024 * 1024 * 4 @*/
+    /@ assert 0 <= x && x < 1024 * 1024 * 1024 * 4 @/
     return 0;
 }

@@ -1,11 +1,11 @@
 fun dostuff() {
-    /*@ ensures retval.0 == 1 @*/
-    /*@ ensures retval.1 == 2 @*/
+    /@ ensures retval.0 == 1 @/
+    /@ ensures retval.1 == 2 @/
     return < 1, 2 >;
 }
 
 fun main() {
-    /*@ ensures retval == 1 @*/
+    /@ ensures retval == 1 @/
     var 2 x = dostuff();
     return x.0;
 }

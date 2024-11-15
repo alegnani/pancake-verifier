@@ -1,36 +1,36 @@
-/* @ function sum(base: Int, len: Int): Int 
+/@ function sum(base: Int, len: Int): Int 
     requires base >= 0 && len >= 0
     requires base + len <= alen(heap)
     requires forall i: Int :: base <= i && i < base + len ==> acc(heap[i], read)
 {
     len == 0 ? 0 : (heap[base + len - 1] + sum(base, len - 1))
-} @*/
+} @/
 
 fun array_sum(1 arr, 1 len) {
-    /*@ requires arr >= 0 && len >= 0 */
-    /*@ requires len < 1000 @*/
-    /*@ requires arr % 8 == 0 @*/ // word-aligned
-    /*@ requires arr / 8 + len <= alen(heap) @*/ // the array fits into the heap
+    /@ requires arr >= 0 && len >= 0 @/
+    /@ requires len < 1000 @/
+    /@ requires arr % 8 == 0 @/ // word-aligned
+    /@ requires arr / 8 + len <= alen(heap) @/ // the array fits into the heap
 
     // Borrows whole array
-    /*@ requires forall i: Int :: arr / 8 <= i && i < arr / 8 + len ==> acc(heap[i], read) @*/
-    /*@ ensures forall i: Int :: arr / 8 <= i && i < arr / 8 + len ==> acc(heap[i], read) @*/
-    /*@ requires forall i: Int :: arr / 8 <= i && i < arr / 8 + len ==> 0 <= heap[i] && heap[i] < 256 @*/
+    /@ requires forall i: Int :: arr / 8 <= i && i < arr / 8 + len ==> acc(heap[i], read) @/
+    /@ ensures forall i: Int :: arr / 8 <= i && i < arr / 8 + len ==> acc(heap[i], read) @/
+    /@ requires forall i: Int :: arr / 8 <= i && i < arr / 8 + len ==> 0 <= heap[i] && heap[i] < 256 @/
 
-    /*@ ensures sum(arr / 8, len) == retval */
+    /@ ensures sum(arr / 8, len) == retval */
 
     var i = 0;
     var accu = 0;
     while (i < len) {
-        /*@ invariant arr % 8 == 0 @*/
-        /*@ invariant 0 <= i && i <= len @*/
-        /*@ invariant forall i: Int :: arr / 8 <= i && i < arr / 8 + len ==> acc(heap[i], read) @*/
-        /*@ invariant forall i: Int :: arr / 8 <= i && i < arr / 8 + len ==> (0 <= heap[i] && heap[i] < 256) @*/
-        /*@ invariant accu == sum(arr / 8, i) @*/
-        /*@ invariant accu >= 0 @*/
-        /*@ invariant sum(arr / 8, i) <= 255 * i @*/
+        /@ invariant arr % 8 == 0 @/
+        /@ invariant 0 <= i && i <= len @/
+        /@ invariant forall i: Int :: arr / 8 <= i && i < arr / 8 + len ==> acc(heap[i], read) @/
+        /@ invariant forall i: Int :: arr / 8 <= i && i < arr / 8 + len ==> (0 <= heap[i] && heap[i] < 256) @/
+        /@ invariant accu == sum(arr / 8, i) @/
+        /@ invariant accu >= 0 @/
+        /@ invariant sum(arr / 8, i) <= 255 * i @/
         var tmp = lds 1 arr + i * @biw;
-        /*@ assert 0 <= tmp && tmp < 256 @*/
+        /@ assert 0 <= tmp && tmp < 256 @/
         accu = accu + tmp;
         i = i + 1;
     }
