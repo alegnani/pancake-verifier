@@ -1,14 +1,16 @@
-use super::{Annotation, Decl, Expr, Stmt, Type};
+use super::{Decl, Expr, Stmt, Type};
 
 #[derive(Debug, Clone)]
 pub struct FnDec {
     pub fname: String,
     pub args: Vec<Arg>,
+    pub pres: Vec<Expr>,
+    pub posts: Vec<Expr>,
     pub body: Stmt,
     pub retvar: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Arg {
     pub name: String,
     pub typ: Type,
@@ -26,7 +28,8 @@ pub struct Function {
     pub name: String,
     pub args: Vec<Arg>,
     pub typ: Type,
-    pub preposts: Vec<Annotation>,
+    pub pres: Vec<Expr>,
+    pub posts: Vec<Expr>,
     pub body: Option<Expr>,
 }
 
@@ -34,8 +37,18 @@ pub struct Function {
 pub struct AbstractMethod {
     pub name: String,
     pub args: Vec<Arg>,
+    pub pres: Vec<Expr>,
+    pub posts: Vec<Expr>,
     pub rettyps: Vec<Decl>,
-    pub preposts: Vec<Annotation>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Shared {
+    pub name: String,
+    pub bits: u64,
+    pub lower: Expr,
+    pub upper: Expr,
+    pub stride: Expr,
 }
 
 #[derive(Debug, Clone)]
@@ -44,4 +57,5 @@ pub struct Program {
     pub predicates: Vec<Predicate>,
     pub viper_functions: Vec<Function>,
     pub methods: Vec<AbstractMethod>,
+    pub shared: Vec<Shared>,
 }

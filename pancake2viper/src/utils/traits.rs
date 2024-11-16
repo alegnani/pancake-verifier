@@ -25,7 +25,7 @@ pub trait TypeResolution {
 }
 
 pub trait ExprTypeResolution {
-    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError>;
+    fn resolve_expr_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError>;
 }
 
 pub trait TryToViper<'a> {
@@ -62,6 +62,18 @@ pub trait TryToType {
 
 pub trait ToType {
     fn to_type(&self) -> ir::Type;
+}
+
+pub trait ConstEvalExpr {
+    fn const_eval(self, options: &EncodeOptions) -> ir::Expr;
+}
+
+pub trait ConstEval {
+    fn const_eval(self, options: &EncodeOptions) -> Self;
+}
+
+pub trait ExprSubstitution {
+    fn substitute(&mut self, old: &ir::Expr, new: &ir::Expr) -> bool;
 }
 
 pub trait ProgramToViper<'a> {

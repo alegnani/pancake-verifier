@@ -1,0 +1,13 @@
+/@ predicate foo(s: {1,1,1,1}) {
+    alen(s) == 4 && acc(s[0..4]) && s.0 == s.3
+}
+@/
+
+
+fun main() {
+    var ret = < < 0, 0, 1, 0>, < 2, 3 > >;
+    var x1 = ret.0;
+    /@ fold foo(x1) @/
+    var x2 = ret.1;
+    return 0;
+}

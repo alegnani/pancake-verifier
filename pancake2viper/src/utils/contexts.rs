@@ -1,13 +1,16 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 use viper::{AstFactory, Declaration, LocalVarDecl};
 
 use crate::{
-    ir::{types::Type, AnnotationType},
+    ir::{self, shared::SharedContext, types::Type, AnnotationType, FnDec},
     viper_prelude::{utils::Utils, IArrayHelper},
 };
 
-use super::{mangler::Mangler, TranslationError, ViperUtils, RESERVED};
+use super::{mangler::Mangler, TranslationError, RESERVED};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum TranslationMode {
@@ -40,6 +43,37 @@ impl From<AnnotationType> for TranslationMode {
 #[derive(Debug, Clone)]
 pub struct TypeContext {
     type_map: HashMap<String, Type>,
+}
+
+type Exprs = Vec<ir::Expr>;
+type Args = Vec<ir::Arg>;
+
+#[derive(Debug, Clone)]
+pub struct MethodContext(pub HashMap<String, (Exprs, Exprs, Args)>);
+
+impl MethodContext {
+    pub fn new(functions: &[FnDec]) -> Self {
+        let mut annot_ctx = HashMap::new();
+        for f in functions {
+            annot_ctx.insert(
+                f.fname.clone(),
+                (f.pres.clone(), f.posts.clone(), f.args.clone()),
+            );
+        }
+        Self(annot_ctx)
+    }
+
+    pub fn get_pre(&self, name: &str) -> &[ir::Expr] {
+        &self.0.get(name).unwrap().0
+    }
+
+    pub fn get_post(&self, name: &str) -> &[ir::Expr] {
+        &self.0.get(name).unwrap().1
+    }
+
+    pub fn get_args(&self, name: &str) -> &[ir::Arg] {
+        &self.0.get(name).unwrap().2
+    }
 }
 
 impl TypeContext {
@@ -95,12 +129,13 @@ pub struct ViperEncodeCtx<'a> {
     pub iarray: IArrayHelper<'a>,
     pub utils: Utils<'a>,
     pub options: EncodeOptions,
+    pub consume_stack: bool,
 
-    pub pres: Vec<viper::Expr<'a>>,
-    pub posts: Vec<viper::Expr<'a>>,
     pub invariants: Vec<viper::Expr<'a>>,
     predicates: HashSet<String>,
     pub mangler: Mangler,
+    pub shared: Rc<SharedContext>,
+    pub method: Rc<MethodContext>,
 }
 
 #[derive(Clone, Copy)]
@@ -112,6 +147,8 @@ pub struct EncodeOptions {
     pub check_overflows: bool,
     pub bounded_arithmetic: bool,
     pub debug_comments: bool,
+    pub include_prelude: bool,
+    pub return_post: bool,
 }
 
 impl Default for EncodeOptions {
@@ -124,6 +161,8 @@ impl Default for EncodeOptions {
             check_overflows: true,
             bounded_arithmetic: false,
             debug_comments: false,
+            include_prelude: true,
+            return_post: true,
         }
     }
 }
@@ -134,6 +173,8 @@ impl<'a> ViperEncodeCtx<'a> {
         predicates: HashSet<String>,
         ast: AstFactory<'a>,
         options: EncodeOptions,
+        shared: Rc<SharedContext>,
+        annot: Rc<MethodContext>,
     ) -> Self {
         Self {
             mode: TranslationMode::Normal,
@@ -146,11 +187,12 @@ impl<'a> ViperEncodeCtx<'a> {
             iarray: IArrayHelper::new(ast),
             utils: Utils::new(ast),
             options,
-            pres: vec![],
-            posts: vec![],
+            consume_stack: true,
             invariants: vec![],
             predicates,
             mangler: Mangler::default(),
+            shared,
+            method: annot,
         }
     }
 
@@ -166,11 +208,12 @@ impl<'a> ViperEncodeCtx<'a> {
             iarray: self.iarray,
             utils: self.utils,
             options: self.options,
-            pres: vec![],
-            posts: vec![],
+            consume_stack: self.consume_stack,
             invariants: vec![],
             predicates: self.predicates.clone(),
             mangler: self.mangler.clone(),
+            shared: self.shared.clone(),
+            method: self.method.clone(),
         }
     }
 
@@ -221,6 +264,13 @@ impl<'a> ViperEncodeCtx<'a> {
         (
             self.ast.local_var_decl("heap", self.heap_type()),
             self.ast.local_var("heap", self.heap_type()),
+        )
+    }
+
+    pub fn state_var(&self) -> (viper::LocalVarDecl, viper::Expr) {
+        (
+            self.ast.local_var_decl("state", self.ast.ref_type()),
+            self.ast.local_var("state", self.ast.ref_type()),
         )
     }
 

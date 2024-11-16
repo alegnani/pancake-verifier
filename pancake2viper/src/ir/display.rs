@@ -19,7 +19,7 @@ impl Display for Stmt {
             Self::If(i) => write!(f, "if ({}) ...", i.cond),
             Self::While(w) => write!(f, "while ({}) ...", w.cond),
             Self::Seq(_) => write!(f, "Sequence"),
-            Self::Annotation(annot) => write!(f, "/*@ {} {} @*/", annot.typ, annot.expr),
+            Self::Annotation(annot) => write!(f, "/@ {} {} @/", annot.typ, annot.expr),
             Self::Store(store) => write!(f, "st {}, {};", store.address, store.value),
             Self::StoreBits(store) => write!(
                 f,
@@ -50,6 +50,7 @@ impl Display for Expr {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             Self::Const(c) => write!(f, "{}", c),
+            Self::BoolLit(b) => write!(f, "{}", b),
             Self::Var(v) => write!(f, "{}", v),
             Self::Label(l) => write!(f, "{}", l),
             Self::BaseAddr => write!(f, "@base"),
@@ -191,6 +192,7 @@ impl Display for Type {
             Self::Wildcard => write!(f, "*"),
             Self::Void => write!(f, "Void"),
             Self::Array => write!(f, "IArray"),
+            Self::Ref => write!(f, "Ref"),
         }
     }
 }

@@ -1,17 +1,23 @@
 // The Pancake compiler converts newlines and tabs into multiple characters '\' 'n' 
-// instead of using the newline character.
+// instead of using the newline character '\n'.
 WHITESPACE = _{ " " | "\\t" | "\t" | "\\r" | "\\n" | NEWLINE }
 
 integer = @{ ASCII_DIGIT+ }
 ident = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_" )* }
 
-type = _{ int_t | bool_t | iarray_t }
+type = _{ int_t | bool_t | iarray_t | shape_t }
     int_t = { "Int" }
     bool_t = { "Bool" }
     iarray_t = { "IArray" }
+    shape_t = { ("{" ~ shape_t ~ ("," ~ shape_t)* ~ "}") | "1" }
 decl = { ident ~ ":" ~ type }
 
-int_lit = @{ "-"? ~ integer}
+int_lit = { hex_lit | decimal_lit }
+    decimal_lit = @{ "-"? ~ integer}
+    hex_lit = @{ "0x" ~ integer}
+bool_lit = _{ true_lit | false_lit }
+    true_lit = { "true" }
+    false_lit = { "false" }
 
 bin_op = _{ add | sub | mul | div | modulo | imp | iff | viper_eq | viper_neq | pancake_eq | pancake_neq | gte | gt | lte | lt | bool_or | bool_and | bit_and | bit_or | bit_xor }
     add = { "+" }
@@ -52,13 +58,13 @@ expr = !{ prefix? ~ primary ~ postfix? ~ (infix ~ prefix? ~ primary ~ postfix?)*
                 ashr = { ">>" }
                 lshl = { "<<" }
 
-    primary = _{ "(" ~ expr ~ ")" | unfolding | int_lit | quantified | acc_pred | acc_slice | old | f_call | field_acc | ident | biw | base }
+    primary = _{ "(" ~ expr ~ ")" | unfolding | int_lit | quantified | acc_pred | acc_slice | old | f_call | field_acc | bool_lit | ident | biw | base }
 
         quantified = { (forall | exists) ~ decl ~ ("," ~ decl)* ~ "::" ~ triggers ~ expr }
             forall = { "forall" }
             exists = { "exists" }
             triggers = { "{" ~ expr ~ ("," ~ expr)* ~ "}" | "" }
-        acc_slice = { "acc(" ~ ident ~ "[" ~ int_lit ~ (slice_inc | slice_exc) ~ int_lit ~ "]" ~ (("," ~ perm) | "") ~ ")" }
+        acc_slice = { "acc(" ~ ident ~ "[" ~ expr ~ (slice_inc | slice_exc) ~ expr ~ "]" ~ (("," ~ perm) | "") ~ ")" }
             slice_inc = { "..=" }
             slice_exc = { ".." }
         acc_pred = {"acc" ~ "(" ~ expr ~ (("," ~ perm) | "") ~ ")" }
@@ -89,17 +95,26 @@ annotation = { annotation_keyword ~ expr }
         fold = { "fold" }
         unfold = { "unfold" }
 
-// TODO: change "/*" ~ "@" to "/*@" when Pancake parsing fixed
-predicate = { "/*" ~ "@" ~ "predicate" ~ ident ~ "(" ~ pred_args ~ ")" ~ pred_body ~ "@"? ~ "*/" }
+predicate = { "/@" ~ "predicate" ~ ident ~ "(" ~ pred_args ~ ")" ~ pred_body ~ "@/" }
     pred_args = { (decl ~ ("," ~ decl)*) | "" }
     pred_body = { ("{" ~ expr ~ "}") | "" }
 
 preposts = { annotation* }
 
-function = { "/*" ~ "@" ~ "function" ~ ident ~ "(" ~ func_args ~ ")" ~ ":" ~ type ~ preposts ~ func_body ~ "@"? ~ "*/" }
+function = { "/@" ~ "function" ~ ident ~ "(" ~ func_args ~ ")" ~ ":" ~ type ~ preposts ~ func_body ~ "@/" }
     func_args = { (decl ~ ("," ~ decl)*) | "" }
     func_body = { ("{" ~ expr ~ "}") | "" }
 
-method = { "/*" ~ "@" ~ "method" ~ ident ~ "(" ~ method_args ~ ")" ~ method_ret ~ preposts ~ "@"? ~ "*/" }
+method = { "/@" ~ "method" ~ ident ~ "(" ~ method_args ~ ")" ~ method_ret ~ preposts ~ "@/" }
     method_args = { (decl ~ ("," ~ decl)*) | "" }
     method_ret = { (":" ~ "(" ~ decl ~ ("," ~ decl)* ~ ")") | "" }
+
+
+// Shared memory annotations
+
+shared_prototype = @{ "/@" ~ WHITESPACE* ~ "shared" ~ WHITESPACE+ ~ "u" ~ shared_bits ~ WHITESPACE+ ~ shared_name ~ "[" ~ WHITESPACE* ~ shared_mem ~ WHITESPACE* ~ "]" ~ WHITESPACE* ~ "@/" }
+    shared_bits = !{ decimal_lit }
+    shared_name = !{ ident }
+    shared_mem = _{ shared_stride | shared_range | expr }
+        shared_range = !{ expr ~ ".." ~ expr }
+        shared_stride = !{ expr ~ ".." ~ expr ~ ":" ~ expr }

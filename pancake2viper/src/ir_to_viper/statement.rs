@@ -37,12 +37,16 @@ impl<'a> TryToViper<'a> for ir::Stmt {
                 _ => unreachable!(),
             }?,
         };
-        ctx.stack.push(stmt);
-        let decls = ctx.pop_decls();
+        if ctx.consume_stack {
+            ctx.stack.push(stmt);
+            let decls = ctx.pop_decls();
 
-        let seq = ast.seqn(&ctx.stack, &decls);
-        ctx.stack.clear();
-        Ok(seq)
+            let seq = ast.seqn(&ctx.stack, &decls);
+            ctx.stack.clear();
+            Ok(seq)
+        } else {
+            Ok(stmt)
+        }
     }
 }
 
@@ -118,9 +122,7 @@ impl<'a> TryToViper<'a> for ir::Definition {
         let ass = ast.local_var_assign(var.1, self.rhs.to_viper(ctx)?);
         let mut scope_ctx = ctx.child();
         let scope = self.scope.to_viper(&mut scope_ctx)?;
-        // Push not consumed invariants, pre- and postconditions up
-        ctx.pres.append(&mut scope_ctx.pres);
-        ctx.posts.append(&mut scope_ctx.posts);
+        // Push not consumed invariants up
         ctx.invariants.append(&mut scope_ctx.invariants);
 
         let decls = ctx.pop_decls();
@@ -138,7 +140,7 @@ impl<'a> TryToViper<'a> for ir::Assign {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let lhs_shape = ctx.get_type(&self.lhs)?;
-        let rhs_shape = self.rhs.to_shape(ctx.typectx_get())?;
+        // let rhs_shape = self.rhs.to_shape(ctx.typectx_get())?;
         // FIXME: add type checking
         // if lhs_shape != rhs_shape {
         //     return Err(ToViperError::MismatchedShapes(lhs_shape, rhs_shape));
@@ -173,6 +175,7 @@ impl<'a> TryToViper<'a> for ir::ExtCall {
         let ast = ctx.ast;
         let mut args = self.args.to_viper(ctx)?;
         args.insert(0, ctx.heap_var().1);
+        args.insert(0, ctx.state_var().1);
         Ok(ast.method_call(&self.fname, &args, &[]))
     }
 }
@@ -193,6 +196,7 @@ impl<'a> TryToViper<'a> for ir::Annotation {
                     };
                     let mut args = access.args.to_viper(ctx)?;
                     args.insert(0, ctx.heap_var().1);
+                    args.insert(0, ctx.state_var().1);
                     Ok(ast_node(ast.predicate_access_predicate(
                         ast.predicate_access(&args, &access.fname),
                         ast.full_perm(),
@@ -207,22 +211,17 @@ impl<'a> TryToViper<'a> for ir::Annotation {
                 let body = self.expr.to_viper(ctx)?;
                 ctx.set_mode(TranslationMode::Normal);
                 ctx.mangler.clear_annot_var();
-                Ok(match x {
-                    Assertion => ast.assert(body, no_pos),
-                    Assumption | Inhale => ast.inhale(body, no_pos),
-                    Exhale => ast.exhale(body, no_pos),
-                    Refutation => ast.refute(body, no_pos),
-                    x @ (Invariant | Precondition | Postcondition) => {
-                        match x {
-                            Invariant => ctx.invariants.push(body),
-                            Precondition => ctx.pres.push(body),
-                            Postcondition => ctx.posts.push(body),
-                            _ => unreachable!(),
-                        };
-                        ast.comment("annotation pushed")
+                match x {
+                    Assertion => Ok(ast.assert(body, no_pos)),
+                    Assumption | Inhale => Ok(ast.inhale(body, no_pos)),
+                    Exhale => Ok(ast.exhale(body, no_pos)),
+                    Refutation => Ok(ast.refute(body, no_pos)),
+                    Invariant => {
+                        ctx.invariants.push(body);
+                        Ok(ast.comment("invariant pushed"))
                     }
-                    _ => unreachable!(),
-                })
+                    x => Err(ToViperError::InvalidAnnotation),
+                }
             }
         }
     }

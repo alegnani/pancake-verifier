@@ -1,10 +1,12 @@
 use std::collections::HashSet;
+use std::rc::Rc;
 
+use shared::SharedContext;
 use viper::AstFactory;
 
 use crate::utils::{
-    EncodeOptions, ProgramToViper, ToViper, ToViperError, ToViperType, TranslationMode, TryToViper,
-    TypeContext, ViperEncodeCtx,
+    EncodeOptions, MethodContext, ProgramToViper, ToViper, ToViperError, ToViperType,
+    TranslationMode, TryToViper, TypeContext, ViperEncodeCtx,
 };
 use crate::viper_prelude::create_viper_prelude;
 
@@ -47,7 +49,9 @@ impl<'a> TryToViper<'a> for FnDec {
             &[],
         );
 
-        pres.extend(&ctx.pres);
+        ctx.set_mode(TranslationMode::PrePost);
+        pres.extend(self.pres.to_viper(ctx)?);
+
         // add precondition about heap size: `requires alen(heap) == HEAP_SIZE`
         pres.insert(
             0,
@@ -56,9 +60,11 @@ impl<'a> TryToViper<'a> for FnDec {
                 ast.int_lit(ctx.options.heap_size as i64),
             ),
         );
-        posts.append(&mut ctx.posts);
+        posts.extend(self.posts.to_viper(ctx)?);
+        ctx.set_mode(TranslationMode::Normal);
 
         args_local_decls.insert(0, ctx.heap_var().0);
+        args_local_decls.insert(0, ctx.state_var().0);
 
         Ok(ast.method(
             &self.fname,
@@ -78,20 +84,9 @@ impl<'a> TryToViper<'a> for Predicate {
         let mut args = self.args.to_viper(ctx);
         let body = self.body.map(|e| e.to_viper(ctx)).transpose()?;
         args.insert(0, ctx.heap_var().0);
+        args.insert(0, ctx.state_var().0);
         Ok(ast.predicate(&self.name, &args, body))
     }
-}
-
-fn partition_annotation_types(
-    annotations: Vec<Annotation>,
-) -> (Vec<Annotation>, Vec<Annotation>, Vec<Annotation>) {
-    let (pres, others): (Vec<_>, Vec<_>) = annotations
-        .into_iter()
-        .partition(|e| matches!(e.typ, AnnotationType::Precondition));
-    let (posts, others): (Vec<_>, Vec<_>) = others
-        .into_iter()
-        .partition(|e| matches!(e.typ, AnnotationType::Postcondition));
-    (pres, posts, others)
 }
 
 impl<'a> TryToViper<'a> for Function {
@@ -100,27 +95,16 @@ impl<'a> TryToViper<'a> for Function {
         let ast = ctx.ast;
         let mut args = self.args.to_viper(ctx);
 
-        let (pres, posts, others) = partition_annotation_types(self.preposts);
-
-        if !others.is_empty() {
-            return Err(ToViperError::InvalidAnnotation(others));
-        }
-
         // set the type of `result` so it can be used in post-conditions
         ctx.typectx_get_mut()
             .set_type("result".into(), self.typ.clone());
 
-        let pres = pres
-            .into_iter()
-            .map(|e| e.expr.to_viper(ctx))
-            .collect::<Result<Vec<_>, _>>()?;
-        let posts = posts
-            .into_iter()
-            .map(|e| e.expr.to_viper(ctx))
-            .collect::<Result<Vec<_>, _>>()?;
+        let pres = self.pres.to_viper(ctx)?;
+        let posts = self.posts.to_viper(ctx)?;
         let body = self.body.map(|b| b.to_viper(ctx)).transpose()?;
 
         args.insert(0, ctx.heap_var().0);
+        args.insert(0, ctx.state_var().0);
         Ok(ast.function(
             &self.name,
             &args,
@@ -140,22 +124,11 @@ impl<'a> TryToViper<'a> for AbstractMethod {
         let mut args = self.args.to_viper(ctx);
         let rettyps = self.rettyps.to_viper(ctx);
 
-        let (pres, posts, others) = partition_annotation_types(self.preposts);
-
-        if !others.is_empty() {
-            return Err(ToViperError::InvalidAnnotation(others));
-        }
-
-        let pres = pres
-            .into_iter()
-            .map(|e| e.expr.to_viper(ctx))
-            .collect::<Result<Vec<_>, _>>()?;
-        let posts = posts
-            .into_iter()
-            .map(|e| e.expr.to_viper(ctx))
-            .collect::<Result<Vec<_>, _>>()?;
+        let pres = self.pres.to_viper(ctx)?;
+        let posts = self.posts.to_viper(ctx)?;
 
         args.insert(0, ctx.heap_var().0);
+        args.insert(0, ctx.state_var().0);
         Ok(ast.method(&self.name, &args, &rettyps, &pres, &posts, None))
     }
 }
@@ -167,12 +140,24 @@ impl<'a> ProgramToViper<'a> for Program {
         ast: AstFactory<'a>,
         options: EncodeOptions,
     ) -> Result<viper::Program<'a>, ToViperError> {
+        // Create context for shared memory accesses
+        let shared = Rc::new(SharedContext::new(&self.shared));
+        // Create method context for automatic unfolding/folding of function predicates
+        let method_ctx = Rc::new(MethodContext::new(&self.functions));
+
         let (predicates, predicate_names): (Vec<_>, HashSet<_>) = self
             .predicates
             .into_iter()
             .map(|p| {
                 let pred_name = p.name.clone();
-                let mut ctx = ViperEncodeCtx::new(types.clone(), HashSet::new(), ast, options);
+                let mut ctx = ViperEncodeCtx::new(
+                    types.clone(),
+                    HashSet::new(),
+                    ast,
+                    options,
+                    shared.clone(),
+                    method_ctx.clone(),
+                );
                 ctx.set_mode(TranslationMode::PrePost);
 
                 (p.to_viper(&mut ctx), pred_name)
@@ -184,8 +169,14 @@ impl<'a> ProgramToViper<'a> for Program {
             .viper_functions
             .into_iter()
             .map(|f| {
-                let mut ctx =
-                    ViperEncodeCtx::new(types.clone(), predicate_names.clone(), ast, options);
+                let mut ctx = ViperEncodeCtx::new(
+                    types.clone(),
+                    predicate_names.clone(),
+                    ast,
+                    options,
+                    shared.clone(),
+                    method_ctx.clone(),
+                );
                 ctx.set_mode(TranslationMode::PrePost);
                 f.to_viper(&mut ctx)
             })
@@ -195,8 +186,14 @@ impl<'a> ProgramToViper<'a> for Program {
             .methods
             .into_iter()
             .map(|m| {
-                let mut ctx =
-                    ViperEncodeCtx::new(types.clone(), predicate_names.clone(), ast, options);
+                let mut ctx = ViperEncodeCtx::new(
+                    types.clone(),
+                    predicate_names.clone(),
+                    ast,
+                    options,
+                    shared.clone(),
+                    method_ctx.clone(),
+                );
                 ctx.set_mode(TranslationMode::PrePost);
                 m.to_viper(&mut ctx)
             })
@@ -206,8 +203,14 @@ impl<'a> ProgramToViper<'a> for Program {
             .functions
             .into_iter()
             .map(|f| {
-                let mut ctx =
-                    ViperEncodeCtx::new(types.clone(), predicate_names.clone(), ast, options);
+                let mut ctx = ViperEncodeCtx::new(
+                    types.clone(),
+                    predicate_names.clone(),
+                    ast,
+                    options,
+                    shared.clone(),
+                    method_ctx.clone(),
+                );
                 f.to_viper(&mut ctx)
             })
             .collect::<Result<Vec<_>, _>>()?;

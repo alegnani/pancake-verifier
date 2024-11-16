@@ -1,9 +1,0 @@
-fun main(1 x) {
-    if (x) {
-        /*@ assume 0 == 1 @*/
-        /*@ assert 0 == 1 @*/
-    } else {
-        /*@ refute 0 == 1 @*/
-    }
-    return 0;
-}

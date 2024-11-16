@@ -3,20 +3,19 @@ use std::env;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use anyhow::anyhow;
 use dashmap::DashMap;
 use expanduser::expanduser;
 use notification::ShowMessage;
 use pancake2viper::ir;
-use pancake2viper::utils::{EncodeOptions, Mangleable, Mangler, ProgramToViper, ViperHandle};
+use pancake2viper::utils::{
+    ConstEval, EncodeOptions, Mangleable, Mangler, ProgramToViper, ViperHandle,
+};
 
 use serde_json::Value;
 use tokio::sync::Mutex;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
-
-use tracing::{event, Level};
 
 // #[derive(Debug)]
 struct Backend {
@@ -107,6 +106,7 @@ impl Backend {
         let mut mangler = Mangler::default();
         program.mangle(&mut mangler)?;
         let ctx = program.resolve_types()?;
+        let program = program.const_eval(&EncodeOptions::default());
         let program = program.to_viper(ctx, viper.ast, EncodeOptions::default())?;
 
         self.create_vpr_file(uri, viper.pretty_print(program)).await;
@@ -172,11 +172,12 @@ impl Backend {
         let mut program = self.get_current_ast().await;
         let mut mangler = Mangler::default();
         program.mangle(&mut mangler).unwrap();
+        let program = program.const_eval(&EncodeOptions::default());
         let ctx = program.resolve_types().unwrap();
         let program = program
             .to_viper(ctx, viper.ast, EncodeOptions::default())
             .unwrap();
-        let ver = viper.verify(program);
+        let ver = viper.verify(program).0;
         let result = serde_json::json!({
             "message": ver,
         });

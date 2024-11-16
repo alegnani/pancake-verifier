@@ -1,0 +1,8 @@
+/@ predicate stuff(s: {1}) {
+    true
+}
+@/
+
+fun main() {
+    return 0;
+}

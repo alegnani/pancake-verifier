@@ -1,9 +1,0 @@
-fun main() {
-    /*@ ensures retval == 1 @*/
-    var x = 1 + 2 + 3;
-    if (x) {
-        return 1;
-    } else {
-        return 0;
-    }
-}

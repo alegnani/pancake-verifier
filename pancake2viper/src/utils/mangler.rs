@@ -103,12 +103,6 @@ impl Mangler {
         .ok_or(MangleError::UndeclaredVar(var.to_owned()))
     }
 
-    fn get_fname(&self) -> &str {
-        self.fname
-            .as_ref()
-            .expect("Mangler's current function name not set")
-    }
-
     pub fn switch_ctx(&mut self, fname: String) {
         self.fname = Some(fname);
         self.clean_local();

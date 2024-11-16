@@ -29,7 +29,7 @@ impl Mangleable for ir::Expr {
     fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
         use ir::Expr::*;
         match self {
-            Const(_) | BaseAddr | BytesInWord => (),
+            Const(_) | BaseAddr | BytesInWord | BoolLit(_) => (),
             Var(name) => *name = mangler.mangle_var(name)?.to_owned(),
             Label(label) => *label = Mangler::mangle_fn(label),
             Struct(struc) => struc.elements.mangle(mangler)?,
@@ -160,6 +160,8 @@ impl Mangleable for ir::FnDec {
         self.fname = Mangler::mangle_fn(&self.fname);
         self.retvar = mangler.new_mangled_var(self.retvar.clone(), VariableType::Argument)?;
         self.args.mangle(mangler)?;
+        self.pres.mangle(mangler)?;
+        self.posts.mangle(mangler)?;
         self.body.mangle(mangler)
     }
 }
@@ -178,7 +180,8 @@ impl Mangleable for ir::Function {
         mangler.switch_ctx(self.name.clone());
         self.name = Mangler::mangle_fn(&self.name);
         self.args.mangle(mangler)?;
-        self.preposts.mangle(mangler)?;
+        self.pres.mangle(mangler)?;
+        self.posts.mangle(mangler)?;
         self.body.mangle(mangler)
     }
 }
@@ -188,7 +191,8 @@ impl Mangleable for ir::AbstractMethod {
         mangler.switch_ctx(self.name.clone());
         self.name = Mangler::mangle_fn(&self.name);
         self.args.mangle(mangler)?;
-        self.preposts.mangle(mangler)
+        self.pres.mangle(mangler)?;
+        self.posts.mangle(mangler)
     }
 }
 

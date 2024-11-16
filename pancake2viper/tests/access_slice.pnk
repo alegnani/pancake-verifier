@@ -1,9 +1,0 @@
-fun main() {
-    /*@ requires acc(heap[0..4]) @*/
-    /*@ requires acc(heap[4..8]) @*/
-    /*@ requires acc(heap[10..=12]) @*/
-    var x = lds 4 @base;
-    var y = lds 4 @base + 4 * @biw;
-    var z = lds 3 @base + 10 * @biw;
-    return 0;
-}

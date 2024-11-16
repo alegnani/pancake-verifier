@@ -1,4 +1,0 @@
-fun main() {
-    /*@ requires alen(heap) >= 0 @*/
-    return 0;
-}

@@ -1,0 +1,16 @@
+/@ predicate P(a: Int) { a == 0 } @/
+
+fun main() {
+    var y = 0;
+    /@ fold P(y) @/
+    do_stuff(y);
+    return 0;
+}
+
+fun do_stuff(1 x) {
+    /@ requires P(x) @/
+
+    /@ unfold P(x) @/
+    /@ assert x == 0 @/
+    return 0;
+}

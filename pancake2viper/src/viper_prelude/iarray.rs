@@ -51,7 +51,7 @@ impl<'a> IArrayHelper<'a> {
             ast.forall(
                 &[a_decl],
                 &[ast.trigger(&[len_app])],
-                ast.ge_cmp(len_app, ast.int_lit(0)),
+                ast.ge_cmp(len_app, ast.zero()),
             ),
             domain_name,
         );
@@ -130,7 +130,7 @@ impl<'a> IArrayHelper<'a> {
         let ast = self.ast;
         let (src_decl, src) = ast.new_var("src", self.get_type());
         let (perm_decl, perm) = ast.new_var("perm", ast.perm_type());
-        let l = ast.int_lit(0);
+        let l = ast.zero();
         let h = self.len_f(src);
         self.ast.predicate(
             "slice_acc",
@@ -147,7 +147,7 @@ impl<'a> IArrayHelper<'a> {
         let ast = self.ast;
         let (j_decl, j) = ast.new_var("j", ast.int_type());
         let upper = self.len_f(array);
-        let zero = ast.int_lit(0);
+        let zero = ast.zero();
         let limit = ast.add(idx, length);
 
         let i0 = ast.le_cmp(zero, idx);
@@ -204,10 +204,10 @@ impl<'a> IArrayHelper<'a> {
         let (i_decl, i) = ast.new_var("i", ast.int_type());
         let (j_decl, j) = ast.new_var("j", ast.int_type());
 
-        let zero = ast.int_lit(0);
+        let zero = ast.zero();
         let len_src = self.len_f(src);
         let len_dst = self.len_f(dst);
-        let read_perm = ast.fractional_perm(ast.int_lit(1), ast.int_lit(2));
+        let read_perm = ast.fractional_perm(ast.one(), ast.two());
 
         let pres = [
             // requires 0 <= src_idx <= alen(src)

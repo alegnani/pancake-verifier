@@ -1,7 +1,0 @@
-/* @ function pnk_true(): Int
-    ensures result == 1
-@*/
-
-fun main() {
-    return 0;
-}

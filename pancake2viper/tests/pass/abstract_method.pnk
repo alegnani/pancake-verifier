@@ -1,0 +1,12 @@
+/@ method ffiprint_int(a: Int, b: Int, c: Int, d: Int) @/
+
+/@ 
+method ffiprint_uint(a: Int, b: Int, c: Int, d: Int) 
+    requires b >= 0
+    requires d >= 0    
+@/
+
+fun main() {
+    @print_int(0, 0, 0, 0);
+    return 0;
+}

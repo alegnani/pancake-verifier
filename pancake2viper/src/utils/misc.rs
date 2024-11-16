@@ -49,16 +49,22 @@ impl ViperHandle {
 }
 
 impl ViperHandle {
-    pub fn verify(&mut self, program: viper::Program) -> String {
+    pub fn verify(&mut self, program: viper::Program) -> (String, bool) {
         use viper::VerificationResult::*;
         match self.verifier.verify(program) {
-            Success => "️✅Verification Successful✅".into(),
+            Success => ("️✅Verification Successful✅".into(), true),
             Failure(e) => {
                 let errors = e.into_iter().map(|e| e.message).collect::<Vec<_>>();
-                format!("❌Verification Error❌\n\n{}", errors.join("\n\n"))
+                (
+                    format!("❌Verification Error❌\n\n{}", errors.join("\n\n")),
+                    false,
+                )
             }
-            ConsistencyErrors(e) => format!("❌Consistency Error❌\n\n{}", e.join("\n\n")),
-            JavaException(e) => format!("❌Java Exception❌\n\n{}", e),
+            ConsistencyErrors(e) => (
+                format!("❌Consistency Error❌\n\n{}", e.join("\n\n")),
+                false,
+            ),
+            JavaException(e) => (format!("❌Java Exception❌\n\n{}", e), false),
         }
     }
 

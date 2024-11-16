@@ -1,0 +1,10 @@
+fun plus_one(1 x) {
+    /@ requires x <= 10000 @/
+    return x + 1;
+}
+
+fun main() {
+    var y = 42;
+    y = plus_one(y);
+    return 0;
+}

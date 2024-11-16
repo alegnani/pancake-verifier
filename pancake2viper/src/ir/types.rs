@@ -1,8 +1,8 @@
 use crate::{
-    ir,
+    ir::{self, Expr},
     utils::{
-        ExprTypeResolution, Shape, ToType, TranslationError, TryToShape, TypeContext,
-        TypeResolution,
+        ExprTypeResolution, Shape, ShapeError::IRSimpleShapeFieldAccess, ToType, TranslationError,
+        TryToShape, TypeContext, TypeResolution,
     },
 };
 
@@ -14,16 +14,20 @@ pub enum Type {
     Struct(Vec<Shape>),
     Array,
     Wildcard,
+    Ref,
 }
 
 impl ExprTypeResolution for ir::Expr {
-    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError> {
+    fn resolve_expr_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError> {
         use ir::Expr::*;
         match self {
-            Const(_) | LoadBits(_) | Shift(_) | BaseAddr | BytesInWord | ArrayAccess(_)
-            | FieldAccessChain(_) => Ok(Type::Int),
-            BinOp(_) => Ok(Type::Int), // FIXME
-            UnOp(_) => Ok(Type::Int),
+            Const(_) | LoadBits(_) | Shift(_) | BaseAddr | BytesInWord | FieldAccessChain(_) => {
+                Ok(Type::Int)
+            }
+            BoolLit(_) => Ok(Type::Bool),
+            ArrayAccess(acc) => acc.resolve_expr_type(ctx),
+            BinOp(op) => op.resolve_expr_type(ctx),
+            UnOp(op) => op.resolve_expr_type(ctx),
             AccessPredicate(_) | AccessSlice(_) => Ok(Type::Bool),
             Var(name) => ctx.get_type_no_mangle(name),
             Label(_) => unreachable!(),
@@ -32,20 +36,58 @@ impl ExprTypeResolution for ir::Expr {
             Load(load) => Ok(load.shape.to_type()),
             MethodCall(call) => ctx.get_function_type(&call.fname),
             FunctionCall(call) => ctx.get_function_type(&call.fname),
-            UnfoldingIn(fold) => fold.expr.resolve_type(ctx),
-            Ternary(tern) => tern.left.resolve_type(ctx),
+            UnfoldingIn(fold) => fold.expr.resolve_expr_type(ctx),
+            Ternary(tern) => tern.left.resolve_expr_type(ctx),
             Quantified(quant) => {
                 quant.decls.resolve_type(ctx)?;
                 Ok(Type::Bool)
             }
-            Old(old) => old.expr.resolve_type(ctx),
+            Old(old) => old.expr.resolve_expr_type(ctx),
         }
+    }
+}
+
+impl ExprTypeResolution for ir::ArrayAccess {
+    fn resolve_expr_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError> {
+        let obj_type = self.obj.resolve_expr_type(ctx)?;
+        assert_eq!(self.idx.resolve_expr_type(ctx)?, Type::Int);
+        match obj_type {
+            Type::Struct(inner) => Ok(match *self.idx {
+                Expr::Const(i) => inner[i as usize].to_type(),
+                _ => {
+                    let mut shapes = inner.iter();
+                    if let Some(head) = shapes.next() {
+                        assert!(shapes.all(|s| s == head), "Each nested struct, indexed by a non-constant value needs to have the same type");
+                    }
+                    inner[0].to_type()
+                }
+            }),
+            Type::Array => Ok(Type::Int),
+            _ => Err(TranslationError::ShapeError(IRSimpleShapeFieldAccess(
+                *self.obj.clone(),
+            ))),
+        }
+    }
+}
+
+impl ExprTypeResolution for ir::UnOp {
+    fn resolve_expr_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError> {
+        self.right.resolve_expr_type(ctx)?;
+        Ok(self.optype.to_type())
+    }
+}
+
+impl ExprTypeResolution for ir::BinOp {
+    fn resolve_expr_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError> {
+        self.left.resolve_expr_type(ctx)?;
+        self.right.resolve_expr_type(ctx)?;
+        Ok(self.optype.to_type())
     }
 }
 
 impl TypeResolution for ir::Annotation {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
-        self.expr.resolve_type(ctx)?;
+        self.expr.resolve_expr_type(ctx)?;
         Ok(())
     }
 }
@@ -68,7 +110,7 @@ impl TypeResolution for ir::Stmt {
                 i.else_branch.resolve_type(ctx)
             }
             ir::Stmt::Assign(ass) => {
-                let rhs_type = ass.rhs.resolve_type(ctx)?;
+                let rhs_type = ass.rhs.resolve_expr_type(ctx)?;
                 ctx.set_type(ass.lhs.clone(), rhs_type);
                 Ok(())
             }
@@ -90,6 +132,15 @@ impl<T: TypeResolution> TypeResolution for Vec<T> {
     }
 }
 
+impl<T: ExprTypeResolution> ExprTypeResolution for Vec<T> {
+    fn resolve_expr_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError> {
+        for expr in self {
+            ignore_unknown(expr.resolve_expr_type(ctx).map(|_| ()))?;
+        }
+        Ok(Type::Wildcard)
+    }
+}
+
 impl<T: TypeResolution> TypeResolution for Option<T> {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
         match self {
@@ -100,9 +151,9 @@ impl<T: TypeResolution> TypeResolution for Option<T> {
 }
 
 impl<T: ExprTypeResolution> ExprTypeResolution for Option<T> {
-    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError> {
+    fn resolve_expr_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError> {
         match self {
-            Some(t) => t.resolve_type(ctx),
+            Some(t) => t.resolve_expr_type(ctx),
             None => Ok(Type::Void),
         }
     }
@@ -118,6 +169,8 @@ impl TypeResolution for ir::Arg {
 impl TypeResolution for ir::FnDec {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
         self.args.resolve_type(ctx)?;
+        self.pres.resolve_expr_type(ctx)?;
+        self.posts.resolve_expr_type(ctx)?;
         self.body.resolve_type(ctx)?;
         let ret_type = ctx.get_type_no_mangle(&self.retvar);
         match ret_type {
@@ -143,7 +196,7 @@ impl TypeResolution for ir::Decl {
 impl TypeResolution for ir::Predicate {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
         self.args.resolve_type(ctx)?;
-        self.body.resolve_type(ctx)?;
+        self.body.resolve_expr_type(ctx)?;
         ctx.set_type(self.name.clone(), Type::Bool);
         Ok(())
     }
@@ -152,8 +205,9 @@ impl TypeResolution for ir::Predicate {
 impl TypeResolution for ir::Function {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
         self.args.resolve_type(ctx)?;
-        self.body.resolve_type(ctx)?;
-        self.preposts.resolve_type(ctx)?;
+        self.body.resolve_expr_type(ctx)?;
+        self.pres.resolve_expr_type(ctx)?;
+        self.posts.resolve_expr_type(ctx)?;
         ctx.set_type(self.name.clone(), self.typ.clone());
         Ok(())
     }
@@ -162,6 +216,8 @@ impl TypeResolution for ir::Function {
 impl TypeResolution for ir::AbstractMethod {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
         self.args.resolve_type(ctx)?;
+        self.pres.resolve_expr_type(ctx)?;
+        self.posts.resolve_expr_type(ctx)?;
         self.rettyps.resolve_type(ctx)?;
         assert!(self.rettyps.len() <= 1); // TODO: add support for multiple returns
         let shape = if self.rettyps.is_empty() {

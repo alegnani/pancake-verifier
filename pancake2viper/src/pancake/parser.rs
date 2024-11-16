@@ -80,14 +80,14 @@ impl Expr {
             }
             [Symbol(memload), Symbol(shape), List(exp)] if memload == "MemLoad" => {
                 Ok(Self::Load(Load {
-                    shape: Shape::parse(shape)?,
+                    shape: Shape::parse(shape, ShapeDelimiter::AngleBrackets)?,
                     address: Box::new(Self::parse(exp)?),
                     assert: true,
                 }))
             }
             [Symbol(memload), Int(shape), List(exp)] if memload == "MemLoad" => {
                 Ok(Self::Load(Load {
-                    shape: Shape::parse(&shape.to_string())?,
+                    shape: Shape::parse(&shape.to_string(), ShapeDelimiter::AngleBrackets)?,
                     address: Box::new(Self::parse(exp)?),
                     assert: true,
                 }))
@@ -260,7 +260,7 @@ impl Stmt {
                 cond: Expr::parse(cond)?,
                 body: Box::new(Self::parse_symbol(body)?),
             })),
-            [Symbol(op), List(label), List(args), Symbol(ret)] if op == "call" => {
+            [Symbol(op), List(label), List(args), Symbol(_ret)] if op == "call" => {
                 Ok(Self::Call(Call {
                     fname: Expr::parse(label)?,
                     args: Expr::parse_slice(args)?,
@@ -356,7 +356,7 @@ impl Arg {
             List(args) => match &args[..] {
                 [Symbol(name), Symbol(colon), Symbol(shape)] if colon == ":" => Ok(Self {
                     name: name.clone(),
-                    shape: Shape::parse(shape)?,
+                    shape: Shape::parse(shape, ShapeDelimiter::AngleBrackets)?,
                 }),
                 [Symbol(name), Symbol(colon), Int(_)] if colon == ":" => Ok(Self {
                     name: name.clone(),
@@ -389,22 +389,33 @@ impl FnDec {
     }
 }
 
+pub enum ShapeDelimiter {
+    AngleBrackets,
+    CurlyBraces,
+}
+
 impl Shape {
-    pub fn parse(s: &str) -> anyhow::Result<Self> {
+    pub fn parse(s: &str, delimiter: ShapeDelimiter) -> anyhow::Result<Self> {
         if s == "1" {
             return Ok(Shape::Simple);
         }
+        let (open, close) = match delimiter {
+            ShapeDelimiter::AngleBrackets => ('<', '>'),
+            ShapeDelimiter::CurlyBraces => ('{', '}'),
+        };
         let mut stack = vec![];
         for c in s.chars() {
             match c {
-                '<' => stack.push(vec![]),
+                x if x == open => stack.push(vec![]),
                 '1' => stack
                     .last_mut()
                     .ok_or(anyhow!("Unexpected symbol '1'"))?
                     .push(Shape::Simple),
                 ',' => (),
-                '>' => {
-                    let item = stack.pop().ok_or(anyhow!("Unexpected symbol '>'"))?;
+                x if x == close => {
+                    let item = stack
+                        .pop()
+                        .ok_or(anyhow!("Unexpected symbol '{}'", close))?;
                     let shape = Shape::Nested(item);
                     if let Some(last) = stack.last_mut() {
                         last.push(shape);
@@ -445,6 +456,10 @@ impl Program {
             .into_iter()
             .map(Method::new)
             .collect();
+        let shared = Self::get_toplevel_annotations(&s, "shared")
+            .into_iter()
+            .map(Shared::new)
+            .collect();
 
         let functions = get_sexprs(s, cake_path)?
             .iter()
@@ -460,17 +475,12 @@ impl Program {
             predicates,
             viper_functions,
             methods,
+            shared,
         })
     }
 
     fn get_toplevel_annotations(s: &str, toplevel_str: &str) -> Vec<String> {
-        let re = Regex::new(&format!(
-            "(?s)/\\* ?@\\s*{}\\s*(.*?)\\s*(?:@\\*/|\\*/)",
-            toplevel_str
-        ))
-        .unwrap();
-        // TODO: change this back after parsing error in Pancake is fixed
-        // let re = Regex::new(r"(?s)/\*@\s*predicate\s*(.*?)\s*(?:@\*/|\*/)").unwrap();
+        let re = Regex::new(&format!("(?s)/@\\s*{}\\s*(.*?)\\s*@/", toplevel_str)).unwrap();
         re.captures_iter(s)
             .map(|capt| capt.get(0).unwrap().as_str().to_owned())
             .collect()

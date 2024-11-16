@@ -1,8 +1,10 @@
 use crate::{
-    annotation::{parse_function, parse_method, parse_predicate},
+    annotation::{parse_function, parse_method, parse_predicate, parse_shared},
     ir, pancake,
     utils::{ToType, TranslationError, TryToIR},
 };
+
+use super::utils::stmt_annotation_push;
 
 impl TryToIR for pancake::Arg {
     type Output = ir::Arg;
@@ -20,17 +22,20 @@ impl TryToIR for pancake::FnDec {
 
     fn to_ir(self) -> Result<Self::Output, TranslationError> {
         let args = self.args.to_ir()?;
-        let body = args.iter().fold(self.body.to_ir()?, |scope, arg| {
+        let mut body = args.iter().fold(self.body.to_ir()?, |scope, arg| {
             ir::Stmt::Definition(ir::Definition {
                 lhs: arg.name.clone(),
                 rhs: ir::Expr::Var(arg.name.clone()),
                 scope: Box::new(scope),
             })
         });
+        let (pres, posts) = stmt_annotation_push(&mut body);
         Ok(Self::Output {
             fname: self.fname,
             args,
             body,
+            pres,
+            posts,
             retvar: "retval".into(),
         })
     }
@@ -60,6 +65,14 @@ impl TryToIR for pancake::Method {
     }
 }
 
+impl TryToIR for pancake::Shared {
+    type Output = ir::Shared;
+
+    fn to_ir(self) -> Result<Self::Output, TranslationError> {
+        Ok(parse_shared(&self.text))
+    }
+}
+
 impl TryFrom<pancake::Program> for ir::Program {
     type Error = TranslationError;
 
@@ -68,12 +81,14 @@ impl TryFrom<pancake::Program> for ir::Program {
         let predicates = value.predicates.to_ir()?;
         let functions = value.functions.to_ir()?;
         let methods = value.methods.to_ir()?;
+        let shared = value.shared.to_ir()?;
 
         Ok(ir::Program {
             functions,
             predicates,
             viper_functions,
             methods,
+            shared,
         })
     }
 }

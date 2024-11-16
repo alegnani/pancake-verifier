@@ -1,0 +1,9 @@
+fun main() {
+    /@ requires acc(heap[0]) @/
+    st @base, 42 + 256 * 17;
+    var x = ld8 @base;
+    var y = ld8 @base + 1;
+    /@ assert x == 42 @/
+    /@ assert y == 17 @/
+    return 0;
+}

@@ -1,9 +1,11 @@
+use std::collections::HashMap;
+
 use viper::BinOpBv;
 use viper::BvSize::BV64;
 
 use crate::utils::{
-    Mangler, Shape, ToType, ToViper, ToViperError, ToViperType, TranslationMode, TryToShape,
-    TryToViper, ViperEncodeCtx, ViperUtils,
+    ExprSubstitution, Mangler, Shape, ToType, ToViper, ToViperError, ToViperType, TranslationMode,
+    TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
 };
 
 use crate::ir::{self, BinOpType, Type};
@@ -22,7 +24,7 @@ impl ir::Expr {
         ctx.set_mode(TranslationMode::WhileCond);
         let cond = self.to_viper(ctx)?;
         ctx.set_mode(TranslationMode::Normal);
-        Ok(ast.ne_cmp(cond, ast.int_lit(0)))
+        Ok(ast.ne_cmp(cond, ast.zero()))
     }
 
     // TODO: this could well be a function pointer. If we stick to only using
@@ -184,22 +186,33 @@ impl<'a> TryToViper<'a> for ir::Struct {
             ast.inhale(
                 ctx.iarray.array_acc_expr(
                     struct_var,
-                    ast.int_lit(0),
+                    ast.zero(),
                     ctx.iarray.len_f(struct_var),
                     ast.full_perm(),
                 ),
                 ast.no_position(),
             ),
         ];
-        let assignments = self
-            .flatten()
-            .into_iter()
-            .enumerate()
-            .map(|(idx, e)| {
-                let lhs = ctx.iarray.access(struct_var, ast.int_lit(idx as i64));
-                e.to_viper(ctx).map(|rhs| ast.field_assign(lhs, rhs))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+
+        let mut assignments = vec![];
+        let mut idx = 0;
+        for struct_element in self.flatten() {
+            let shape = struct_element.to_shape(ctx.typectx_get_mut())?;
+            let shape_len = shape.len();
+            let src_obj = struct_element.to_viper(ctx)?;
+            for offset in 0..shape_len {
+                let lhs = ctx
+                    .iarray
+                    .access(struct_var, ast.int_lit((idx + offset) as i64));
+                let rhs = match shape {
+                    Shape::Simple => src_obj,
+                    Shape::Nested(_) => ctx.iarray.access(src_obj, ast.int_lit(offset as i64)),
+                };
+                assignments.push(ast.field_assign(lhs, rhs))
+            }
+            idx += shape_len;
+        }
+
         assumptions.extend(assignments);
         ctx.declarations.push(struct_decl);
         ctx.stack.push(ast.seqn(&assumptions, &[]));
@@ -279,11 +292,13 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
             "f_old" => ast.old(args[0]),
             pred if ctx.is_predicate(pred) => {
                 args.insert(0, ctx.heap_var().1);
+                args.insert(0, ctx.state_var().1);
                 ast.predicate_access_predicate(ast.predicate_access(&args, pred), ast.full_perm())
             }
             "f_bounded" => ctx.utils.bounded_f(args[0]),
             fname => {
                 args.insert(0, ctx.heap_var().1);
+                args.insert(0, ctx.state_var().1);
                 let ret_type = ctx
                     .typectx_get()
                     .get_function_type(fname)?
@@ -302,37 +317,102 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
             &Mangler::fresh_varname(),
             ctx.get_type(&self.fname)?.to_viper_type(ctx),
         );
-        let mut args = vec![];
+        ctx.consume_stack = false;
 
-        for arg in self.args {
-            let arg = match arg.to_shape(ctx.typectx_get_mut())? {
+        // Transpiled arguments
+        let mut args = vec![];
+        // Statements for copying the compound shapes
+        let mut copy_stmts = vec![];
+        let mut copy_mappings = vec![];
+        let arg_mapping: HashMap<_, _> = self
+            .args
+            .iter()
+            .cloned()
+            .zip(ctx.method.get_args(&self.fname).iter().cloned())
+            .collect();
+
+        // Copy compound shapes in order to preserve copy-semantics of function calls
+        for arg in self.args.clone() {
+            let copied_arg = match arg.to_shape(ctx.typectx_get_mut())? {
                 Shape::Simple => arg.to_viper(ctx)?,
                 Shape::Nested(_) => {
+                    let fresh_name = Mangler::fresh_varname();
                     let fresh = ast.new_var(
-                        &Mangler::fresh_varname(),
+                        &fresh_name,
                         arg.to_shape(ctx.typectx_get_mut())?.to_viper_type(ctx),
                     );
                     let arg_len = arg.to_shape(ctx.typectx_get_mut())?.len();
-                    let viper_arg = arg.to_viper(ctx)?;
+                    let viper_arg = arg.clone().to_viper(ctx)?;
                     let copy_arg = ctx.iarray.create_slice_m(
                         viper_arg,
-                        ast.int_lit(0),
+                        ast.zero(),
                         ast.int_lit(arg_len as i64),
                         fresh.1,
                     );
                     ctx.declarations.push(fresh.0);
-                    ctx.stack.push(copy_arg);
+                    copy_stmts.push(copy_arg);
+                    let typ_ctx = ctx.typectx_get_mut();
+                    let typ = typ_ctx.get_type_no_mangle(&arg_mapping.get(&arg).unwrap().name)?;
+                    typ_ctx.set_type(fresh_name.clone(), typ);
+                    copy_mappings.push((arg, ir::Expr::Var(fresh_name)));
                     fresh.1
                 }
             };
-            args.push(arg);
+            args.push(copied_arg);
         }
-        args.insert(0, ctx.heap_var().1);
 
+        let mut in_unfoldings = vec![];
+        let mut in_foldings = vec![];
+
+        // Unfold/fold predicates using the copied arguments
+        for pre in ctx.method.get_pre(&self.fname) {
+            if let Some(pred) = get_predicate(ctx, pre) {
+                let mut pre = pre.clone();
+                let mut did_substitute = false;
+                for (new, old) in &arg_mapping {
+                    println!("PREdicate: {}, old: {:?}, new: {}", pre, old, new);
+                    did_substitute = did_substitute || pre.substitute(&old.to_owned().into(), new);
+                }
+                if did_substitute {
+                    in_unfoldings.push(ir::Stmt::Annotation(ir::Annotation {
+                        typ: ir::AnnotationType::Unfold,
+                        expr: pre.clone(),
+                    }));
+                    for (old, new) in &copy_mappings {
+                        pre.substitute(old, new);
+                    }
+                    in_foldings.push(ir::Stmt::Annotation(ir::Annotation {
+                        typ: ir::AnnotationType::Fold,
+                        expr: pre.clone(),
+                    }));
+                }
+            }
+        }
+        println!("Unfoldings: {:?}", in_unfoldings);
+        println!("Foldings: {:?}", in_foldings);
+        let in_unfoldings = in_unfoldings.to_viper(ctx)?;
+        let in_foldings = in_foldings.to_viper(ctx)?;
+
+        args.insert(0, ctx.heap_var().1);
+        args.insert(0, ctx.state_var().1);
         let call = ast.method_call(&self.fname, &args, &[ret.1]);
         ctx.declarations.push(ret.0);
+        ctx.stack.extend(in_unfoldings);
+        ctx.stack.extend(copy_stmts);
+        ctx.stack.extend(in_foldings);
         ctx.stack.push(call);
+        ctx.consume_stack = true;
+
+        // TODO: push post folds/unfolds
         Ok(ret.1)
+    }
+}
+
+fn get_predicate<'a>(ctx: &ViperEncodeCtx<'_>, expr: &'a ir::Expr) -> Option<&'a ir::FunctionCall> {
+    match expr {
+        ir::Expr::FunctionCall(fcall) if ctx.is_predicate(&fcall.fname) => Some(fcall),
+        ir::Expr::AccessPredicate(acc) => get_predicate(ctx, &acc.field),
+        _ => None,
     }
 }
 
@@ -426,13 +506,15 @@ impl<'a> TryToViper<'a> for ir::AccessSlice {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let field = self.field.to_viper(ctx)?;
-        let lower = ast.int_lit(self.lower);
-        let length = self.upper - self.lower
-            + match self.typ {
+        let lower = self.lower.to_viper(ctx)?;
+        let upper = self.upper.to_viper(ctx)?;
+        let length = ast.add(
+            ast.sub(upper, lower),
+            ast.int_lit(match self.typ {
                 ir::SliceType::Exclusive => 0,
                 ir::SliceType::Inclusive => 1,
-            };
-        let length = ast.int_lit(length);
+            }),
+        );
         let perm = self.perm.to_viper(ctx);
         Ok(ctx.iarray.array_acc_expr(field, lower, length, perm))
     }
@@ -462,13 +544,15 @@ impl<'a> TryToViper<'a> for ir::Expr {
             AccessSlice(slice) => slice.to_viper(ctx),
             x => Ok(match x {
                 Const(c) => ast.int_lit(c),
+                BoolLit(b) if b => ast.true_lit(),
+                BoolLit(b) if !b => ast.false_lit(),
                 Var(name) if name == "result" => ast.result_with_pos(
                     ctx.get_type("result")?.to_viper_type(ctx),
                     ast.no_position(),
                 ),
                 Var(name) => ast.local_var(&name, ctx.get_type(&name)?.to_viper_type(ctx)),
                 Label(_) => todo!(), // XXX: not sure if we need this
-                BaseAddr => ast.int_lit(0),
+                BaseAddr => ast.zero(),
                 BytesInWord => ast.int_lit(ctx.options.word_size as i64 / 8),
                 Old(old) => ast.old(old.expr.to_viper(ctx)?),
                 _ => unreachable!(),

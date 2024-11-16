@@ -50,6 +50,7 @@ impl<'a> ToViperType<'a> for ir::Type {
             ir::Type::Bool => ast.bool_type(),
             ir::Type::Int => ast.int_type(),
             ir::Type::Array | ir::Type::Struct(_) => ctx.iarray.get_type(),
+            ir::Type::Ref => ast.ref_type(),
             x => panic!("Want type of {:?}", x),
         }
     }
@@ -85,7 +86,11 @@ impl FnDec {
                     ast.implies(guard, ctx.utils.bounded_f(ctx.iarray.access(retval, i.1))),
                 );
 
-                vec![len_post, perm, bounded]
+                if ctx.options.return_post {
+                    vec![len_post, perm, bounded]
+                } else {
+                    vec![len_post]
+                }
             }
             _ => unreachable!(),
         }

@@ -1,0 +1,14 @@
+/@ 
+function sum(a: Int, b: Int) : Int
+    requires a >= 0
+    requires b >= 0
+{
+    a + b
+} @/
+
+/@ function abstract_fun(a: Int, b: Int) : Bool @/
+
+fun main() {
+    /@ assert sum(1, 2) == 1 + 2 @/
+    return 0;
+}

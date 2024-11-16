@@ -1,4 +1,0 @@
-fun test(1 input) {
-    /*@ ensures input == old(input) @*/
-    return 0;
-}

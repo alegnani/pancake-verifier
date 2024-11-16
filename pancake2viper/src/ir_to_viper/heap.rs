@@ -180,7 +180,7 @@ impl<'a> TryToViper<'a> for ir::SharedStoreBits {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let addr_expr = self.address.to_viper(ctx)?;
+        let addr_expr = self.address.clone().to_viper(ctx)?;
         // assert correct alignment
         let assertion = if ctx.options.assert_aligned_accesses && self.size.bytes() != 1 {
             ast.assert(
@@ -193,9 +193,21 @@ impl<'a> TryToViper<'a> for ir::SharedStoreBits {
         } else {
             ast.comment("skipping alignment assertion")
         };
-        let store_stmt =
-            ast.method_call("shared_store", &[addr_expr, self.value.to_viper(ctx)?], &[]);
-        Ok(ast.seqn(&[assertion, store_stmt], &[]))
+        match &self.address {
+            ir::Expr::Const(addr) => {
+                let value = self.value.to_viper(ctx)?;
+                let store_stmt = ast.method_call(
+                    &format!(
+                        "store_{}",
+                        ctx.shared.get_method_name(*addr as u64, self.size)
+                    ),
+                    &[ctx.state_var().1, ctx.heap_var().1, addr_expr, value],
+                    &[],
+                );
+                Ok(ast.seqn(&[assertion, store_stmt], &[]))
+            }
+            _ => todo!(),
+        }
     }
 }
 
@@ -215,7 +227,7 @@ impl<'a> TryToViper<'a> for ir::SharedLoadBits {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let addr_expr = self.address.to_viper(ctx)?;
+        let addr_expr = self.address.clone().to_viper(ctx)?;
         // assert correct alignment
         let assertion = if ctx.options.assert_aligned_accesses && self.size.bits() != 8 {
             ast.assert(
@@ -228,15 +240,20 @@ impl<'a> TryToViper<'a> for ir::SharedLoadBits {
         } else {
             ast.comment("skipping alignment assertion")
         };
-        let load_stmt = ast.method_call(
-            "shared_load",
-            &[
-                addr_expr,
-                // `int_lit` takes i64, therefore it can't hold the upper bound for u64 integers in Pancake
-                ast.mul(ast.int_lit(4), ast.int_lit(2i64.pow(self.size.bits() - 2))),
-            ],
-            &[self.dst.to_viper(ctx)?],
-        );
-        Ok(ast.seqn(&[assertion, load_stmt], &[]))
+        match &self.address {
+            ir::Expr::Const(addr) => {
+                let dst = self.dst.to_viper(ctx)?;
+                let store_stmt = ast.method_call(
+                    &format!(
+                        "load_{}",
+                        ctx.shared.get_method_name(*addr as u64, self.size)
+                    ),
+                    &[ctx.state_var().1, ctx.heap_var().1, addr_expr],
+                    &[dst],
+                );
+                Ok(ast.seqn(&[assertion, store_stmt], &[]))
+            }
+            _ => todo!(),
+        }
     }
 }
