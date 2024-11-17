@@ -29,7 +29,7 @@ impl SharedInternal {
         let ast = ctx.ast;
         if self.addresses.len() <= 3 {
             let mut addresses = self.addresses.iter();
-            let init = ast.int_lit(*addresses.next().unwrap() as i64);
+            let init = ast.eq_cmp(addr, ast.int_lit(*addresses.next().unwrap()));
             addresses.fold(init, |acc, e| {
                 ast.and(acc, ast.eq_cmp(addr, ast.int_lit(*e)))
             })
