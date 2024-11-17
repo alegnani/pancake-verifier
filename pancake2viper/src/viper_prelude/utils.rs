@@ -39,32 +39,6 @@ pub fn bound_function<'a>(
     )
 }
 
-pub fn pow_function(ast: AstFactory) -> Function {
-    let (e_decl, e) = ast.new_var("e", ast.int_type());
-    let body = ast.cond_exp(
-        ast.eq_cmp(e, ast.zero()),
-        ast.one(),
-        ast.mul(
-            ast.two(),
-            ast.func_app(
-                "pow",
-                &[ast.sub(e, ast.one())],
-                ast.int_type(),
-                ast.no_position(),
-            ),
-        ),
-    );
-    ast.function(
-        "pow",
-        &[e_decl],
-        ast.int_type(),
-        &[ast.ge_cmp(e, ast.zero())],
-        &[],
-        ast.no_position(),
-        Some(body),
-    )
-}
-
 #[derive(Clone, Copy)]
 pub struct Utils<'a> {
     ast: AstFactory<'a>,

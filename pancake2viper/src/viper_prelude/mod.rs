@@ -24,7 +24,7 @@ pub fn create_viper_prelude(
     let domains = vec![iarray.domain, create_bv_domain(ast)];
     let fields = vec![iarray.field()];
     let mut methods = iarray.slice_defs();
-    methods.extend(create_shared_mem_methods(ast));
+    methods.extend(create_shared_mem_methods(ast, &utils));
     (
         domains,
         fields,
