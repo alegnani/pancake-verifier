@@ -48,7 +48,7 @@ impl SharedContext {
 
     pub fn add(&mut self, shared: &Shared) {
         println!(
-            "Registering shared memory functions {}_store and {}_load for addresses:",
+            "Registering shared memory functions {}_store and {}_load",
             shared.name, shared.name
         );
         let idx = Self::get_idx(shared.bits as usize);
@@ -57,12 +57,12 @@ impl SharedContext {
         let stride = get_const(&shared.stride) as u64;
         let addresses = (lower..upper).step_by(stride as usize);
         for addr in addresses.clone() {
-            println!(" - {}", addr);
             for offset in 0..(shared.bits / 8) {
                 if !self.addresses.insert(addr + offset) {
                     println!(
-                        " - WARNING! Shared address {} has already been specified",
-                        addr + offset
+                        " - WARNING! Shared address {:#x} of {} is defined multiple times",
+                        addr + offset,
+                        shared.name
                     );
                 }
             }
