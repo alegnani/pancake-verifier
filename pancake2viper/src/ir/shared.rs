@@ -31,17 +31,17 @@ impl SharedInternal {
             let mut addresses = self.addresses.iter();
             let init = ast.int_lit(*addresses.next().unwrap() as i64);
             addresses.fold(init, |acc, e| {
-                ast.and(acc, ast.eq_cmp(addr, ast.int_lit(*e as i64)))
+                ast.and(acc, ast.eq_cmp(addr, ast.int_lit(*e)))
             })
         } else {
             let range = ast.and(
-                ast.le_cmp(ast.int_lit(self.lower as i64), addr),
-                ast.lt_cmp(addr, ast.int_lit(self.upper as i64)),
+                ast.le_cmp(ast.int_lit(self.lower), addr),
+                ast.lt_cmp(addr, ast.int_lit(self.upper)),
             );
             let offset = self.lower % self.stride;
             let stride = ast.eq_cmp(
-                ast.module(addr, ast.int_lit(self.stride as i64)),
-                ast.int_lit(offset as i64),
+                ast.module(addr, ast.int_lit(self.stride)),
+                ast.int_lit(offset),
             );
             ast.and(range, stride)
         }
