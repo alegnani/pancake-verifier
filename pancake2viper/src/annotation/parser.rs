@@ -271,9 +271,10 @@ impl FromPestPair for i64 {
     fn from_pest(pair: Pair<'_, Rule>) -> Self {
         let inner = pair.into_inner().next().unwrap();
         match inner.as_rule() {
-            Rule::decimal_lit => inner.as_str().parse().unwrap(),
+            Rule::decimal_lit => inner.as_str().replace("_", "").parse().unwrap(),
             Rule::hex_lit => {
-                i64::from_str_radix(inner.as_str().trim_start_matches("0x"), 16).unwrap()
+                i64::from_str_radix(inner.as_str().replace("_", "").trim_start_matches("0x"), 16)
+                    .unwrap()
             }
             x => panic!("Failed to parse integer literal, got {:?}", x),
         }

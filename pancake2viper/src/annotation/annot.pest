@@ -2,7 +2,7 @@
 // instead of using the newline character '\n'.
 WHITESPACE = _{ " " | "\\t" | "\t" | "\\r" | "\\n" | NEWLINE }
 
-integer = @{ ASCII_DIGIT+ }
+integer = @{ ASCII_DIGIT ~ ("_" | ASCII_DIGIT)* }
 ident = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_" )* }
 
 type = _{ int_t | bool_t | iarray_t | shape_t }
