@@ -1,9 +1,11 @@
-use super::{Expr, MemOpBytes, Shared};
-use std::collections::HashSet;
+use crate::utils::ViperEncodeCtx;
 
-#[derive(Debug, Clone, Default)]
+use super::{Expr, MemOpBytes, Shared};
+use std::{collections::HashSet, fmt::Display};
+
+#[derive(Clone)]
 pub struct SharedContext {
-    addresses: HashSet<u64>,
+    addresses: HashSet<i64>,
     mappings: [Vec<SharedInternal>; 4],
 }
 
@@ -11,10 +13,39 @@ pub struct SharedContext {
 struct SharedInternal {
     name: String,
     size: MemOpBytes,
-    addresses: Vec<u64>,
-    lower: u64,
-    upper: u64,
-    stride: u64,
+    addresses: Vec<i64>,
+    lower: i64,
+    upper: i64,
+    stride: i64,
+}
+
+impl SharedInternal {
+    pub fn get_precondition<'a>(
+        &self,
+        ctx: &ViperEncodeCtx<'a>,
+        addr: viper::Expr<'a>,
+    ) -> viper::Expr<'a> {
+        assert!(!self.addresses.is_empty());
+        let ast = ctx.ast;
+        if self.addresses.len() <= 3 {
+            let mut addresses = self.addresses.iter();
+            let init = ast.int_lit(*addresses.next().unwrap() as i64);
+            addresses.fold(init, |acc, e| {
+                ast.and(acc, ast.eq_cmp(addr, ast.int_lit(*e as i64)))
+            })
+        } else {
+            let range = ast.and(
+                ast.le_cmp(ast.int_lit(self.lower as i64), addr),
+                ast.lt_cmp(addr, ast.int_lit(self.upper as i64)),
+            );
+            let offset = self.lower % self.stride;
+            let stride = ast.eq_cmp(
+                ast.module(addr, ast.int_lit(self.stride as i64)),
+                ast.int_lit(offset as i64),
+            );
+            ast.and(range, stride)
+        }
+    }
 }
 
 fn get_const(expr: &Expr) -> i64 {
@@ -29,11 +60,15 @@ fn get_const(expr: &Expr) -> i64 {
 
 impl SharedContext {
     pub fn new(shared: &[Shared]) -> Self {
-        let mut se = Self::default();
+        let mut mappings = [vec![], vec![], vec![], vec![]];
+        let mut addresses = HashSet::new();
         for s in shared {
-            se.add(s);
+            Self::add(&mut mappings, &mut addresses, s);
         }
-        se
+        Self {
+            addresses,
+            mappings,
+        }
     }
 
     fn get_idx(bits: usize) -> usize {
@@ -46,19 +81,23 @@ impl SharedContext {
         }
     }
 
-    pub fn add(&mut self, shared: &Shared) {
+    fn add(
+        mappings: &mut [Vec<SharedInternal>; 4],
+        addresses_set: &mut HashSet<i64>,
+        shared: &Shared,
+    ) {
         println!(
             "Registering shared memory functions {}_store and {}_load",
             shared.name, shared.name
         );
         let idx = Self::get_idx(shared.bits as usize);
-        let lower = get_const(&shared.lower) as u64;
-        let upper = get_const(&shared.upper) as u64;
-        let stride = get_const(&shared.stride) as u64;
+        let lower = get_const(&shared.lower);
+        let upper = get_const(&shared.upper);
+        let stride = get_const(&shared.stride);
         let addresses = (lower..upper).step_by(stride as usize);
         for addr in addresses.clone() {
-            for offset in 0..(shared.bits / 8) {
-                if !self.addresses.insert(addr + offset) {
+            for offset in 0..(shared.bits as i64 / 8) {
+                if !addresses_set.insert(addr + offset) {
                     println!(
                         " - WARNING! Shared address {:#x} of {} is defined multiple times",
                         addr + offset,
@@ -68,17 +107,17 @@ impl SharedContext {
             }
         }
 
-        self.mappings[idx].push(SharedInternal {
+        mappings[idx].push(SharedInternal {
             name: shared.name.clone(),
             size: shared.bits.into(),
-            lower: lower as u64,
-            upper: stride as u64,
-            stride: stride as u64,
+            lower,
+            upper,
+            stride,
             addresses: addresses.collect(),
         });
     }
 
-    pub fn get_method_name<'a>(&self, addr: u64, size: MemOpBytes) -> String {
+    pub fn get_method_name(&self, addr: i64, size: MemOpBytes) -> String {
         let idx = Self::get_idx(size.bits() as usize);
         self.mappings[idx]
             .iter()
@@ -86,5 +125,53 @@ impl SharedContext {
             .unwrap_or_else(|| panic!("No shared memory function registered for address {}", addr))
             .name
             .clone()
+    }
+
+    pub fn get_switch<'a>(
+        &self,
+        ctx: &ViperEncodeCtx<'a>,
+        addr: viper::Expr<'a>,
+        optyp: SharedOpType,
+        bits: MemOpBytes,
+        op2: viper::Expr<'a>,
+    ) -> viper::Stmt<'a> {
+        let ast = ctx.ast;
+        self.mappings[Self::get_idx(bits.bits() as usize)]
+            .iter()
+            .map(|s| (s, s.get_precondition(ctx, addr)))
+            .fold(
+                ast.assert(ast.false_lit(), ast.no_position()),
+                |acc, (s, cond)| {
+                    let heap = ctx.heap_var().1;
+                    let state = ctx.state_var().1;
+                    let (args, rets) = match optyp {
+                        SharedOpType::Store => (vec![heap, state, addr, op2], vec![]),
+                        SharedOpType::Load => (vec![heap, state, addr], vec![op2]),
+                    };
+                    ast.if_stmt(
+                        cond,
+                        ast.seqn(
+                            &[ast.method_call(&format!("{}_{}", optyp, s.name), &args, &rets)],
+                            &[],
+                        ),
+                        ast.seqn(&[acc], &[]),
+                    )
+                },
+            )
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum SharedOpType {
+    Load,
+    Store,
+}
+
+impl Display for SharedOpType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Load => write!(f, "load"),
+            Self::Store => write!(f, "store"),
+        }
     }
 }

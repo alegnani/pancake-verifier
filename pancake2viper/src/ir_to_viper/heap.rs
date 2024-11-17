@@ -2,6 +2,7 @@ use viper::{BinOpBv, BvSize::BV64, UnOpBv};
 
 use crate::ir;
 
+use crate::ir::shared::SharedOpType::{Load, Store};
 use crate::utils::{
     Mangler, Shape, ToType, ToViperError, TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
 };
@@ -193,20 +194,19 @@ impl<'a> TryToViper<'a> for ir::SharedStoreBits {
         } else {
             ast.comment("skipping alignment assertion")
         };
-        match &self.address {
+        let value = self.value.to_viper(ctx)?;
+        match self.address {
             ir::Expr::Const(addr) => {
-                let value = self.value.to_viper(ctx)?;
                 let store_stmt = ast.method_call(
-                    &format!(
-                        "store_{}",
-                        ctx.shared.get_method_name(*addr as u64, self.size)
-                    ),
+                    &format!("store_{}", ctx.shared.get_method_name(addr, self.size)),
                     &[ctx.state_var().1, ctx.heap_var().1, addr_expr, value],
                     &[],
                 );
                 Ok(ast.seqn(&[assertion, store_stmt], &[]))
             }
-            _ => todo!(),
+            _ => Ok(ctx
+                .shared
+                .get_switch(ctx, addr_expr, Store, self.size, value)),
         }
     }
 }
@@ -240,20 +240,17 @@ impl<'a> TryToViper<'a> for ir::SharedLoadBits {
         } else {
             ast.comment("skipping alignment assertion")
         };
+        let dst = self.dst.to_viper(ctx)?;
         match &self.address {
             ir::Expr::Const(addr) => {
-                let dst = self.dst.to_viper(ctx)?;
                 let store_stmt = ast.method_call(
-                    &format!(
-                        "load_{}",
-                        ctx.shared.get_method_name(*addr as u64, self.size)
-                    ),
+                    &format!("load_{}", ctx.shared.get_method_name(*addr, self.size)),
                     &[ctx.state_var().1, ctx.heap_var().1, addr_expr],
                     &[dst],
                 );
                 Ok(ast.seqn(&[assertion, store_stmt], &[]))
             }
-            _ => todo!(),
+            _ => Ok(ctx.shared.get_switch(ctx, addr_expr, Load, self.size, dst)),
         }
     }
 }
