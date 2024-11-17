@@ -37,7 +37,7 @@ impl Arg {
                 let length_pre = ast.eq_cmp(ctx.iarray.len_f(arg_var), length);
                 Some(length_pre)
             }
-            ir::Type::Int => Some(ctx.utils.bounded_f(arg_var)),
+            ir::Type::Int => Some(ctx.utils.bounded_f(arg_var, ctx.options.word_size)),
             _ => None,
         }
     }
@@ -62,7 +62,7 @@ impl FnDec {
         match ctx.get_type(&self.retvar).unwrap() {
             Type::Int => {
                 let retval = ast.local_var(&self.retvar, ast.int_type());
-                vec![ctx.utils.bounded_f(retval)]
+                vec![ctx.utils.bounded_f(retval, ctx.options.word_size)]
             }
             struc @ Type::Struct(_) => {
                 // Length of the returned `IArray`
@@ -83,7 +83,11 @@ impl FnDec {
                 let bounded = ast.forall(
                     &[i.0],
                     &[],
-                    ast.implies(guard, ctx.utils.bounded_f(ctx.iarray.access(retval, i.1))),
+                    ast.implies(
+                        guard,
+                        ctx.utils
+                            .bounded_f(ctx.iarray.access(retval, i.1), ctx.options.word_size),
+                    ),
                 );
 
                 if ctx.options.return_post {

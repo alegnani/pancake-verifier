@@ -1,16 +1,33 @@
 use viper::{AstFactory, Expr, Function};
 
-use crate::utils::ViperUtils;
+use crate::utils::{EncodeOptions, ViperUtils};
 
-pub fn bound_function(ast: AstFactory, word_size: u64) -> Function {
+pub fn bound_bits_function(ast: AstFactory, bits: u64) -> Function {
     let x = ast.new_var("x", ast.int_type());
     let body = ast.and(
         ast.le_cmp(ast.zero(), x.1),
         ast.lt_cmp(
             x.1,
-            ast.mul(ast.int_lit(4), ast.int_lit(2i64.pow(word_size as u32 - 2))),
+            ast.mul(ast.int_lit(4), ast.int_lit(2i64.pow(bits as u32 - 2))),
         ),
     );
+    ast.function(
+        &format!("bounded{}", bits),
+        &[x.0],
+        ast.bool_type(),
+        &[],
+        &[],
+        ast.no_position(),
+        Some(body),
+    )
+}
+
+pub fn bound_function<'a>(
+    ast: AstFactory<'a>,
+    utils: &Utils,
+    options: EncodeOptions,
+) -> Function<'a> {
+    let x = ast.new_var("x", ast.int_type());
     ast.function(
         "bounded",
         &[x.0],
@@ -18,7 +35,7 @@ pub fn bound_function(ast: AstFactory, word_size: u64) -> Function {
         &[],
         &[],
         ast.no_position(),
-        Some(body),
+        Some(utils.bounded_f(x.1, options.word_size)),
     )
 }
 
@@ -58,9 +75,9 @@ impl<'a> Utils<'a> {
         Self { ast }
     }
 
-    pub fn bounded_f(&self, var: Expr) -> Expr<'a> {
+    pub fn bounded_f(&self, var: Expr, bits: u64) -> Expr<'a> {
         self.ast.func_app(
-            "bounded",
+            &format!("bounded{}", bits),
             &[var],
             self.ast.bool_type(),
             self.ast.no_position(),

@@ -136,7 +136,10 @@ impl<'a> TryToViper<'a> for ir::BinOp {
             }
 
             if ctx.options.check_overflows {
-                let assertion = ast.assert(ctx.utils.bounded_f(fresh_var.1), ast.no_position());
+                let assertion = ast.assert(
+                    ctx.utils.bounded_f(fresh_var.1, ctx.options.word_size),
+                    ast.no_position(),
+                );
                 ctx.stack.push(assertion);
                 if let TranslationMode::WhileCond = ctx.get_mode() {
                     ctx.while_stack.push(assertion);
@@ -295,7 +298,7 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
                 args.insert(0, ctx.state_var().1);
                 ast.predicate_access_predicate(ast.predicate_access(&args, pred), ast.full_perm())
             }
-            "f_bounded" => ctx.utils.bounded_f(args[0]),
+            "f_bounded" => ctx.utils.bounded_f(args[0], ctx.options.word_size),
             fname => {
                 args.insert(0, ctx.heap_var().1);
                 args.insert(0, ctx.state_var().1);
