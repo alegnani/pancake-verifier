@@ -370,6 +370,8 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
 
         let mut in_unfoldings = vec![];
         let mut in_foldings = vec![];
+        let mut out_unfoldings = vec![];
+        let mut out_foldings = vec![];
 
         // Unfold/fold predicates using the copied arguments
         for pre in ctx.method.get_pre(&self.fname) {
@@ -385,11 +387,19 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
                         typ: ir::AnnotationType::Unfold,
                         expr: pre.clone(),
                     }));
+                    out_foldings.push(ir::Stmt::Annotation(ir::Annotation {
+                        typ: ir::AnnotationType::Fold,
+                        expr: pre.clone(),
+                    }));
                     for (old, new) in &copy_mappings {
                         pre.substitute(old, new);
                     }
                     in_foldings.push(ir::Stmt::Annotation(ir::Annotation {
                         typ: ir::AnnotationType::Fold,
+                        expr: pre.clone(),
+                    }));
+                    out_unfoldings.push(ir::Stmt::Annotation(ir::Annotation {
+                        typ: ir::AnnotationType::Unfold,
                         expr: pre.clone(),
                     }));
                 }
@@ -399,6 +409,8 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
         println!("Foldings: {:?}", in_foldings);
         let in_unfoldings = in_unfoldings.to_viper(ctx)?;
         let in_foldings = in_foldings.to_viper(ctx)?;
+        let out_unfoldings = out_unfoldings.to_viper(ctx)?;
+        let out_foldings = out_foldings.to_viper(ctx)?;
 
         args.insert(0, ctx.heap_var().1);
         args.insert(0, ctx.state_var().1);
@@ -408,6 +420,8 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
         ctx.stack.extend(copy_stmts);
         ctx.stack.extend(in_foldings);
         ctx.stack.push(call);
+        ctx.stack.extend(out_unfoldings);
+        ctx.stack.extend(out_foldings);
         ctx.consume_stack = true;
 
         // TODO: push post folds/unfolds
