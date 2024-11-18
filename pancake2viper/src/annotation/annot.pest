@@ -3,6 +3,7 @@
 WHITESPACE = _{ " " | "\\t" | "\t" | "\\r" | "\\n" | NEWLINE }
 
 integer = @{ ASCII_DIGIT ~ ("_" | ASCII_DIGIT)* }
+hex = @{ ASCII_HEX_DIGIT ~ ("_" | ASCII_HEX_DIGIT)* }
 ident = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_" )* }
 
 type = _{ int_t | bool_t | iarray_t | shape_t }
@@ -14,7 +15,7 @@ decl = { ident ~ ":" ~ type }
 
 int_lit = { hex_lit | decimal_lit }
     decimal_lit = @{ "-"? ~ integer}
-    hex_lit = @{ "0x" ~ integer}
+    hex_lit = @{ "0x" ~ hex}
 bool_lit = _{ true_lit | false_lit }
     true_lit = { "true" }
     false_lit = { "false" }
