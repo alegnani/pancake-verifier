@@ -198,11 +198,8 @@ impl<'a> TryToViper<'a> for ir::SharedStoreBits {
         match self.address {
             ir::Expr::Const(addr) => {
                 let store_stmt = ast.method_call(
-                    &format!(
-                        "store_{}",
-                        ctx.shared
-                            .get_method_name(addr, ctx.options, Store, self.size)
-                    ),
+                    &ctx.shared
+                        .get_method_name(addr, ctx.options, Store, self.size),
                     &[ctx.state_var().1, ctx.heap_var().1, addr_expr, value],
                     &[],
                 );
@@ -248,11 +245,8 @@ impl<'a> TryToViper<'a> for ir::SharedLoadBits {
         match &self.address {
             ir::Expr::Const(addr) => {
                 let store_stmt = ast.method_call(
-                    &format!(
-                        "load_{}",
-                        ctx.shared
-                            .get_method_name(*addr, ctx.options, Load, self.size)
-                    ),
+                    &ctx.shared
+                        .get_method_name(*addr, ctx.options, Load, self.size),
                     &[ctx.state_var().1, ctx.heap_var().1, addr_expr],
                     &[dst],
                 );

@@ -128,7 +128,7 @@ impl SharedContext {
         self.mappings[idx]
             .iter()
             .find(|&s| s.addresses.iter().any(|a| *a == addr))
-            .map(|si| si.name.clone())
+            .map(|si| format!("{}_{}", op, si.name))
             .unwrap_or_else(|| {
                 if options.allow_undefined_shared {
                     format!("shared_{}{}", op, size.bits())
