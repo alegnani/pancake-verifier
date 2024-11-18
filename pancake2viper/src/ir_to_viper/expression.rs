@@ -299,6 +299,10 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
                 ast.predicate_access_predicate(ast.predicate_access(&args, pred), ast.full_perm())
             }
             "f_bounded" => ctx.utils.bounded_f(args[0], ctx.options.word_size),
+            "f_bounded8" => ctx.utils.bounded_f(args[0], 8),
+            "f_bounded16" => ctx.utils.bounded_f(args[0], 16),
+            "f_bounded32" => ctx.utils.bounded_f(args[0], 32),
+            "f_bounded64" => ctx.utils.bounded_f(args[0], 64),
             fname => {
                 args.insert(0, ctx.heap_var().1);
                 args.insert(0, ctx.state_var().1);
