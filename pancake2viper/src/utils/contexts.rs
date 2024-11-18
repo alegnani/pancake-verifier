@@ -149,6 +149,7 @@ pub struct EncodeOptions {
     pub debug_comments: bool,
     pub include_prelude: bool,
     pub return_post: bool,
+    pub allow_undefined_shared: bool,
 }
 
 impl Default for EncodeOptions {
@@ -163,6 +164,7 @@ impl Default for EncodeOptions {
             debug_comments: false,
             include_prelude: true,
             return_post: true,
+            allow_undefined_shared: false,
         }
     }
 }

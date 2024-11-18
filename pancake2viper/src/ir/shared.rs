@@ -1,4 +1,4 @@
-use crate::utils::ViperEncodeCtx;
+use crate::utils::{EncodeOptions, ViperEncodeCtx};
 
 use super::{Expr, MemOpBytes, Shared};
 use std::{collections::HashSet, fmt::Display};
@@ -117,14 +117,25 @@ impl SharedContext {
         });
     }
 
-    pub fn get_method_name(&self, addr: i64, size: MemOpBytes) -> String {
+    pub fn get_method_name(
+        &self,
+        addr: i64,
+        options: EncodeOptions,
+        op: SharedOpType,
+        size: MemOpBytes,
+    ) -> String {
         let idx = Self::get_idx(size.bits() as usize);
         self.mappings[idx]
             .iter()
             .find(|&s| s.addresses.iter().any(|a| *a == addr))
-            .unwrap_or_else(|| panic!("No shared memory function registered for address {}", addr))
-            .name
-            .clone()
+            .map(|si| si.name.clone())
+            .unwrap_or_else(|| {
+                if options.allow_undefined_shared {
+                    format!("shared_{}{}", op, size.bits())
+                } else {
+                    panic!("No shared memory function registered for address {}", addr)
+                }
+            })
     }
 
     pub fn get_switch<'a>(
@@ -136,28 +147,30 @@ impl SharedContext {
         op2: viper::Expr<'a>,
     ) -> viper::Stmt<'a> {
         let ast = ctx.ast;
+        let heap = ctx.heap_var().1;
+        let state = ctx.state_var().1;
+        let (args, rets) = match optyp {
+            SharedOpType::Store => (vec![heap, state, addr, op2], vec![]),
+            SharedOpType::Load => (vec![heap, state, addr], vec![op2]),
+        };
+        let init = if ctx.options.allow_undefined_shared {
+            ast.method_call(&format!("shared_{}{}", optyp, bits.bits()), &args, &rets)
+        } else {
+            ast.assert(ast.false_lit(), ast.no_position())
+        };
         self.mappings[Self::get_idx(bits.bits() as usize)]
             .iter()
             .map(|s| (s, s.get_precondition(ctx, addr)))
-            .fold(
-                ast.assert(ast.false_lit(), ast.no_position()),
-                |acc, (s, cond)| {
-                    let heap = ctx.heap_var().1;
-                    let state = ctx.state_var().1;
-                    let (args, rets) = match optyp {
-                        SharedOpType::Store => (vec![heap, state, addr, op2], vec![]),
-                        SharedOpType::Load => (vec![heap, state, addr], vec![op2]),
-                    };
-                    ast.if_stmt(
-                        cond,
-                        ast.seqn(
-                            &[ast.method_call(&format!("{}_{}", optyp, s.name), &args, &rets)],
-                            &[],
-                        ),
-                        ast.seqn(&[acc], &[]),
-                    )
-                },
-            )
+            .fold(init, |acc, (s, cond)| {
+                ast.if_stmt(
+                    cond,
+                    ast.seqn(
+                        &[ast.method_call(&format!("{}_{}", optyp, s.name), &args, &rets)],
+                        &[],
+                    ),
+                    ast.seqn(&[acc], &[]),
+                )
+            })
     }
 }
 
