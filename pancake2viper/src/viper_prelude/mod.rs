@@ -20,7 +20,7 @@ pub fn create_viper_prelude(
         return (vec![], vec![], vec![], vec![]);
     }
     let iarray = IArrayHelper::new(ast);
-    let utils = Utils::new(ast);
+    let utils = Utils::new(ast, iarray.get_type());
     let domains = vec![iarray.domain, create_bv_domain(ast)];
     let fields = vec![iarray.field()];
     let mut methods = iarray.slice_defs();

@@ -178,6 +178,7 @@ impl<'a> ViperEncodeCtx<'a> {
         shared: Rc<SharedContext>,
         annot: Rc<MethodContext>,
     ) -> Self {
+        let iarray = IArrayHelper::new(ast);
         Self {
             mode: TranslationMode::Normal,
             ast,
@@ -186,8 +187,8 @@ impl<'a> ViperEncodeCtx<'a> {
             declarations: vec![],
             types,
             while_counter: 0,
-            iarray: IArrayHelper::new(ast),
-            utils: Utils::new(ast),
+            iarray,
+            utils: Utils::new(ast, iarray.get_type()),
             options,
             consume_stack: true,
             invariants: vec![],
@@ -263,17 +264,11 @@ impl<'a> ViperEncodeCtx<'a> {
     }
 
     pub fn heap_var(&self) -> (viper::LocalVarDecl, viper::Expr) {
-        (
-            self.ast.local_var_decl("heap", self.heap_type()),
-            self.ast.local_var("heap", self.heap_type()),
-        )
+        self.utils.heap()
     }
 
     pub fn state_var(&self) -> (viper::LocalVarDecl, viper::Expr) {
-        (
-            self.ast.local_var_decl("state", self.ast.ref_type()),
-            self.ast.local_var("state", self.ast.ref_type()),
-        )
+        self.utils.state()
     }
 
     pub fn set_mode(&mut self, mode: TranslationMode) {
