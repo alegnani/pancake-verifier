@@ -26,6 +26,7 @@ impl<'a> TryToViper<'a> for FnDec {
         let ast = ctx.ast;
 
         let mut pres = ctx.state.clone().to_viper(ctx)?;
+        let mut posts = ctx.state.clone().to_viper(ctx)?;
 
         // add access permissions to arguments if structs
         pres.extend(self.args.iter().filter_map(|a| a.precondition(ctx)));
@@ -33,7 +34,7 @@ impl<'a> TryToViper<'a> for FnDec {
         // Add postcondition:
         // - length if returning struct
         // - bound if returning word
-        let mut posts = self.postcondition(ctx);
+        posts.extend(self.postcondition(ctx));
 
         let mut args_local_decls = self.args.to_viper(ctx);
 
@@ -59,7 +60,6 @@ impl<'a> TryToViper<'a> for FnDec {
             ),
         );
         posts.extend(self.posts.to_viper(ctx)?);
-        posts.extend(ctx.state.clone().to_viper(ctx)?.into_iter().rev());
         ctx.set_mode(TranslationMode::Normal);
 
         args_local_decls.insert(0, ctx.state_var().0);
