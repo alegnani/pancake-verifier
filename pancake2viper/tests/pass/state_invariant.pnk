@@ -1,0 +1,18 @@
+/@ predicate test() {
+    acc(heap[@base]) && heap[@base] == 42
+} @/
+
+/@ state test() @/
+
+fun main() {
+    var 1 x = foo();
+    return 0;
+}
+
+fun foo() {
+    /@ ensures unfolding test() in retval == 42 @/
+    /@ unfold test() @/
+    var x = lds 1 @base;
+    /@ fold test() @/
+    return x;
+}
