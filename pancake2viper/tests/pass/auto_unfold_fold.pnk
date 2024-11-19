@@ -1,0 +1,30 @@
+/@ predicate net_queue(queue: IArray) {
+    alen(queue) == 4 && acc(queue[0..4]) &&
+    queue[0] >= 0 && queue[0] < queue[2] && queue[1] >= 0 && queue[1] < queue[2] &&
+    queue[2] > 0 && queue[2] < 1024 &&
+    ((queue[3] == 0) || (queue[3] == 1))
+}
+@/
+
+fun main({1,1,1,1} queue) {
+    /@ requires net_queue(queue) @/
+    /@ ensures net_queue(queue) @/
+
+    another_func(queue);
+    /@ assert net_queue(queue) @/ // <---- this fails
+
+    return 0;
+}
+
+fun another_func({1,1,1,1} queue) {
+    /@ requires net_queue(queue) @/
+    /@ ensures net_queue(queue) @/
+    /@ ensures unfolding net_queue(queue) in 
+        forall i: Int:: i >= 0 && i < alen(queue) ==> 
+        queue[i] == old(unfolding net_queue(queue) in queue[i]) @/
+
+    /@ unfold net_queue(queue) @/
+    var x = queue.2 - queue.0;
+    /@ fold net_queue(queue) @/
+    return x;
+}
