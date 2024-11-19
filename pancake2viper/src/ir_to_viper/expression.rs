@@ -294,8 +294,8 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
             }
             "f_old" => ast.old(args[0]),
             pred if ctx.is_predicate(pred) => {
-                args.insert(0, ctx.heap_var().1);
                 args.insert(0, ctx.state_var().1);
+                args.insert(0, ctx.heap_var().1);
                 ast.predicate_access_predicate(ast.predicate_access(&args, pred), ast.full_perm())
             }
             "f_bounded" => ctx.utils.bounded_f(args[0], ctx.options.word_size),
@@ -304,8 +304,8 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
             "f_bounded32" => ctx.utils.bounded_f(args[0], 32),
             "f_bounded64" => ctx.utils.bounded_f(args[0], 64),
             fname => {
-                args.insert(0, ctx.heap_var().1);
                 args.insert(0, ctx.state_var().1);
+                args.insert(0, ctx.heap_var().1);
                 let ret_type = ctx
                     .typectx_get()
                     .get_function_type(fname)?
@@ -412,8 +412,8 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
         let out_unfoldings = out_unfoldings.to_viper(ctx)?;
         let out_foldings = out_foldings.to_viper(ctx)?;
 
-        args.insert(0, ctx.heap_var().1);
         args.insert(0, ctx.state_var().1);
+        args.insert(0, ctx.heap_var().1);
         let call = ast.method_call(&self.fname, &args, &[ret.1]);
         ctx.declarations.push(ret.0);
         ctx.stack.extend(in_unfoldings);

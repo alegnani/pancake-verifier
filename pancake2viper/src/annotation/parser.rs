@@ -107,6 +107,13 @@ pub fn parse_predicate(pred: &str) -> Predicate {
     }
 }
 
+pub fn parse_state(s: &str) -> FunctionCall {
+    match AnnotParser::parse(Rule::state, s) {
+        Ok(mut pairs) => FunctionCall::from_pest(pairs.next().unwrap()),
+        Err(e) => panic!("Failed to parse state, got {:?}", e),
+    }
+}
+
 fn partition_annotation_types(
     annotations: Vec<Annotation>,
 ) -> (Vec<Annotation>, Vec<Annotation>, Vec<Annotation>) {
@@ -196,7 +203,7 @@ fn parse_toplevel_common(s: &str, rule: Rule) -> (String, Vec<Decl>, Pairs<Rule>
     }
 }
 
-pub fn parse_expr(pairs: Pairs<Rule>) -> Expr {
+fn parse_expr(pairs: Pairs<Rule>) -> Expr {
     PRATT_PARSER
         .map_primary(|primary| match primary.as_rule() {
             Rule::int_lit => Expr::Const(i64::from_pest(primary)),

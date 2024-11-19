@@ -289,6 +289,7 @@ impl ConstEval for Program {
             predicates: self.predicates.const_eval(options),
             viper_functions: self.viper_functions.const_eval(options),
             shared: self.shared.const_eval(options),
+            state: self.state.const_eval(options),
         }
     }
 }

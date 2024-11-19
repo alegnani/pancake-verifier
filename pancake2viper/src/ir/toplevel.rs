@@ -58,4 +58,5 @@ pub struct Program {
     pub viper_functions: Vec<Function>,
     pub methods: Vec<AbstractMethod>,
     pub shared: Vec<Shared>,
+    pub state: Vec<Expr>,
 }

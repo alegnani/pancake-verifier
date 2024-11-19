@@ -203,6 +203,7 @@ impl Mangleable for ir::Program {
         self.methods.mangle(mangler)?;
         self.functions
             .iter_mut()
-            .try_for_each(|e| e.mangle(&mut mangler.clone()))
+            .try_for_each(|e| e.mangle(&mut mangler.clone()))?;
+        self.state.mangle(mangler)
     }
 }

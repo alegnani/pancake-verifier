@@ -239,6 +239,7 @@ impl ir::Program {
             ignore_unknown(self.predicates.resolve_type(&mut ctx))?;
             ignore_unknown(self.methods.resolve_type(&mut ctx))?;
             ignore_unknown(self.functions.resolve_type(&mut ctx))?;
+            ignore_unknown(self.state.resolve_expr_type(&mut ctx).map(|_| ()))?;
             let new_size = ctx.size();
             if new_size == prev_size {
                 break;

@@ -136,6 +136,7 @@ pub struct ViperEncodeCtx<'a> {
     pub mangler: Mangler,
     pub shared: Rc<SharedContext>,
     pub method: Rc<MethodContext>,
+    pub state: Vec<ir::Expr>,
 }
 
 #[derive(Clone, Copy)]
@@ -177,6 +178,7 @@ impl<'a> ViperEncodeCtx<'a> {
         options: EncodeOptions,
         shared: Rc<SharedContext>,
         annot: Rc<MethodContext>,
+        state: Vec<ir::Expr>,
     ) -> Self {
         let iarray = IArrayHelper::new(ast);
         Self {
@@ -196,6 +198,7 @@ impl<'a> ViperEncodeCtx<'a> {
             mangler: Mangler::default(),
             shared,
             method: annot,
+            state,
         }
     }
 
@@ -217,6 +220,7 @@ impl<'a> ViperEncodeCtx<'a> {
             mangler: self.mangler.clone(),
             shared: self.shared.clone(),
             method: self.method.clone(),
+            state: self.state.clone(),
         }
     }
 

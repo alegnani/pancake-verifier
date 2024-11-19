@@ -25,12 +25,10 @@ impl<'a> TryToViper<'a> for FnDec {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
 
+        let mut pres = ctx.state.clone().to_viper(ctx)?;
+
         // add access permissions to arguments if structs
-        let mut pres = self
-            .args
-            .iter()
-            .filter_map(|a| a.precondition(ctx))
-            .collect::<Vec<_>>();
+        pres.extend(self.args.iter().filter_map(|a| a.precondition(ctx)));
 
         // Add postcondition:
         // - length if returning struct
@@ -61,10 +59,11 @@ impl<'a> TryToViper<'a> for FnDec {
             ),
         );
         posts.extend(self.posts.to_viper(ctx)?);
+        posts.extend(ctx.state.clone().to_viper(ctx)?.into_iter().rev());
         ctx.set_mode(TranslationMode::Normal);
 
-        args_local_decls.insert(0, ctx.heap_var().0);
         args_local_decls.insert(0, ctx.state_var().0);
+        args_local_decls.insert(0, ctx.heap_var().0);
 
         Ok(ast.method(
             &self.fname,
@@ -83,8 +82,8 @@ impl<'a> TryToViper<'a> for Predicate {
         let ast = ctx.ast;
         let mut args = self.args.to_viper(ctx);
         let body = self.body.map(|e| e.to_viper(ctx)).transpose()?;
-        args.insert(0, ctx.heap_var().0);
         args.insert(0, ctx.state_var().0);
+        args.insert(0, ctx.heap_var().0);
         Ok(ast.predicate(&self.name, &args, body))
     }
 }
@@ -103,8 +102,8 @@ impl<'a> TryToViper<'a> for Function {
         let posts = self.posts.to_viper(ctx)?;
         let body = self.body.map(|b| b.to_viper(ctx)).transpose()?;
 
-        args.insert(0, ctx.heap_var().0);
         args.insert(0, ctx.state_var().0);
+        args.insert(0, ctx.heap_var().0);
         Ok(ast.function(
             &self.name,
             &args,
@@ -127,8 +126,8 @@ impl<'a> TryToViper<'a> for AbstractMethod {
         let pres = self.pres.to_viper(ctx)?;
         let posts = self.posts.to_viper(ctx)?;
 
-        args.insert(0, ctx.heap_var().0);
         args.insert(0, ctx.state_var().0);
+        args.insert(0, ctx.heap_var().0);
         Ok(ast.method(&self.name, &args, &rettyps, &pres, &posts, None))
     }
 }
@@ -144,6 +143,7 @@ impl<'a> ProgramToViper<'a> for Program {
         let shared = Rc::new(SharedContext::new(&self.shared));
         // Create method context for automatic unfolding/folding of function predicates
         let method_ctx = Rc::new(MethodContext::new(&self.functions));
+        let state = self.state.clone();
 
         let (predicates, predicate_names): (Vec<_>, HashSet<_>) = self
             .predicates
@@ -157,6 +157,7 @@ impl<'a> ProgramToViper<'a> for Program {
                     options,
                     shared.clone(),
                     method_ctx.clone(),
+                    state.clone(),
                 );
                 ctx.set_mode(TranslationMode::PrePost);
 
@@ -176,6 +177,7 @@ impl<'a> ProgramToViper<'a> for Program {
                     options,
                     shared.clone(),
                     method_ctx.clone(),
+                    state.clone(),
                 );
                 ctx.set_mode(TranslationMode::PrePost);
                 f.to_viper(&mut ctx)
@@ -193,6 +195,7 @@ impl<'a> ProgramToViper<'a> for Program {
                     options,
                     shared.clone(),
                     method_ctx.clone(),
+                    state.clone(),
                 );
                 ctx.set_mode(TranslationMode::PrePost);
                 m.to_viper(&mut ctx)
@@ -210,6 +213,7 @@ impl<'a> ProgramToViper<'a> for Program {
                     options,
                     shared.clone(),
                     method_ctx.clone(),
+                    state.clone(),
                 );
                 f.to_viper(&mut ctx)
             })
