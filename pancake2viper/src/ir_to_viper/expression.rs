@@ -405,8 +405,6 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
                 }
             }
         }
-        println!("Unfoldings: {:?}", in_unfoldings);
-        println!("Foldings: {:?}", in_foldings);
         let in_unfoldings = in_unfoldings.to_viper(ctx)?;
         let in_foldings = in_foldings.to_viper(ctx)?;
         let out_unfoldings = out_unfoldings.to_viper(ctx)?;

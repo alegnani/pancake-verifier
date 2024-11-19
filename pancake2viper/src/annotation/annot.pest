@@ -110,7 +110,7 @@ method = { "/@" ~ "method" ~ ident ~ "(" ~ method_args ~ ")" ~ method_ret ~ prep
     method_args = { (decl ~ ("," ~ decl)*) | "" }
     method_ret = { (":" ~ "(" ~ decl ~ ("," ~ decl)* ~ ")") | "" }
 
-state = { "/@" ~ "state" ~ WHITESPACE+ ~ f_call ~ "@/" }
+state = { "/@" ~ "state" ~ expr ~ "@/" }
 
 // Shared memory annotations
 

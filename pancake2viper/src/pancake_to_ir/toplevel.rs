@@ -77,7 +77,7 @@ impl TryToIR for pancake::State {
     type Output = ir::Expr;
 
     fn to_ir(self) -> Result<Self::Output, TranslationError> {
-        Ok(ir::Expr::FunctionCall(parse_state(&self.text)))
+        Ok(parse_state(&self.text))
     }
 }
 

@@ -107,11 +107,9 @@ pub fn parse_predicate(pred: &str) -> Predicate {
     }
 }
 
-pub fn parse_state(s: &str) -> FunctionCall {
+pub fn parse_state(s: &str) -> Expr {
     match AnnotParser::parse(Rule::state, s) {
-        Ok(mut pairs) => {
-            FunctionCall::from_pest(pairs.next().unwrap().into_inner().next().unwrap())
-        }
+        Ok(mut pairs) => parse_expr(pairs.next().unwrap().into_inner()),
         Err(e) => panic!("Failed to parse state, got {:?}", e),
     }
 }
