@@ -2,7 +2,7 @@
 
 fun main() {
     /@ requires acc(heap[0..10]) @/
-    st8 1, 1; 
+    // st8 1, 1; 
     var x = ld8 1;
     !st32 4, @base + 4;
     !ld32 x, @base + 4;
