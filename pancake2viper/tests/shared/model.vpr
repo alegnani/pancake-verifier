@@ -1,3 +1,7 @@
+predicate valid_state(heap: IArray, state: Ref) {
+    true
+}
+
 method store_base8(heap: IArray, state: Ref, address: Int, value: Int)
     requires address == 0
     requires 0 <= value < 256

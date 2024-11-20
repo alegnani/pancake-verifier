@@ -145,7 +145,7 @@ impl<'a> ProgramToViper<'a> for Program {
         let method_ctx = Rc::new(MethodContext::new(&self.functions));
         let state = self.state.clone();
 
-        let (predicates, predicate_names): (Vec<_>, HashSet<_>) = self
+        let (predicates, mut predicate_names): (Vec<_>, HashSet<_>) = self
             .predicates
             .into_iter()
             .map(|p| {
@@ -165,6 +165,13 @@ impl<'a> ProgramToViper<'a> for Program {
             })
             .unzip();
         let predicates = predicates.into_iter().collect::<Result<Vec<_>, _>>()?;
+
+        // add abstract predicates to predicate names set
+        for pred in &self.state {
+            if let Expr::FunctionCall(call) = pred {
+                predicate_names.insert(call.fname.trim_start_matches("f_").to_owned());
+            }
+        }
 
         let mut functions = self
             .viper_functions

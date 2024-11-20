@@ -1,3 +1,5 @@
+use std::path::Path;
+use std::process::Command;
 use std::rc::Rc;
 use std::{fs::File, io::Write};
 
@@ -118,21 +120,10 @@ impl App {
             let state = program.state.clone();
             let shared = Rc::new(SharedContext::new(&self.options, &program.shared));
             let method_ctx = Rc::new(MethodContext::new(&program.functions));
-            let pred_names = program.state.iter().filter_map(|e| match e {
-                ir::Expr::FunctionCall(call) => {
-                    Some(call.fname.trim_start_matches("f_").to_owned())
-                }
-                _ => None,
-            });
 
             let mut ctx = ViperEncodeCtx::new(
                 ctx,
-                program
-                    .predicates
-                    .iter()
-                    .map(|p| p.name.clone())
-                    .chain(pred_names)
-                    .collect(),
+                program.predicates.iter().map(|p| p.name.clone()).collect(),
                 viper_handle.ast,
                 self.options,
                 shared.clone(),
@@ -165,7 +156,34 @@ impl App {
                 })?;
             }
             if self.verify {
-                self.verify_code(&mut viper_handle, program)?;
+                if self.model.is_none() {
+                    self.verify_code(&mut viper_handle, program)?;
+                } else {
+                    // When using a model we just add the model to the transpiled program and pass
+                    // it to Viper via CLI
+                    let mut file = File::create("tmp.vpr").map_err(|e| {
+                        anyhow!(format!("Error: Could not create temporary file:\n{}", e))
+                    })?;
+                    file.write_all(transpiled.as_bytes()).map_err(|e| {
+                        anyhow!(format!("Error: Could not write to temporary file:\n{}", e))
+                    })?;
+                    let path = Path::new(&self.viper_path).join("viperserver.jar");
+                    // TODO: use jni crate
+                    // TODO: give it more RAM to avoid overflows
+                    let verify = Command::new("java")
+                        .args([
+                            "-cp",
+                            path.to_str().unwrap(),
+                            "viper.silicon.SiliconRunner",
+                            "--logLevel=OFF",
+                            "tmp.vpr",
+                        ])
+                        .spawn()?
+                        .wait_with_output()?;
+                    if !verify.status.success() {
+                        return Err(anyhow!("Verification failure"));
+                    }
+                }
             }
         }
         Ok(())

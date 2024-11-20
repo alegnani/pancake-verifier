@@ -234,6 +234,11 @@ impl ir::Program {
     pub fn resolve_types(&self) -> Result<TypeContext, TranslationError> {
         let mut ctx = TypeContext::new();
         let mut prev_size = ctx.size();
+        for pred in &self.state {
+            if let Expr::FunctionCall(call) = pred {
+                ctx.set_type(call.fname.clone(), Type::Bool);
+            }
+        }
         loop {
             ignore_unknown(self.viper_functions.resolve_type(&mut ctx))?;
             ignore_unknown(self.predicates.resolve_type(&mut ctx))?;
