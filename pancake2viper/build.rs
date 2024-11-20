@@ -34,7 +34,7 @@ fn main() {
         "./tests/pass",
         r#"
                 #[test]
-                fn t_{}() {{
+                fn tp_{}() {{
                     verify_file("{}").unwrap();
                 }}
                 "#
@@ -45,7 +45,7 @@ fn main() {
         r#"
                 #[test]
                 #[should_panic]
-                fn t_{}() {{
+                fn tf_{}() {{
                     verify_file("{}").unwrap();
                 }}
                 "#
@@ -55,8 +55,8 @@ fn main() {
         "./tests/shared/pass",
         r#"
                 #[test]
-                fn m_{}() {{
-                    verify_file_model("{}", "./tests/shared/model.vpr").unwrap();
+                fn mp_{}() {{
+                    verify_file_model("{}").unwrap();
                 }}
                 "#
     );
@@ -66,8 +66,8 @@ fn main() {
         r#"
                 #[test]
                 #[should_panic]
-                fn m_{}() {{
-                    verify_file_model("{}", "./tests/shared/model.vpr").unwrap();
+                fn mf_{}() {{
+                    verify_file_model("{}").unwrap();
                 }}
                 "#
     );

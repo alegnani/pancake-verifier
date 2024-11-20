@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fs::File, io::Write, rc::Rc};
+use std::{fs::File, io::Write};
 
 use crate::{
     cli::{get_cake_path, get_viper_path, get_z3_path, CliOptions},
@@ -21,13 +21,12 @@ pub struct App {
     options: EncodeOptions,
     print: bool,
     pub code: String,
-    viper_path: String,
     cake_path: String,
+    viper_path: String,
     z3_path: String,
     pub model: Option<String>,
     output_path: Option<String>,
     pub verify: bool,
-    viper: Option<Rc<RefCell<ViperHandle>>>,
 }
 
 impl Default for App {
@@ -36,13 +35,12 @@ impl Default for App {
             options: Default::default(),
             print: true,
             code: "".into(),
-            viper_path: get_viper_path(),
             cake_path: get_cake_path(),
+            viper_path: get_viper_path(),
             z3_path: get_z3_path(),
             model: None,
             output_path: None,
             verify: true,
-            viper: None,
         }
     }
 }
@@ -50,8 +48,8 @@ impl Default for App {
 impl App {
     pub fn new(options: CliOptions, print: bool) -> Self {
         let code = options.cmd.get_input();
-        let viper_path = options.viper_path.clone();
         let cake_path = options.cake_path.clone();
+        let viper_path = options.viper_path.clone();
         let z3_path = options.z3_exe.clone();
         let model = options.model.clone().map(|m| m.contents().unwrap());
         let output_path = options.cmd.get_output_path();
@@ -60,19 +58,14 @@ impl App {
         Self {
             print,
             code,
-            viper_path,
             cake_path,
+            viper_path,
             z3_path,
             options,
             model,
             output_path,
             verify,
-            viper: None,
         }
-    }
-
-    pub fn set_viper(&mut self, viper: ViperHandle) {
-        self.viper = Some(Rc::new(RefCell::new(viper)));
     }
 
     fn print(&self, s: &str) {
@@ -87,9 +80,9 @@ impl App {
         }
     }
 
-    pub fn verify_code(&self, viper: &mut ViperHandle, program: Program<'_>) -> Result<()> {
+    pub fn verify_code(&self, verifier: &mut ViperHandle, program: Program<'_>) -> Result<()> {
         self.println("Verifying...");
-        let (s, success) = viper.verify(program);
+        let (s, success) = verifier.verify(program);
         self.println(&s);
         if !success {
             return Err(anyhow!("Failed verification"));
@@ -97,16 +90,8 @@ impl App {
         Ok(())
     }
 
-    pub fn run(&self) -> Result<()> {
-        // Transpile the program
-        let viper = self
-            .viper
-            .clone()
-            .unwrap_or(Rc::new(RefCell::new(ViperHandle::new(
-                self.viper_path.clone(),
-                self.z3_path.clone(),
-            ))));
-
+    pub fn run(&self, viper: &'static viper::Viper) -> Result<()> {
+        let mut viper_handle = ViperHandle::from_handle(viper, self.z3_path.clone());
         let mut program: ir::Program = run_step!(self, "Parsing S-expr from cake", {
             pancake::Program::parse_str(self.code.clone(), &self.cake_path)
         })?
@@ -122,9 +107,9 @@ impl App {
         });
 
         self.println("Transpiling to Viper...");
-        let program = program.to_viper(ctx, viper.borrow().ast, self.options)?;
+        let program = program.to_viper(ctx, viper_handle.ast, self.options)?;
 
-        let mut transpiled = viper.borrow().pretty_print(program);
+        let mut transpiled = viper_handle.utils.pretty_print(program);
         if let Some(mut model) = self.model.clone() {
             model.push_str("\n\n");
             model.push_str(&transpiled);
@@ -137,7 +122,7 @@ impl App {
                 .map_err(|e| anyhow!(format!("Error: Could not write to output file:\n{}", e)))?;
         }
         if self.verify {
-            self.verify_code(&mut viper.borrow_mut(), program)?;
+            self.verify_code(&mut viper_handle, program)?;
         }
 
         Ok(())
