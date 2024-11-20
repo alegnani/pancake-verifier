@@ -298,6 +298,15 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
                 args.insert(0, ctx.heap_var().1);
                 ast.predicate_access_predicate(ast.predicate_access(&args, pred), ast.full_perm())
             }
+            // Only used for model generation to remove "f_" prefix from predicate names
+            pred if ctx.is_predicate(pred.trim_start_matches("f_")) => {
+                args.insert(0, ctx.state_var().1);
+                args.insert(0, ctx.heap_var().1);
+                ast.predicate_access_predicate(
+                    ast.predicate_access(&args, pred.trim_start_matches("f_")),
+                    ast.full_perm(),
+                )
+            }
             "f_bounded" => ctx.utils.bounded_f(args[0], ctx.options.word_size),
             "f_bounded8" => ctx.utils.bounded_f(args[0], 8),
             "f_bounded16" => ctx.utils.bounded_f(args[0], 16),

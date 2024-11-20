@@ -26,7 +26,7 @@ impl<'a> TryToViper<'a> for FnDec {
         let ast = ctx.ast;
 
         let mut pres = ctx.state.clone().to_viper(ctx)?;
-        let mut posts = ctx.state.clone().to_viper(ctx)?;
+        let mut posts = pres.clone();
 
         // add access permissions to arguments if structs
         pres.extend(self.args.iter().filter_map(|a| a.precondition(ctx)));

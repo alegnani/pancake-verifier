@@ -115,13 +115,24 @@ impl App {
 
         if self.generate {
             self.println("Generating model boilerplate");
-            let state = program.state;
+            let state = program.state.clone();
             let shared = Rc::new(SharedContext::new(&self.options, &program.shared));
             let method_ctx = Rc::new(MethodContext::new(&program.functions));
+            let pred_names = program.state.iter().filter_map(|e| match e {
+                ir::Expr::FunctionCall(call) => {
+                    Some(call.fname.trim_start_matches("f_").to_owned())
+                }
+                _ => None,
+            });
 
             let mut ctx = ViperEncodeCtx::new(
                 ctx,
-                program.predicates.iter().map(|p| p.name.clone()).collect(),
+                program
+                    .predicates
+                    .iter()
+                    .map(|p| p.name.clone())
+                    .chain(pred_names)
+                    .collect(),
                 viper_handle.ast,
                 self.options,
                 shared.clone(),
