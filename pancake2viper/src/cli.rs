@@ -169,6 +169,9 @@ pub struct CliOptions {
         help = "Allows accessing shared memory that has not been previously bound to method in the shared memory model"
     )]
     pub allow_undefined_shared: bool,
+
+    #[arg(global = true, long, help = "Ignore warnings")]
+    pub ignore_warnings: bool,
 }
 
 impl From<CliOptions> for EncodeOptions {
@@ -184,6 +187,7 @@ impl From<CliOptions> for EncodeOptions {
             include_prelude: !value.disable_prelude,
             return_post: !value.disable_return_post,
             allow_undefined_shared: value.allow_undefined_shared,
+            ignore_warnings: value.ignore_warnings,
         }
     }
 }

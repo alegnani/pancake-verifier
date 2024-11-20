@@ -140,7 +140,7 @@ impl<'a> ProgramToViper<'a> for Program {
         options: EncodeOptions,
     ) -> Result<viper::Program<'a>, ToViperError> {
         // Create context for shared memory accesses
-        let shared = Rc::new(SharedContext::new(&self.shared));
+        let shared = Rc::new(SharedContext::new(&options, &self.shared));
         // Create method context for automatic unfolding/folding of function predicates
         let method_ctx = Rc::new(MethodContext::new(&self.functions));
         let state = self.state.clone();
