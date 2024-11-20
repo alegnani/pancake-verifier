@@ -1,17 +1,19 @@
 use crate::utils::{EncodeOptions, ViperEncodeCtx};
 
-use super::{Expr, MemOpBytes, Shared};
+use super::{Expr, MemOpBytes, Shared, SharedPerm};
 use std::{collections::HashSet, fmt::Display, option};
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct SharedContext {
-    addresses: HashSet<i64>,
+    read_addresses: HashSet<i64>,
+    write_addresses: HashSet<i64>,
     mappings: [Vec<SharedInternal>; 4],
 }
 
 #[derive(Debug, Clone)]
 struct SharedInternal {
     name: String,
+    typ: SharedPerm,
     size: MemOpBytes,
     addresses: Vec<i64>,
     lower: i64,
@@ -60,15 +62,11 @@ fn get_const(expr: &Expr) -> i64 {
 
 impl SharedContext {
     pub fn new(options: &EncodeOptions, shared: &[Shared]) -> Self {
-        let mut mappings = [vec![], vec![], vec![], vec![]];
-        let mut addresses = HashSet::new();
+        let mut sctx = Self::default();
         for s in shared {
-            Self::add(&options, &mut mappings, &mut addresses, s);
+            sctx.add(&options, s);
         }
-        Self {
-            addresses,
-            mappings,
-        }
+        sctx
     }
 
     fn get_idx(bits: usize) -> usize {
@@ -81,26 +79,35 @@ impl SharedContext {
         }
     }
 
-    fn add(
-        options: &EncodeOptions,
-        mappings: &mut [Vec<SharedInternal>; 4],
-        addresses_set: &mut HashSet<i64>,
-        shared: &Shared,
-    ) {
+    fn add(&mut self, options: &EncodeOptions, shared: &Shared) {
         println!(
-            "Registering shared memory functions {}_store and {}_load",
-            shared.name, shared.name
+            "Registering shared memory functions ({}) for `{}`",
+            shared.typ, shared.name,
         );
         let idx = Self::get_idx(shared.bits as usize);
         let lower = get_const(&shared.lower);
         let upper = get_const(&shared.upper);
         let stride = get_const(&shared.stride);
         let addresses = (lower..upper).step_by(stride as usize);
+
         for addr in addresses.clone() {
             for offset in 0..(shared.bits as i64 / 8) {
-                if !addresses_set.insert(addr + offset) && !options.ignore_warnings {
+                if shared.typ.is_read()
+                    && !self.read_addresses.insert(addr + offset)
+                    && !options.ignore_warnings
+                {
                     println!(
-                        " - WARNING! Shared address {:#x} of {} is defined multiple times",
+                        " - WARNING! Shared address {:#x} of {} is defined multiple times for reading",
+                        addr + offset,
+                        shared.name
+                    );
+                }
+                if shared.typ.is_write()
+                    && !self.write_addresses.insert(addr + offset)
+                    && !options.ignore_warnings
+                {
+                    println!(
+                        " - WARNING! Shared address {:#x} of {} is defined multiple times for writing",
                         addr + offset,
                         shared.name
                     );
@@ -108,8 +115,9 @@ impl SharedContext {
             }
         }
 
-        mappings[idx].push(SharedInternal {
+        self.mappings[idx].push(SharedInternal {
             name: shared.name.clone(),
+            typ: shared.typ,
             size: shared.bits.into(),
             lower,
             upper,
@@ -128,13 +136,17 @@ impl SharedContext {
         let idx = Self::get_idx(size.bits() as usize);
         self.mappings[idx]
             .iter()
+            .filter(|&s| s.typ.is_allowed(op))
             .find(|&s| s.addresses.iter().any(|a| *a == addr))
             .map(|si| format!("{}_{}", op, si.name))
             .unwrap_or_else(|| {
                 if options.allow_undefined_shared {
                     format!("shared_{}{}", op, size.bits())
                 } else {
-                    panic!("No shared memory function registered for address {}", addr)
+                    panic!(
+                        "No shared memory function registered for {} opearation at address {}",
+                        op, addr
+                    )
                 }
             })
     }
@@ -161,6 +173,7 @@ impl SharedContext {
         };
         self.mappings[Self::get_idx(bits.bits() as usize)]
             .iter()
+            .filter(|&s| s.typ.is_allowed(optyp))
             .map(|s| (s, s.get_precondition(ctx, addr)))
             .fold(init, |acc, (s, cond)| {
                 ast.if_stmt(

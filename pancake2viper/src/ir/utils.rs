@@ -7,8 +7,9 @@ use crate::{
 
 use super::{
     expression::{Expr, Struct},
+    shared::SharedOpType,
     statement::MemOpBytes,
-    Arg, BinOp, BinOpType, Decl, ShiftType, Type, UnOpType,
+    Arg, BinOp, BinOpType, Decl, SharedPerm, ShiftType, Type, UnOpType,
 };
 
 impl Struct {
@@ -250,5 +251,22 @@ impl ExprSubstitution for Vec<Expr> {
 impl From<Arg> for Expr {
     fn from(value: Arg) -> Self {
         Expr::Var(value.name)
+    }
+}
+
+impl SharedPerm {
+    pub fn is_read(&self) -> bool {
+        matches!(self, Self::ReadOnly | Self::ReadWrite)
+    }
+
+    pub fn is_write(&self) -> bool {
+        matches!(self, Self::WriteOnly | Self::ReadWrite)
+    }
+
+    pub fn is_allowed(&self, op: SharedOpType) -> bool {
+        match op {
+            SharedOpType::Load => self.is_read(),
+            SharedOpType::Store => self.is_write(),
+        }
     }
 }

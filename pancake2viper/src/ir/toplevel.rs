@@ -42,9 +42,17 @@ pub struct AbstractMethod {
     pub rettyps: Vec<Decl>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum SharedPerm {
+    ReadWrite,
+    WriteOnly,
+    ReadOnly,
+}
+
 #[derive(Debug, Clone)]
 pub struct Shared {
     pub name: String,
+    pub typ: SharedPerm,
     pub bits: u64,
     pub lower: Expr,
     pub upper: Expr,

@@ -50,6 +50,7 @@ pub fn parse_shared(shared: &str) -> Shared {
     match AnnotParser::parse(Rule::shared_prototype, shared) {
         Ok(mut pairs) => {
             let mut pair = pairs.next().unwrap().into_inner();
+            let typ = SharedPerm::from_pest(pair.next().unwrap());
             let bits = pair
                 .next()
                 .unwrap()
@@ -82,6 +83,7 @@ pub fn parse_shared(shared: &str) -> Shared {
             };
             Shared {
                 name,
+                typ,
                 bits,
                 lower,
                 upper,
@@ -284,6 +286,17 @@ impl FromPestPair for i64 {
                     .unwrap()
             }
             x => panic!("Failed to parse integer literal, got {:?}", x),
+        }
+    }
+}
+
+impl FromPestPair for SharedPerm {
+    fn from_pest(pair: Pair<'_, Rule>) -> Self {
+        match pair.as_str() {
+            "rw" | "wr" => Self::ReadWrite,
+            "r" => Self::ReadOnly,
+            "w" => Self::WriteOnly,
+            x => panic!("Failed to parse SharedPerm, got {:?}", x),
         }
     }
 }

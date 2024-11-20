@@ -114,7 +114,8 @@ state = { "/@" ~ "state" ~ expr ~ "@/" }
 
 // Shared memory annotations
 
-shared_prototype = @{ "/@" ~ WHITESPACE* ~ "shared" ~ WHITESPACE+ ~ "u" ~ shared_bits ~ WHITESPACE+ ~ shared_name ~ "[" ~ WHITESPACE* ~ shared_mem ~ WHITESPACE* ~ "]" ~ WHITESPACE* ~ "@/" }
+shared_prototype = @{ "/@" ~ WHITESPACE* ~ "shared" ~ WHITESPACE+ ~ shared_type ~ WHITESPACE+ ~ "u" ~ shared_bits ~ WHITESPACE+ ~ shared_name ~ "[" ~ WHITESPACE* ~ shared_mem ~ WHITESPACE* ~ "]" ~ WHITESPACE* ~ "@/" }
+	shared_type = !{ "rw" | "wr" | "r" | "w" }
     shared_bits = !{ decimal_lit }
     shared_name = !{ ident }
     shared_mem = _{ shared_stride | shared_range | expr }

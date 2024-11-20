@@ -3,8 +3,8 @@ use std::fmt::{Display, Formatter, Result};
 use crate::utils::Shape;
 
 use super::{
-    AnnotationType, BinOpType, Decl, Expr, Permission, Quantifier, ShiftType, SliceType, Stmt,
-    Type, UnOpType,
+    AnnotationType, BinOpType, Decl, Expr, Permission, Quantifier, SharedPerm, ShiftType,
+    SliceType, Stmt, Type, UnOpType,
 };
 
 impl Display for Stmt {
@@ -208,6 +208,16 @@ impl Display for Quantifier {
         match self {
             Self::Forall => write!(f, "forall"),
             Self::Exists => write!(f, "exists"),
+        }
+    }
+}
+
+impl Display for SharedPerm {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self {
+            Self::ReadOnly => write!(f, "read-only"),
+            Self::WriteOnly => write!(f, "write-only"),
+            Self::ReadWrite => write!(f, "read-write"),
         }
     }
 }
