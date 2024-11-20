@@ -1,6 +1,6 @@
 /@ shared r u8 base8[@base] @/
 /@ shared r u32 base32[@base] @/
-/@ shared r u64 base64[@base] @/
+/@ shared w u64 base64[@base] @/
 
 fun main() {
     /@ requires acc(heap[0]) @/

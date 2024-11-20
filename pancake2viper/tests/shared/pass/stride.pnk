@@ -1,4 +1,4 @@
-/@ shared u8 STRIDE[0x420..0x460:0x10] @/
+/@ shared r u8 STRIDE[0x420..0x460:0x10] @/
 
 fun main(1 addr) {
     /@ requires addr == 0x420 || addr == 0x430 @/ 
