@@ -1,4 +1,7 @@
 /@ state valid_state() @/
+/@ state foo() @/
+
+/@ predicate foo() @/
 
 /@ shared r u8 STRIDE[0x420..0x460:0x10] @/
 
