@@ -4,8 +4,8 @@ use crate::{
 };
 
 use super::{
-    AbstractMethod, BinOp, Expr, FnDec, Function, Predicate, Program, Shared, Shift, Stmt, UnOp,
-    UnOpType,
+    AbstractMethod, BinOp, BinOpType, Expr, FnDec, Function, Predicate, Program, Shared, Shift,
+    Stmt, UnOp, UnOpType,
 };
 
 impl ConstEvalExpr for Expr {
@@ -97,6 +97,15 @@ impl ConstEvalExpr for BinOp {
                 if self.optype.is_arithmetic() || self.optype.is_bitwise() =>
             {
                 Expr::Const(self.optype.eval(l, r))
+            }
+            (l, Expr::Const(r))
+                if self.optype == BinOpType::BitAnd && (r + 1).count_ones() == 1 =>
+            {
+                Expr::BinOp(BinOp {
+                    optype: BinOpType::Modulo,
+                    left: Box::new(l),
+                    right: Box::new(Expr::Const(r + 1)),
+                })
             }
             (l, r) => Expr::BinOp(BinOp {
                 optype: self.optype,
