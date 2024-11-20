@@ -42,6 +42,9 @@ impl Command {
     pub fn get_verify(&self) -> bool {
         matches!(self, Self::TranspileVerify(_) | Self::Verify(_))
     }
+    pub fn is_generate(&self) -> bool {
+        matches!(self, Self::Generate(_))
+    }
 }
 
 #[derive(Debug, Clone, Args)]

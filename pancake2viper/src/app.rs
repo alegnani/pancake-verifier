@@ -1,8 +1,11 @@
+use std::rc::Rc;
 use std::{fs::File, io::Write};
 
+use crate::utils::{MethodContext, ViperEncodeCtx};
 use crate::{
     cli::{get_cake_path, get_viper_path, get_z3_path, CliOptions},
-    ir, pancake,
+    ir::{self, shared::SharedContext},
+    pancake,
     utils::{ConstEval, EncodeOptions, Mangleable, Mangler, ProgramToViper, ViperHandle},
 };
 use anyhow::{anyhow, Result};
@@ -27,6 +30,7 @@ pub struct App {
     pub model: Option<String>,
     output_path: Option<String>,
     pub verify: bool,
+    pub generate: bool,
 }
 
 impl Default for App {
@@ -41,6 +45,7 @@ impl Default for App {
             model: None,
             output_path: None,
             verify: true,
+            generate: false,
         }
     }
 }
@@ -54,6 +59,7 @@ impl App {
         let model = options.model.clone().map(|m| m.contents().unwrap());
         let output_path = options.cmd.get_output_path();
         let verify = options.cmd.get_verify();
+        let generate = options.cmd.is_generate();
         let options = options.into();
         Self {
             print,
@@ -65,6 +71,7 @@ impl App {
             model,
             output_path,
             verify,
+            generate,
         }
     }
 
@@ -106,25 +113,50 @@ impl App {
             program = program.const_eval(&self.options)
         });
 
-        self.println("Transpiling to Viper...");
-        let program = program.to_viper(ctx, viper_handle.ast, self.options)?;
+        if self.generate {
+            self.println("Generating model boilerplate");
+            let state = program.state;
+            let shared = Rc::new(SharedContext::new(&self.options, &program.shared));
+            let method_ctx = Rc::new(MethodContext::new(&program.functions));
 
-        let mut transpiled = viper_handle.utils.pretty_print(program);
-        if let Some(mut model) = self.model.clone() {
-            model.push_str("\n\n");
-            model.push_str(&transpiled);
-            transpiled = model;
-        }
-        if let Some(path) = &self.output_path {
+            let mut ctx = ViperEncodeCtx::new(
+                ctx,
+                program.predicates.iter().map(|p| p.name.clone()).collect(),
+                viper_handle.ast,
+                self.options,
+                shared.clone(),
+                method_ctx,
+                state.clone(),
+            );
+            let gen_methods = shared.gen_boilerplate(&mut ctx, state)?;
+            let program = viper_handle.ast.program(&[], &[], &[], &[], &gen_methods);
+            let boilerplate = viper_handle.utils.pretty_print(program);
+            let path = self.output_path.clone().unwrap();
             let mut file = File::create(path)
                 .map_err(|e| anyhow!(format!("Error: Could not open output file:\n{}", e)))?;
-            file.write_all(transpiled.as_bytes())
+            file.write_all(boilerplate.as_bytes())
                 .map_err(|e| anyhow!(format!("Error: Could not write to output file:\n{}", e)))?;
-        }
-        if self.verify {
-            self.verify_code(&mut viper_handle, program)?;
-        }
+        } else {
+            self.println("Transpiling to Viper...");
+            let program = program.to_viper(ctx, viper_handle.ast, self.options)?;
 
+            let mut transpiled = viper_handle.utils.pretty_print(program);
+            if let Some(mut model) = self.model.clone() {
+                model.push_str("\n\n");
+                model.push_str(&transpiled);
+                transpiled = model;
+            }
+            if let Some(path) = &self.output_path {
+                let mut file = File::create(path)
+                    .map_err(|e| anyhow!(format!("Error: Could not open output file:\n{}", e)))?;
+                file.write_all(transpiled.as_bytes()).map_err(|e| {
+                    anyhow!(format!("Error: Could not write to output file:\n{}", e))
+                })?;
+            }
+            if self.verify {
+                self.verify_code(&mut viper_handle, program)?;
+            }
+        }
         Ok(())
     }
 }

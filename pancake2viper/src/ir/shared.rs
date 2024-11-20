@@ -1,4 +1,5 @@
-use crate::utils::{EncodeOptions, ViperEncodeCtx};
+use crate::utils::{EncodeOptions, ToViper, ToViperError, TryToViper, ViperEncodeCtx, ViperUtils};
+use std::rc::Rc;
 
 use super::{Expr, MemOpBytes, Shared, SharedPerm};
 use std::{collections::HashSet, fmt::Display, option};
@@ -47,6 +48,47 @@ impl SharedInternal {
             );
             ast.and(range, stride)
         }
+    }
+
+    pub fn gen_boilerplate<'a>(
+        &self,
+        ctx: &mut ViperEncodeCtx<'a>,
+        state: Vec<Expr>,
+    ) -> Result<Vec<viper::Method<'a>>, ToViperError> {
+        let ast = ctx.ast;
+        let addr = ast.new_var("addr", ast.int_type());
+        let retval = ast.new_var(ctx.return_var_name(), ast.int_type());
+        let value = ast.new_var("value", ast.int_type());
+        let mut methods = vec![];
+        if self.typ.is_read() {
+            let mut pres = state.clone().to_viper(ctx)?;
+            let mut posts = pres.clone();
+            pres.push(self.get_precondition(ctx, addr.1));
+            posts.push(ctx.utils.bounded_f(retval.1, self.size.bits() as u64));
+            methods.push(ast.method(
+                &format!("load_{}", self.name),
+                &[ctx.heap_var().0, ctx.state_var().0, addr.0],
+                &[retval.0],
+                &pres,
+                &posts,
+                Some(ast.seqn(&[ast.comment("TODO")], &[])),
+            ));
+        }
+        if self.typ.is_write() {
+            let mut pres = state.clone().to_viper(ctx)?;
+            let mut posts = pres.clone();
+            pres.push(self.get_precondition(ctx, addr.1));
+            pres.push(ctx.utils.bounded_f(value.1, self.size.bits() as u64));
+            methods.push(ast.method(
+                &format!("store_{}", self.name),
+                &[ctx.heap_var().0, ctx.state_var().0, addr.0, value.0],
+                &[],
+                &pres,
+                &posts,
+                Some(ast.seqn(&[ast.comment("TODO")], &[])),
+            ));
+        }
+        Ok(methods)
     }
 }
 
@@ -185,6 +227,21 @@ impl SharedContext {
                     ast.seqn(&[acc], &[]),
                 )
             })
+    }
+
+    pub fn gen_boilerplate<'a>(
+        &self,
+        ctx: &mut ViperEncodeCtx<'a>,
+        state: Vec<Expr>,
+    ) -> Result<Vec<viper::Method<'a>>, ToViperError> {
+        Ok(self
+            .mappings
+            .iter()
+            .flatten()
+            .map(|s| s.gen_boilerplate(ctx, state.clone()))
+            .flatten()
+            .flatten()
+            .collect())
     }
 }
 
