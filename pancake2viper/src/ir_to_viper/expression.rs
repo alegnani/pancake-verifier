@@ -331,8 +331,6 @@ fn auto_unfold_fold(
     arg_mapping: &Vec<(ir::Expr, ir::Expr)>, //
     copy_mapping: &Vec<(ir::Expr, ir::Expr)>,
 ) -> (Vec<ir::Stmt>, Vec<ir::Stmt>) {
-    println!("arg: {:?}", arg_mapping);
-    println!("copy: {:?}", copy_mapping);
     let mut unfold = vec![];
     let mut fold = vec![];
     for annot in annots {
@@ -340,7 +338,6 @@ fn auto_unfold_fold(
             let mut annot = annot.clone();
             let mut did_substitute = false;
             for (old, new) in arg_mapping.iter() {
-                println!("PREdicate: {}, old: {:?}, new: {}", annot, old, new);
                 did_substitute = did_substitute || annot.substitute(old, new);
             }
             if did_substitute {
@@ -360,7 +357,6 @@ fn auto_unfold_fold(
             }
         }
     }
-    println!("----");
     (unfold, fold)
 }
 
@@ -454,8 +450,6 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
             &rev_arg_mapping,
             &rev_copy_mapping,
         );
-
-        println!("{:?} {:?}", out_foldings, out_unfoldings);
 
         let in_unfoldings = in_unfoldings.to_viper(ctx)?;
         let in_foldings = in_foldings.to_viper(ctx)?;
