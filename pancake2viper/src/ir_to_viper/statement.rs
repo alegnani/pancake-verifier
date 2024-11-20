@@ -174,8 +174,8 @@ impl<'a> TryToViper<'a> for ir::ExtCall {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let mut args = self.args.to_viper(ctx)?;
-        args.insert(0, ctx.heap_var().1);
         args.insert(0, ctx.state_var().1);
+        args.insert(0, ctx.heap_var().1);
         Ok(ast.method_call(&self.fname, &args, &[]))
     }
 }
