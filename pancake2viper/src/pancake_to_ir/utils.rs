@@ -31,7 +31,8 @@ impl ToType for Shape {
 fn stmt_annotation_helper(
     body: &mut Stmt,
     mut preposts: (Vec<Expr>, Vec<Expr>),
-) -> (Vec<Expr>, Vec<Expr>) {
+    mut trusted: bool,
+) -> ((Vec<Expr>, Vec<Expr>), bool) {
     match body {
         Stmt::Annotation(Annotation {
             typ: AnnotationType::Precondition,
@@ -47,22 +48,29 @@ fn stmt_annotation_helper(
             preposts.1.push(expr.to_owned());
             *body = Stmt::Skip;
         }
+        Stmt::Annotation(Annotation {
+            typ: AnnotationType::Trusted,
+            expr,
+        }) => {
+            trusted = true;
+            *body = Stmt::Skip;
+        }
         Stmt::Seq(Seq { stmts }) => {
             for stmt in stmts {
-                preposts = stmt_annotation_helper(stmt, preposts);
+                (preposts, trusted) = stmt_annotation_helper(stmt, preposts, trusted);
             }
         }
         Stmt::Definition(Definition {
             scope,
             lhs: _,
             rhs: _,
-        }) => preposts = stmt_annotation_helper(scope, preposts),
+        }) => (preposts, trusted) = stmt_annotation_helper(scope, preposts, trusted),
         _ => (),
     }
-    preposts
+    (preposts, trusted)
 }
 
 /// Finds pre- and post-conditions in the statement and returns them by removing them.
-pub fn stmt_annotation_push(body: &mut Stmt) -> (Vec<Expr>, Vec<Expr>) {
-    stmt_annotation_helper(body, (vec![], vec![]))
+pub fn stmt_annotation_push(body: &mut Stmt) -> ((Vec<Expr>, Vec<Expr>), bool) {
+    stmt_annotation_helper(body, (vec![], vec![]), false)
 }

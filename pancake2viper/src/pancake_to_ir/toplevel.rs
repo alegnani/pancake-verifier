@@ -29,7 +29,7 @@ impl TryToIR for pancake::FnDec {
                 scope: Box::new(scope),
             })
         });
-        let (pres, posts) = stmt_annotation_push(&mut body);
+        let ((pres, posts), trusted) = stmt_annotation_push(&mut body);
         Ok(Self::Output {
             fname: self.fname,
             args,
@@ -37,6 +37,7 @@ impl TryToIR for pancake::FnDec {
             pres,
             posts,
             retvar: "retval".into(),
+            trusted,
         })
     }
 }

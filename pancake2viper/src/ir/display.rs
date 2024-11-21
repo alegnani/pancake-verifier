@@ -178,6 +178,7 @@ impl Display for AnnotationType {
                 Self::Postcondition => "ensures",
                 Self::Fold => "fold",
                 Self::Unfold => "unfold",
+                Self::Trusted => "trusted",
             }
         )
     }

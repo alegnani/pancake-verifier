@@ -35,12 +35,12 @@ pub fn parse_annot(annot: &str) -> Annotation {
     match AnnotParser::parse(Rule::annotation_comment, annot) {
         Ok(mut pairs) => {
             let mut pair = pairs.next().unwrap().into_inner();
-            let typ = pair.next().unwrap();
-            let expr = pair.next().unwrap();
-            Annotation {
-                typ: AnnotationType::from_pest(typ),
-                expr: parse_expr(Pairs::single(expr)),
-            }
+            let typ = AnnotationType::from_pest(pair.next().unwrap());
+            let expr = match typ {
+                AnnotationType::Trusted => Expr::Const(1),
+                _ => parse_expr(Pairs::single(pair.next().unwrap())),
+            };
+            Annotation { typ, expr }
         }
         Err(e) => panic!("{:?}", e),
     }
@@ -325,6 +325,7 @@ impl FromPestPair for AnnotationType {
             Rule::exhale => Self::Exhale,
             Rule::fold => Self::Fold,
             Rule::unfold => Self::Unfold,
+            Rule::trusted => Self::Trusted,
             x => panic!("Failed to parse AnnotationType, got {:?}", x),
         }
     }

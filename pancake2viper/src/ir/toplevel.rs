@@ -8,6 +8,7 @@ pub struct FnDec {
     pub posts: Vec<Expr>,
     pub body: Stmt,
     pub retvar: String,
+    pub trusted: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

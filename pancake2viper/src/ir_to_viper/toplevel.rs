@@ -71,7 +71,7 @@ impl<'a> TryToViper<'a> for FnDec {
             &[ast.local_var_decl(&self.retvar, ctx.get_type(&self.retvar)?.to_viper_type(ctx))],
             &pres,
             &posts,
-            Some(body),
+            if self.trusted { None } else { Some(body) },
         ))
     }
 }

@@ -1,0 +1,6 @@
+fun main() {
+	/@ trusted @/
+
+	/@ assert false @/
+	return 0;
+}
