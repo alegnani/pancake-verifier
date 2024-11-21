@@ -1,0 +1,7 @@
+/@ extern other_pred @/
+/@ state valid_state() @/
+
+fun main() {
+	/@ requires unfolding valid_state() in unfolding other_pred() in state.device2 != -1 @/
+	return 0;
+}

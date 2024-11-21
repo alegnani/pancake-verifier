@@ -1,6 +1,13 @@
 predicate valid_state(heap: IArray, state: Ref) {
-    true
+    acc(state.device) && state.device == 42 && other_pred(heap, state)
 }
+
+predicate other_pred(heap: IArray, state: Ref) {
+    acc(state.device2) && state.device2 >= 0
+}
+
+field device: Int
+field device2: Int
 
 method store_base8(heap: IArray, state: Ref, address: Int, value: Int)
     requires address == 0
