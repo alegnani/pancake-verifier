@@ -9,7 +9,7 @@
 {
     (forall i: Int::
         (i >= 4 && i < 260) ==> acc(heap[i])) &&
-    hardware_ring_rx()
+    acc(hardware_ring_rx())
 }
 @/
 

@@ -510,7 +510,11 @@ impl<'a> TryToViper<'a> for ir::AccessPredicate {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let perm = self.perm.to_viper(ctx);
-        Ok(ast.field_access_predicate(self.field.to_viper(ctx)?, perm))
+        // If specified as `acc(predicate(...))` turn into `predicate(...)` as the `acc` will be added later
+        match *self.field {
+            ir::Expr::FunctionCall(fcall) if ctx.is_predicate(&fcall.fname) => fcall.to_viper(ctx),
+            field => Ok(ast.field_access_predicate(field.to_viper(ctx)?, perm)),
+        }
     }
 }
 
@@ -585,6 +589,19 @@ impl<'a> TryToViper<'a> for ir::AccessSlice {
     }
 }
 
+impl<'a> TryToViper<'a> for ir::ViperFieldAccess {
+    type Output = viper::Expr<'a>;
+
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
+        let ast = ctx.ast;
+        Ok(ast.field_access(
+            self.obj.to_viper(ctx)?,
+            // FIXME: this will be checked by the CLI, therefore we can check with the types
+            ast.field(&self.field, ast.int_type()),
+        ))
+    }
+}
+
 impl<'a> TryToViper<'a> for ir::Expr {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
@@ -607,6 +624,7 @@ impl<'a> TryToViper<'a> for ir::Expr {
             LoadBits(load) => load.to_viper(ctx),
             Ternary(ternary) => ternary.to_viper(ctx),
             AccessSlice(slice) => slice.to_viper(ctx),
+            ViperFieldAccess(acc) => acc.to_viper(ctx),
             x => Ok(match x {
                 Const(c) => ast.int_lit(c),
                 BoolLit(b) if b => ast.true_lit(),
