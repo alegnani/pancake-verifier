@@ -29,6 +29,7 @@ pub enum Expr {
     Ternary(Ternary),
     AccessSlice(AccessSlice),
     Old(Old),
+    ViperFieldAccess(ViperFieldAccess),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -201,4 +202,10 @@ pub struct AccessSlice {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Old {
     pub expr: Box<Expr>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ViperFieldAccess {
+    pub obj: Box<Expr>,
+    pub field: String,
 }

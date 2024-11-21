@@ -27,6 +27,7 @@ lazy_static::lazy_static! {
             .op(Op::infix(Rule::mul, Left) | Op::infix(Rule::div, Left) | Op::infix(Rule::modulo, Left))
             .op(Op::prefix(Rule::neg) | Op::prefix(Rule::minus))
             .op(Op::postfix(Rule::field_acc))
+            .op(Op::postfix(Rule::viper_field_acc))
             .op(Op::postfix(Rule::arr_acc))
     };
 }
@@ -259,6 +260,10 @@ fn parse_expr(pairs: Pairs<Rule>) -> Expr {
                     .into_inner()
                     .map(|i| i.as_str().parse().unwrap())
                     .collect(),
+            }),
+            Rule::viper_field_acc => Expr::ViperFieldAccess(ViperFieldAccess {
+                obj: Box::new(lhs),
+                field: op.as_str().trim_start_matches('.').to_string(),
             }),
             Rule::arr_acc => Expr::ArrayAccess(ArrayAccess {
                 obj: Box::new(lhs),

@@ -43,6 +43,7 @@ impl ExprTypeResolution for ir::Expr {
                 Ok(Type::Bool)
             }
             Old(old) => old.expr.resolve_expr_type(ctx),
+            ViperFieldAccess(acc) => Ok(Type::Wildcard),
         }
     }
 }

@@ -229,6 +229,7 @@ impl ExprSubstitution for Expr {
                 a || b
             }
             Self::FieldAccessChain(acc) => acc.obj.substitute(old, new),
+            Self::ViperFieldAccess(acc) => acc.obj.substitute(old, new),
             Self::BaseAddr
             | Self::BoolLit(_)
             | Self::Const(_)

@@ -88,6 +88,7 @@ impl Display for Expr {
             }
             Self::UnfoldingIn(fold) => write!(f, "(unfolding {} in {})", fold.pred, fold.expr),
             Self::Ternary(t) => write!(f, "(({}) ? {} : {})", t.cond, t.left, t.right),
+            Self::ViperFieldAccess(acc) => write!(f, "{}.{}", acc.obj, acc.field),
         }
     }
 }

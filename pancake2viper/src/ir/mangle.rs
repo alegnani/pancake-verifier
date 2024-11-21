@@ -73,6 +73,7 @@ impl Mangleable for ir::Expr {
             // XXX: should the indices be expressions instead of ints?
             AccessSlice(slice) => slice.field.mangle(mangler)?,
             Old(old) => old.expr.mangle(mangler)?,
+            ViperFieldAccess(field) => field.obj.mangle(mangler)?,
         }
         Ok(())
     }
