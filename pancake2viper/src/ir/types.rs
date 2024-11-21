@@ -124,20 +124,26 @@ impl TypeResolution for ir::Stmt {
 
 impl<T: TypeResolution> TypeResolution for Vec<T> {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
+        let mut ret = Ok(());
         for stmt in self {
             let typ = stmt.resolve_type(ctx);
-            ignore_unknown(typ)?;
+            if let Err(e) = ignore_unknown(typ) {
+                ret = Err(e);
+            }
         }
-        Ok(())
+        ret
     }
 }
 
 impl<T: ExprTypeResolution> ExprTypeResolution for Vec<T> {
     fn resolve_expr_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError> {
+        let mut ret = Ok(Type::Wildcard);
         for expr in self {
-            ignore_unknown(expr.resolve_expr_type(ctx).map(|_| ()))?;
+            if let Err(e) = ignore_unknown(expr.resolve_expr_type(ctx).map(|_| ())) {
+                ret = Err(e);
+            }
         }
-        Ok(Type::Wildcard)
+        ret
     }
 }
 
@@ -195,20 +201,20 @@ impl TypeResolution for ir::Decl {
 
 impl TypeResolution for ir::Predicate {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
+        ctx.set_type(self.name.clone(), Type::Bool);
         self.args.resolve_type(ctx)?;
         self.body.resolve_expr_type(ctx)?;
-        ctx.set_type(self.name.clone(), Type::Bool);
         Ok(())
     }
 }
 
 impl TypeResolution for ir::Function {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
+        ctx.set_type(self.name.clone(), self.typ.clone());
         self.args.resolve_type(ctx)?;
         self.body.resolve_expr_type(ctx)?;
         self.pres.resolve_expr_type(ctx)?;
         self.posts.resolve_expr_type(ctx)?;
-        ctx.set_type(self.name.clone(), self.typ.clone());
         Ok(())
     }
 }
@@ -240,7 +246,6 @@ impl ir::Program {
             }
         }
         for pred in &self.extern_names {
-            println!("f_{}", pred);
             ctx.set_type(format!("f_{}", pred), Type::Bool);
         }
         loop {

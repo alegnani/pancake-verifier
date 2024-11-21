@@ -145,14 +145,19 @@ impl<'a> ProgramToViper<'a> for Program {
         let method_ctx = Rc::new(MethodContext::new(&self.functions));
         let state = self.state.clone();
 
-        let (predicates, mut predicate_names): (Vec<_>, HashSet<_>) = self
+        let mut predicate_names = self
+            .predicates
+            .iter()
+            .map(|p| p.name.to_owned())
+            .collect::<HashSet<_>>();
+
+        let predicates = self
             .predicates
             .into_iter()
             .map(|p| {
-                let pred_name = p.name.clone();
                 let mut ctx = ViperEncodeCtx::new(
                     types.clone(),
-                    HashSet::new(),
+                    predicate_names.clone(),
                     ast,
                     options,
                     shared.clone(),
@@ -160,11 +165,9 @@ impl<'a> ProgramToViper<'a> for Program {
                     state.clone(),
                 );
                 ctx.set_mode(TranslationMode::PrePost);
-
-                (p.to_viper(&mut ctx), pred_name)
+                p.to_viper(&mut ctx)
             })
-            .unzip();
-        let predicates = predicates.into_iter().collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>, _>>()?;
 
         // add abstract predicates to predicate names set
         for pred in self.extern_names {
