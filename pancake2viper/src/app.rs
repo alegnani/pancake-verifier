@@ -169,13 +169,14 @@ impl App {
                     })?;
                     let path = Path::new(&self.viper_path).join("viperserver.jar");
                     // TODO: use jni crate
-                    // TODO: give it more RAM to avoid overflows
                     let verify = Command::new("java")
                         .args([
+                            "-Xss30M",
                             "-cp",
                             path.to_str().unwrap(),
                             "viper.silicon.SiliconRunner",
                             "--logLevel=OFF",
+                            "--exhaleMode=1",
                             "tmp.vpr",
                         ])
                         .spawn()?
