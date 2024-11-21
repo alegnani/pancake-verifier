@@ -116,6 +116,20 @@ pub fn parse_state(s: &str) -> Expr {
     }
 }
 
+pub fn parse_extern(s: &str) -> String {
+    match AnnotParser::parse(Rule::ext, s) {
+        Ok(mut pairs) => pairs
+            .next()
+            .unwrap()
+            .into_inner()
+            .next()
+            .unwrap()
+            .as_str()
+            .to_owned(),
+        Err(e) => panic!("Failed to parse extern, got {:?}", e),
+    }
+}
+
 fn partition_annotation_types(
     annotations: Vec<Annotation>,
 ) -> (Vec<Annotation>, Vec<Annotation>, Vec<Annotation>) {

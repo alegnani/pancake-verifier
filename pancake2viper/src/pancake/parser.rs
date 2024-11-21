@@ -464,6 +464,7 @@ impl Program {
             .into_iter()
             .map(State::new)
             .collect();
+        let extern_names = Self::get_toplevel_annotations(&s, "extern");
 
         let functions = get_sexprs(s, cake_path)?
             .iter()
@@ -481,6 +482,7 @@ impl Program {
             methods,
             shared,
             state,
+            extern_names,
         })
     }
 

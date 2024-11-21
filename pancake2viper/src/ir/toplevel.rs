@@ -68,4 +68,5 @@ pub struct Program {
     pub methods: Vec<AbstractMethod>,
     pub shared: Vec<Shared>,
     pub state: Vec<Expr>,
+    pub extern_names: Vec<String>,
 }

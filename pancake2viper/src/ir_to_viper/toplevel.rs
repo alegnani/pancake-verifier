@@ -167,6 +167,9 @@ impl<'a> ProgramToViper<'a> for Program {
         let predicates = predicates.into_iter().collect::<Result<Vec<_>, _>>()?;
 
         // add abstract predicates to predicate names set
+        for pred in self.extern_names {
+            predicate_names.insert(pred);
+        }
         for pred in &self.state {
             if let Expr::FunctionCall(call) = pred {
                 predicate_names.insert(call.fname.trim_start_matches("f_").to_owned());

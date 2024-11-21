@@ -239,6 +239,10 @@ impl ir::Program {
                 ctx.set_type(call.fname.clone(), Type::Bool);
             }
         }
+        for pred in &self.extern_names {
+            println!("f_{}", pred);
+            ctx.set_type(format!("f_{}", pred), Type::Bool);
+        }
         loop {
             ignore_unknown(self.viper_functions.resolve_type(&mut ctx))?;
             ignore_unknown(self.predicates.resolve_type(&mut ctx))?;
