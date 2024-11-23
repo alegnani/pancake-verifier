@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::{
     ir::{self, Expr},
     utils::{
@@ -43,7 +45,7 @@ impl ExprTypeResolution for ir::Expr {
                 Ok(Type::Bool)
             }
             Old(old) => old.expr.resolve_expr_type(ctx),
-            ViperFieldAccess(acc) => Ok(Type::Wildcard),
+            ViperFieldAccess(acc) => ctx.get_field_type(&acc.field),
         }
     }
 }
@@ -239,7 +241,7 @@ impl TypeResolution for ir::AbstractMethod {
 
 impl ir::Program {
     pub fn resolve_types(&self) -> Result<TypeContext, TranslationError> {
-        let mut ctx = TypeContext::new();
+        let mut ctx = TypeContext::new(Rc::new(self.extern_fields.clone()));
         let mut prev_size = ctx.size();
         for pred in &self.state {
             if let Expr::FunctionCall(call) = pred {

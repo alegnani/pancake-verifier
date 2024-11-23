@@ -20,8 +20,6 @@ pub enum ToViperError {
     MismatchedShapes(Shape, Shape),
     #[error("Can't specify pre-/post-conditions in this position, consider moving it up")]
     InvalidAnnotation,
-    #[error("Viper field not found {0}")]
-    UnknownField(String),
 }
 
 #[derive(Error, Debug)]
@@ -46,6 +44,8 @@ pub enum TranslationError {
     UnknownReturnType(String),
     #[error("Invalid label, might be function pointer. Got {0:?}")]
     InvalidLabel(pancake::Expr),
+    #[error("Viper field not found {0}")]
+    UnknownField(String),
 }
 
 #[derive(Error, Debug)]

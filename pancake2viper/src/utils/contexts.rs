@@ -43,6 +43,7 @@ impl From<AnnotationType> for TranslationMode {
 #[derive(Debug, Clone)]
 pub struct TypeContext {
     type_map: HashMap<String, Type>,
+    fields: Rc<HashMap<String, Type>>,
 }
 
 type Exprs = Vec<ir::Expr>;
@@ -77,12 +78,12 @@ impl MethodContext {
 }
 
 impl TypeContext {
-    pub fn new() -> Self {
+    pub fn new(fields: Rc<HashMap<String, Type>>) -> Self {
         let type_map = RESERVED
             .iter()
             .map(|(&s, t)| (s.to_owned(), t.clone()))
             .collect();
-        Self { type_map }
+        Self { type_map, fields }
     }
 
     pub fn child(&self) -> Self {
@@ -110,11 +111,18 @@ impl TypeContext {
     pub fn size(&self) -> usize {
         self.type_map.len()
     }
+
+    pub fn get_field_type(&self, field: &str) -> Result<Type, TranslationError> {
+        self.fields
+            .get(field)
+            .map(|t| t.to_owned())
+            .ok_or(TranslationError::UnknownField(field.to_owned()))
+    }
 }
 
 impl Default for TypeContext {
     fn default() -> Self {
-        Self::new()
+        Self::new(Rc::new(HashMap::new()))
     }
 }
 
@@ -137,7 +145,6 @@ pub struct ViperEncodeCtx<'a> {
     pub shared: Rc<SharedContext>,
     pub method: Rc<MethodContext>,
     pub state: Vec<ir::Expr>,
-    pub fields: Rc<HashMap<String, Type>>,
 }
 
 #[derive(Clone, Copy)]
@@ -182,7 +189,6 @@ impl<'a> ViperEncodeCtx<'a> {
         shared: Rc<SharedContext>,
         annot: Rc<MethodContext>,
         state: Vec<ir::Expr>,
-        fields: Rc<HashMap<String, Type>>,
     ) -> Self {
         let iarray = IArrayHelper::new(ast);
         Self {
@@ -203,7 +209,6 @@ impl<'a> ViperEncodeCtx<'a> {
             shared,
             method: annot,
             state,
-            fields,
         }
     }
 
@@ -226,7 +231,6 @@ impl<'a> ViperEncodeCtx<'a> {
             shared: self.shared.clone(),
             method: self.method.clone(),
             state: self.state.clone(),
-            fields: self.fields.clone(),
         }
     }
 

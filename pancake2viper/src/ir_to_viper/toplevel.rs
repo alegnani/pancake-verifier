@@ -164,7 +164,6 @@ impl<'a> ProgramToViper<'a> for Program {
                     shared.clone(),
                     method_ctx.clone(),
                     state.clone(),
-                    fields.clone(),
                 );
                 ctx.set_mode(TranslationMode::PrePost);
                 p.to_viper(&mut ctx)
@@ -193,7 +192,6 @@ impl<'a> ProgramToViper<'a> for Program {
                     shared.clone(),
                     method_ctx.clone(),
                     state.clone(),
-                    fields.clone(),
                 );
                 ctx.set_mode(TranslationMode::PrePost);
                 f.to_viper(&mut ctx)
@@ -212,7 +210,6 @@ impl<'a> ProgramToViper<'a> for Program {
                     shared.clone(),
                     method_ctx.clone(),
                     state.clone(),
-                    fields.clone(),
                 );
                 ctx.set_mode(TranslationMode::PrePost);
                 m.to_viper(&mut ctx)
@@ -231,7 +228,6 @@ impl<'a> ProgramToViper<'a> for Program {
                     shared.clone(),
                     method_ctx.clone(),
                     state.clone(),
-                    fields.clone(),
                 );
                 f.to_viper(&mut ctx)
             })

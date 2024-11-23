@@ -129,7 +129,6 @@ impl App {
                 shared.clone(),
                 method_ctx,
                 state.clone(),
-                Rc::new(program.extern_fields.clone()),
             );
             let gen_methods = shared.gen_boilerplate(&mut ctx, state)?;
             let program = viper_handle.ast.program(&[], &[], &[], &[], &gen_methods);
