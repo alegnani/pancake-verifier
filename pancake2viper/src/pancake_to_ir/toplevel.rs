@@ -1,6 +1,7 @@
 use crate::{
     annotation::{
-        parse_extern, parse_function, parse_method, parse_predicate, parse_shared, parse_state,
+        parse_extern_field, parse_extern_predicate, parse_function, parse_method, parse_predicate,
+        parse_shared, parse_state,
     },
     ir, pancake,
     utils::{ToType, TranslationError, TryToIR},
@@ -94,7 +95,19 @@ impl TryFrom<pancake::Program> for ir::Program {
         let methods = value.methods.to_ir()?;
         let shared = value.shared.to_ir()?;
         let state = value.state.to_ir()?;
-        let extern_names = value.extern_names.iter().map(|s| parse_extern(s)).collect();
+        let extern_predicates = value
+            .extern_predicates
+            .iter()
+            .map(|s| parse_extern_predicate(s))
+            .collect();
+        let extern_fields = value
+            .extern_fields
+            .iter()
+            .map(|s| {
+                let decl = parse_extern_field(s);
+                (decl.name, decl.typ)
+            })
+            .collect();
 
         Ok(ir::Program {
             functions,
@@ -103,7 +116,8 @@ impl TryFrom<pancake::Program> for ir::Program {
             methods,
             shared,
             state,
-            extern_names,
+            extern_predicates,
+            extern_fields,
         })
     }
 }

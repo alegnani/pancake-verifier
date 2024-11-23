@@ -20,6 +20,8 @@ pub enum ToViperError {
     MismatchedShapes(Shape, Shape),
     #[error("Can't specify pre-/post-conditions in this position, consider moving it up")]
     InvalidAnnotation,
+    #[error("Viper field not found {0}")]
+    UnknownField(String),
 }
 
 #[derive(Error, Debug)]

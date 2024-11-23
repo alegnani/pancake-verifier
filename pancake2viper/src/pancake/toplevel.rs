@@ -49,5 +49,6 @@ pub struct Program {
     pub methods: Vec<Method>,
     pub shared: Vec<Shared>,
     pub state: Vec<State>,
-    pub extern_names: Vec<String>,
+    pub extern_predicates: Vec<String>,
+    pub extern_fields: Vec<String>,
 }

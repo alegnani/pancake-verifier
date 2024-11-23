@@ -1,4 +1,5 @@
-/@ extern other_pred @/
+/@ extern predicate other_pred @/
+/@ extern field device2:Int @/
 /@ state valid_state() @/
 
 fun main() {

@@ -246,7 +246,7 @@ impl ir::Program {
                 ctx.set_type(call.fname.clone(), Type::Bool);
             }
         }
-        for pred in &self.extern_names {
+        for pred in &self.extern_predicates {
             ctx.set_type(format!("f_{}", pred), Type::Bool);
         }
         loop {

@@ -303,7 +303,8 @@ impl ConstEval for Program {
             viper_functions: self.viper_functions.const_eval(options),
             shared: self.shared.const_eval(options),
             state: self.state.const_eval(options),
-            extern_names: self.extern_names,
+            extern_predicates: self.extern_predicates,
+            extern_fields: self.extern_fields,
         }
     }
 }

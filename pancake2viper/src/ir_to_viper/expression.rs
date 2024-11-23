@@ -594,11 +594,12 @@ impl<'a> TryToViper<'a> for ir::ViperFieldAccess {
 
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        Ok(ast.field_access(
-            self.obj.to_viper(ctx)?,
-            // FIXME: this will be checked by the CLI, therefore we can check with the types
-            ast.field(&self.field, ast.int_type()),
-        ))
+        let typ = ctx
+            .fields
+            .get(&self.field)
+            .ok_or(ToViperError::UnknownField(self.field.clone()))?
+            .to_viper_type(ctx);
+        Ok(ast.field_access(self.obj.to_viper(ctx)?, ast.field(&self.field, typ)))
     }
 }
 

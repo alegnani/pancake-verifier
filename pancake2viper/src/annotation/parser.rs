@@ -117,8 +117,8 @@ pub fn parse_state(s: &str) -> Expr {
     }
 }
 
-pub fn parse_extern(s: &str) -> String {
-    match AnnotParser::parse(Rule::ext, s) {
+pub fn parse_extern_predicate(s: &str) -> String {
+    match AnnotParser::parse(Rule::ext_predicate, s) {
         Ok(mut pairs) => pairs
             .next()
             .unwrap()
@@ -127,7 +127,14 @@ pub fn parse_extern(s: &str) -> String {
             .unwrap()
             .as_str()
             .to_owned(),
-        Err(e) => panic!("Failed to parse extern, got {:?}", e),
+        Err(e) => panic!("Failed to parse extern predicate, got {:?}", e),
+    }
+}
+
+pub fn parse_extern_field(s: &str) -> Decl {
+    match AnnotParser::parse(Rule::ext_field, s) {
+        Ok(mut pairs) => Decl::from_pest(pairs.next().unwrap().into_inner().next().unwrap()),
+        Err(e) => panic!("Failed to parse extern field, got {:?}", e),
     }
 }
 

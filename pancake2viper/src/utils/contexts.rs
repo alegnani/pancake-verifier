@@ -137,6 +137,7 @@ pub struct ViperEncodeCtx<'a> {
     pub shared: Rc<SharedContext>,
     pub method: Rc<MethodContext>,
     pub state: Vec<ir::Expr>,
+    pub fields: Rc<HashMap<String, Type>>,
 }
 
 #[derive(Clone, Copy)]
@@ -181,6 +182,7 @@ impl<'a> ViperEncodeCtx<'a> {
         shared: Rc<SharedContext>,
         annot: Rc<MethodContext>,
         state: Vec<ir::Expr>,
+        fields: Rc<HashMap<String, Type>>,
     ) -> Self {
         let iarray = IArrayHelper::new(ast);
         Self {
@@ -201,6 +203,7 @@ impl<'a> ViperEncodeCtx<'a> {
             shared,
             method: annot,
             state,
+            fields,
         }
     }
 
@@ -223,6 +226,7 @@ impl<'a> ViperEncodeCtx<'a> {
             shared: self.shared.clone(),
             method: self.method.clone(),
             state: self.state.clone(),
+            fields: self.fields.clone(),
         }
     }
 

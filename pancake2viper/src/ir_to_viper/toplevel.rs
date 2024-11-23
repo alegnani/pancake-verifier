@@ -144,6 +144,7 @@ impl<'a> ProgramToViper<'a> for Program {
         // Create method context for automatic unfolding/folding of function predicates
         let method_ctx = Rc::new(MethodContext::new(&self.functions));
         let state = self.state.clone();
+        let fields = Rc::new(self.extern_fields);
 
         let mut predicate_names = self
             .predicates
@@ -163,6 +164,7 @@ impl<'a> ProgramToViper<'a> for Program {
                     shared.clone(),
                     method_ctx.clone(),
                     state.clone(),
+                    fields.clone(),
                 );
                 ctx.set_mode(TranslationMode::PrePost);
                 p.to_viper(&mut ctx)
@@ -170,7 +172,7 @@ impl<'a> ProgramToViper<'a> for Program {
             .collect::<Result<Vec<_>, _>>()?;
 
         // add abstract predicates to predicate names set
-        for pred in self.extern_names {
+        for pred in self.extern_predicates {
             predicate_names.insert(pred);
         }
         for pred in &self.state {
@@ -191,6 +193,7 @@ impl<'a> ProgramToViper<'a> for Program {
                     shared.clone(),
                     method_ctx.clone(),
                     state.clone(),
+                    fields.clone(),
                 );
                 ctx.set_mode(TranslationMode::PrePost);
                 f.to_viper(&mut ctx)
@@ -209,6 +212,7 @@ impl<'a> ProgramToViper<'a> for Program {
                     shared.clone(),
                     method_ctx.clone(),
                     state.clone(),
+                    fields.clone(),
                 );
                 ctx.set_mode(TranslationMode::PrePost);
                 m.to_viper(&mut ctx)
@@ -227,6 +231,7 @@ impl<'a> ProgramToViper<'a> for Program {
                     shared.clone(),
                     method_ctx.clone(),
                     state.clone(),
+                    fields.clone(),
                 );
                 f.to_viper(&mut ctx)
             })

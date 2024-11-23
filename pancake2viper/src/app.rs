@@ -1,7 +1,6 @@
 use std::path::Path;
 use std::process::Command;
 use std::rc::Rc;
-use std::thread::{self, JoinHandle};
 use std::{fs::File, io::Write};
 
 use crate::utils::{MethodContext, ViperEncodeCtx};
@@ -12,9 +11,6 @@ use crate::{
     utils::{ConstEval, EncodeOptions, Mangleable, Mangler, ProgramToViper, ViperHandle},
 };
 use anyhow::{anyhow, Result};
-use jni::objects::{JObject, JValue};
-use jni::sys::jobjectArray;
-use jni::{AttachGuard, InitArgsBuilder, JNIEnv, JNIVersion, JavaVM};
 use viper::Program;
 
 macro_rules! run_step {
@@ -133,6 +129,7 @@ impl App {
                 shared.clone(),
                 method_ctx,
                 state.clone(),
+                Rc::new(program.extern_fields.clone()),
             );
             let gen_methods = shared.gen_boilerplate(&mut ctx, state)?;
             let program = viper_handle.ast.program(&[], &[], &[], &[], &gen_methods);
@@ -172,39 +169,6 @@ impl App {
                         anyhow!(format!("Error: Could not write to temporary file:\n{}", e))
                     })?;
                     let path = Path::new(&self.viper_path).join("viperserver.jar");
-
-                    ////let jvm_args = InitArgsBuilder::new()
-                    ////    .version(JNIVersion::V8)
-                    ////    .option("-Xss300M")
-                    ////    .option(format!("-Djava.class.path={}", path.to_str().unwrap()))
-                    ////    .build()?;
-                    //let jvm = viper.get_jvm();
-                    //let env = jvm.attach_current_thread()?;
-                    //
-                    //let main_class = env.find_class("viper/silicon/SiliconRunner")?;
-                    //let j_args: Vec<_> = ["--logLevel=OFF", "--exhaleMode=1", "tmp.vpr"]
-                    //    .iter()
-                    //    .map(|a| env.new_string(a).expect("Failed to create Java String"))
-                    //    .collect();
-                    //let array: jobjectArray = env.new_object_array(
-                    //    j_args.len() as i32,
-                    //    "java/lang/String",
-                    //    env.new_string("").unwrap(),
-                    //)?;
-                    //for (i, jstr) in j_args.iter().enumerate() {
-                    //    env.set_object_array_element(array, i as i32, *jstr)?;
-                    //}
-                    //let array = unsafe { JObject::from_raw(array) };
-                    //let call = env
-                    //    .call_static_method(
-                    //        main_class,
-                    //        "main",
-                    //        "([Ljava/lang/String;)V",
-                    //        &[JValue::from(array)],
-                    //    )
-                    //    .unwrap();
-                    //
-                    //    This doesn't work as main calls system.exit
 
                     let verify = Command::new("java")
                         .args([

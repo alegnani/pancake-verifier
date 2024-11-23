@@ -113,7 +113,9 @@ method = { "/@" ~ "method" ~ ident ~ "(" ~ method_args ~ ")" ~ method_ret ~ prep
     method_ret = { (":" ~ "(" ~ decl ~ ("," ~ decl)* ~ ")") | "" }
 
 state = { "/@" ~ "state" ~ expr ~ "@/" }
-ext = { "/@" ~ "extern" ~ ident ~ "@/" }
+
+ext_predicate = { "/@" ~ "extern" ~ "predicate" ~ ident ~ "@/" }
+ext_field = { "/@" ~ "extern" ~ "field" ~ decl ~ "@/" }
 
 // Shared memory annotations
 

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::{Decl, Expr, Stmt, Type};
 
 #[derive(Debug, Clone)]
@@ -68,5 +70,6 @@ pub struct Program {
     pub methods: Vec<AbstractMethod>,
     pub shared: Vec<Shared>,
     pub state: Vec<Expr>,
-    pub extern_names: Vec<String>,
+    pub extern_predicates: Vec<String>,
+    pub extern_fields: HashMap<String, Type>,
 }
