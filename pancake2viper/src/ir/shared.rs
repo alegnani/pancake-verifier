@@ -34,7 +34,7 @@ impl SharedInternal {
             let mut addresses = self.addresses.iter();
             let init = ast.eq_cmp(addr, ast.int_lit(*addresses.next().unwrap()));
             addresses.fold(init, |acc, e| {
-                ast.and(acc, ast.eq_cmp(addr, ast.int_lit(*e)))
+                ast.or(acc, ast.eq_cmp(addr, ast.int_lit(*e)))
             })
         } else {
             let range = ast.and(
