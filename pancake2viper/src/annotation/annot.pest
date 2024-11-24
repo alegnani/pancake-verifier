@@ -42,7 +42,7 @@ bin_op = _{ add | sub | mul | div | modulo | imp | iff | viper_eq | viper_neq | 
     bit_or = { "|" }
     bit_xor = { "^" }
 
-expr = !{ prefix? ~ primary ~ postfix? ~ (infix ~ prefix? ~ primary ~ postfix?)* }
+expr = !{ prefix? ~ primary ~ postfix* ~ (infix ~ prefix? ~ primary ~ postfix*)* }
     infix = _{ bin_op }
     prefix = _{ neg | minus }
         neg = { "!" }
