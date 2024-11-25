@@ -4,8 +4,8 @@ use viper::BinOpBv;
 use viper::BvSize::BV64;
 
 use crate::utils::{
-    ExprSubstitution, Mangler, Shape, ToType, ToViper, ToViperError, ToViperType, TranslationMode,
-    TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
+    ExprSubstitution, ExprTypeResolution, Mangler, Shape, ToType, ToViper, ToViperError,
+    ToViperType, TranslationMode, TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
 };
 
 use crate::ir::{self, BinOpType, Type};
@@ -484,9 +484,13 @@ fn get_predicate<'a>(ctx: &ViperEncodeCtx<'_>, expr: &'a ir::Expr) -> Option<&'a
 impl<'a> TryToViper<'a> for ir::ArrayAccess {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
-        let obj = self.obj.to_viper(ctx)?;
         let idx = self.idx.to_viper(ctx)?;
-        Ok(ctx.iarray.access(obj, idx))
+        let typ = self.obj.resolve_expr_type(ctx.typectx_get_mut())?;
+        let obj = self.obj.to_viper(ctx)?;
+        Ok(match typ {
+            Type::Seq(_) => ctx.ast.seq_index(obj, idx),
+            _ => ctx.iarray.access(obj, idx),
+        })
     }
 }
 

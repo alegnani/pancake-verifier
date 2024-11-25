@@ -1,14 +1,19 @@
 predicate valid_state(heap: IArray, state: Ref) {
-    acc(state.device) && state.device == 42 && other_pred(heap, state)
+    acc(state.device) && state.device == 42 && other_pred(heap, state) && seq_pred(heap, state)
 }
 
 predicate other_pred(heap: IArray, state: Ref) {
     acc(state.device2) && state.device2 >= 0 && acc(state.device3) && acc(slot(state.device3, 0).heap_elem) && slot(state.device3, 0).heap_elem == 17
 }
 
+predicate seq_pred(heap: IArray, state: Ref) {
+    acc(state.device4) && |state.device4| == 2 && state.device4[0] == false && state.device4[1] == false
+}
+
 field device: Int
 field device2: Int
 field device3: IArray
+field device4: Seq[Bool]
 
 method store_base8(heap: IArray, state: Ref, address: Int, value: Int)
     requires address == 0

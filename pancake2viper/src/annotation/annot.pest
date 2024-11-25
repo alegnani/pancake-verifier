@@ -6,10 +6,13 @@ integer = @{ ASCII_DIGIT ~ ("_" | ASCII_DIGIT)* }
 hex = @{ ASCII_HEX_DIGIT ~ ("_" | ASCII_HEX_DIGIT)* }
 ident = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_" )* }
 
-type = _{ int_t | bool_t | iarray_t | shape_t }
+type = _{ int_t | bool_t | iarray_t | shape_t | set_t | seq_t | map_t }
     int_t = { "Int" }
     bool_t = { "Bool" }
     iarray_t = { "IArray" }
+	set_t = { "Set[" ~ type ~ "]" }
+	seq_t = { "Seq[" ~ type ~ "]" }
+	map_t = { "Map[" ~ type ~ "," ~ type ~ "]" }
     shape_t = { ("{" ~ shape_t ~ ("," ~ shape_t)* ~ "}") | "1" }
 decl = { ident ~ ":" ~ type }
 

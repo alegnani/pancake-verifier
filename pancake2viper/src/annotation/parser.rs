@@ -401,6 +401,14 @@ impl FromPestPair for Type {
             Rule::bool_t => Self::Bool,
             Rule::int_t => Self::Int,
             Rule::iarray_t => Self::Array,
+            Rule::map_t => {
+                let mut inner = pair.into_inner();
+                let k = Box::new(Type::from_pest(inner.next().unwrap()));
+                let v = Box::new(Type::from_pest(inner.next().unwrap()));
+                Self::Map(k, v)
+            }
+            Rule::seq_t => Self::Seq(Box::new(Type::from_pest(pair.into_inner().next().unwrap()))),
+            Rule::set_t => Self::Set(Box::new(Type::from_pest(pair.into_inner().next().unwrap()))),
             Rule::shape_t => {
                 let shape =
                     Shape::parse(pair.as_str(), crate::pancake::ShapeDelimiter::CurlyBraces)

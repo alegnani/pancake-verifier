@@ -195,6 +195,9 @@ impl Display for Type {
             Self::Void => write!(f, "Void"),
             Self::Array => write!(f, "IArray"),
             Self::Ref => write!(f, "Ref"),
+            Self::Map(k, v) => write!(f, "Map[{}, {}]", *k, *v),
+            Self::Seq(i) => write!(f, "Seq[{}]", *i),
+            Self::Set(i) => write!(f, "Set[{}]", *i),
         }
     }
 }

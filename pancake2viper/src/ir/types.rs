@@ -17,6 +17,9 @@ pub enum Type {
     Array,
     Wildcard,
     Ref,
+    Set(Box<Self>),
+    Seq(Box<Self>),
+    Map(Box<Self>, Box<Self>),
 }
 
 impl ExprTypeResolution for ir::Expr {
@@ -66,6 +69,7 @@ impl ExprTypeResolution for ir::ArrayAccess {
                 }
             }),
             Type::Array => Ok(Type::Int),
+            Type::Seq(i) => Ok(*i),
             _ => Err(TranslationError::ShapeError(IRSimpleShapeFieldAccess(
                 *self.obj.clone(),
             ))),
