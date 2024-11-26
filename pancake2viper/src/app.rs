@@ -158,7 +158,23 @@ impl App {
                 program,
                 output_path.clone(),
             );
+        }
 
+        let (fnames, shared) = program.get_method_names();
+        if let Some(only) = &self.options.only {
+            let fnames_set = fnames.into_iter().collect::<HashSet<_>>();
+            let only_set = only
+                .iter()
+                .map(|s| format!("f_{}", s))
+                .collect::<HashSet<_>>();
+            println!("fnames: {:?}", fnames_set);
+            println!("only: {:?}", only_set);
+            let exclude_list = fnames_set
+                .difference(&only_set)
+                .cloned()
+                .collect::<Vec<_>>();
+            println!("exlucde list: {:?}", exclude_list);
+            program.exclude_functions(&exclude_list);
         }
 
         self.println("Transpiling to Viper...");
