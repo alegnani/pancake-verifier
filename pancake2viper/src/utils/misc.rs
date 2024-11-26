@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, time::Instant};
 
 use anyhow::anyhow;
 use regex::Regex;
@@ -51,8 +51,15 @@ impl ViperHandle {
 impl ViperHandle {
     pub fn verify(&mut self, program: viper::Program) -> (String, bool) {
         use viper::VerificationResult::*;
+        let start = Instant::now();
         match self.verifier.verify(program) {
-            Success => ("️✅Verification Successful✅".into(), true),
+            Success => (
+                format!(
+                    "️✅Verification Successful in {:.2}s ✅",
+                    start.elapsed().as_secs_f32()
+                ),
+                true,
+            ),
             Failure(e) => {
                 let errors = e.into_iter().map(|e| e.message).collect::<Vec<_>>();
                 (

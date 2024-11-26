@@ -259,6 +259,9 @@ pub struct ClapCliOptions {
         help = "Verify only the following function(s) (multiple names separate by spaces)"
     )]
     pub only: Option<Vec<String>>,
+
+    #[arg(global = true, long, help = "Verifies each function separately")]
+    pub incremental: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -280,6 +283,7 @@ pub struct CliOptions {
     pub allow_undefined_shared: bool,
     pub ignore_warnings: bool,
     pub only: Option<Vec<String>>,
+    pub incremental: bool,
 }
 
 impl From<ClapCliOptions> for CliOptions {
@@ -302,6 +306,7 @@ impl From<ClapCliOptions> for CliOptions {
             allow_undefined_shared: value.allow_undefined_shared,
             ignore_warnings: value.ignore_warnings,
             only: value.only,
+            incremental: value.incremental,
         }
     }
 }
@@ -326,6 +331,7 @@ impl Default for CliOptions {
             allow_undefined_shared: false,
             ignore_warnings: false,
             only: None,
+            incremental: false,
         }
     }
 }
