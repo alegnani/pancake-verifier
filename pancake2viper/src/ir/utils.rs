@@ -9,7 +9,7 @@ use super::{
     expression::{Expr, Struct},
     shared::SharedOpType,
     statement::MemOpBytes,
-    Arg, BinOp, BinOpType, Decl, SharedPerm, ShiftType, Type, UnOpType,
+    Arg, BinOp, BinOpType, Decl, Program, SharedPerm, ShiftType, Type, UnOpType,
 };
 
 impl Struct {
@@ -269,5 +269,30 @@ impl SharedPerm {
             SharedOpType::Load => self.is_read(),
             SharedOpType::Store => self.is_write(),
         }
+    }
+}
+
+impl Program {
+    pub fn get_method_names(&self) -> Vec<String> {
+        let fnames = self.functions.iter().map(|f| f.fname.to_owned());
+        let shared_names = self.shared.iter().flat_map(|s| match s.typ {
+            SharedPerm::ReadOnly => vec![format!("load_{}", s.name)],
+            SharedPerm::WriteOnly => vec![format!("store_{}", s.name)],
+            SharedPerm::ReadWrite => {
+                vec![format!("load_{}", s.name), format!("store_{}", s.name)]
+            }
+        });
+        fnames.chain(shared_names).collect()
+    }
+
+    pub fn exclude_functions(&mut self, exclude_list: &[String]) {
+        self.functions
+            .iter_mut()
+            .filter(|f| exclude_list.contains(&f.fname))
+            .for_each(|f| f.trusted = true);
+    }
+
+    pub fn exclude_all(&mut self) {
+        self.functions.iter_mut().for_each(|f| f.trusted = true);
     }
 }

@@ -1,4 +1,4 @@
-use crate::{annotation::parser::FromPestPair, ir::*};
+use crate::ir::*;
 
 use super::{parse_function, parser::parse_annot};
 

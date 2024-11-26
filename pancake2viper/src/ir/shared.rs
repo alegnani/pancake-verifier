@@ -1,8 +1,7 @@
-use crate::utils::{EncodeOptions, ToViper, ToViperError, TryToViper, ViperEncodeCtx, ViperUtils};
-use std::rc::Rc;
+use crate::utils::{EncodeOptions, ToViperError, TryToViper, ViperEncodeCtx, ViperUtils};
 
 use super::{Expr, MemOpBytes, Shared, SharedPerm};
-use std::{collections::HashSet, fmt::Display, option};
+use std::{collections::HashSet, fmt::Display};
 
 #[derive(Clone, Default)]
 pub struct SharedContext {
@@ -76,7 +75,7 @@ impl SharedInternal {
         }
         if self.typ.is_write() {
             let mut pres = state.clone().to_viper(ctx)?;
-            let mut posts = pres.clone();
+            let posts = pres.clone();
             pres.push(self.get_precondition(ctx, addr.1));
             pres.push(ctx.utils.bounded_f(value.1, self.size.bits() as u64));
             methods.push(ast.method(
@@ -106,7 +105,7 @@ impl SharedContext {
     pub fn new(options: &EncodeOptions, shared: &[Shared]) -> Self {
         let mut sctx = Self::default();
         for s in shared {
-            sctx.add(&options, s);
+            sctx.add(options, s);
         }
         sctx
     }
@@ -238,8 +237,7 @@ impl SharedContext {
             .mappings
             .iter()
             .flatten()
-            .map(|s| s.gen_boilerplate(ctx, state.clone()))
-            .flatten()
+            .flat_map(|s| s.gen_boilerplate(ctx, state.clone()))
             .flatten()
             .collect())
     }

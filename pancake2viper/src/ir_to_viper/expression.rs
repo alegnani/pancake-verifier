@@ -328,7 +328,7 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
 fn auto_unfold_fold(
     ctx: &ViperEncodeCtx<'_>,
     annots: &[ir::Expr],
-    arg_mapping: &Vec<(ir::Expr, ir::Expr)>, //
+    arg_mapping: &[(ir::Expr, ir::Expr)],
     copy_mapping: &Vec<(ir::Expr, ir::Expr)>,
 ) -> (Vec<ir::Stmt>, Vec<ir::Stmt>) {
     let mut unfold = vec![];
@@ -420,7 +420,7 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
         let arg_mapping = arg_mapping
             .into_iter()
             .map(|(e, a)| (a.into(), e))
-            .collect();
+            .collect::<Vec<_>>();
 
         // Unfold/fold predicates using the copied arguments
         let (in_unfoldings, in_foldings) = auto_unfold_fold(
@@ -441,7 +441,7 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
                     }
                 })
             })
-            .collect();
+            .collect::<Vec<_>>();
         let rev_copy_mapping = copy_mapping.into_iter().map(|t| (t.1, t.0)).collect();
 
         let (out_unfoldings, out_foldings) = auto_unfold_fold(
