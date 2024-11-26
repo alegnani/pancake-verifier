@@ -6,15 +6,34 @@ use clap_stdin::FileOrStdin;
 use crate::utils::EncodeOptions;
 
 #[derive(Subcommand, Debug, Clone)]
-pub enum Command {
+pub enum ClapCommand {
     /// Transpiles the given Pancake file to Viper
-    Transpile(Transpile),
+    Transpile(ClapTranspile),
     /// Verifies the given Pancake file
-    Verify(Verify),
+    Verify(ClapVerify),
     /// Transpiles and verifies the given Pancake file
-    TranspileVerify(TranspileVerify),
+    TranspileVerify(ClapTranspileVerify),
     /// Generates the boilerplate Viper file for the shared memory model
+    Generate(ClapGenerate),
+}
+
+#[derive(Debug, Clone)]
+pub enum Command {
+    Transpile(Transpile),
+    Verify(Verify),
+    TranspileVerify(TranspileVerify),
     Generate(Generate),
+}
+
+impl From<ClapCommand> for Command {
+    fn from(value: ClapCommand) -> Self {
+        match value {
+            ClapCommand::Transpile(t) => Self::Transpile(t.into()),
+            ClapCommand::Verify(v) => Self::Verify(v.into()),
+            ClapCommand::TranspileVerify(t) => Self::TranspileVerify(t.into()),
+            ClapCommand::Generate(g) => Self::Generate(g.into()),
+        }
+    }
 }
 
 impl Command {
@@ -26,8 +45,6 @@ impl Command {
             Self::Generate(v) => &v.input,
         }
         .clone()
-        .contents()
-        .unwrap()
     }
 
     pub fn get_output_path(&self) -> Option<String> {
@@ -39,7 +56,7 @@ impl Command {
         }
     }
 
-    pub fn get_verify(&self) -> bool {
+    pub fn is_verify(&self) -> bool {
         matches!(self, Self::TranspileVerify(_) | Self::Verify(_))
     }
     pub fn is_generate(&self) -> bool {
@@ -48,40 +65,98 @@ impl Command {
 }
 
 #[derive(Debug, Clone, Args)]
+pub struct ClapTranspile {
+    /// Path of Pancake file to be transpiled
+    input: FileOrStdin<String>,
+    /// Destination path of transpiled file
+    output_path: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct Transpile {
-    /// Path of Pancake file to be transpiled
-    input: FileOrStdin<String>,
-    /// Destination path of transpiled file
-    output_path: String,
+    pub input: String,
+    pub output_path: String,
+}
+
+impl From<ClapTranspile> for Transpile {
+    fn from(value: ClapTranspile) -> Self {
+        Self {
+            input: value.input.contents().unwrap(),
+            output_path: value.output_path,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Args)]
+pub struct ClapVerify {
+    /// Path of Pancake file to be transpiled
+    input: FileOrStdin<String>,
+}
+
+#[derive(Debug, Clone)]
 pub struct Verify {
-    /// Path of Pancake file to be transpiled
-    input: FileOrStdin<String>,
+    pub input: String,
+}
+
+impl From<ClapVerify> for Verify {
+    fn from(value: ClapVerify) -> Self {
+        Self {
+            input: value.input.contents().unwrap(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Args)]
-pub struct TranspileVerify {
+pub struct ClapTranspileVerify {
     /// Path of Pancake file to be transpiled
     input: FileOrStdin<String>,
     /// Destination path of transpiled file
     output_path: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct TranspileVerify {
+    pub input: String,
+    pub output_path: String,
+}
+
+impl From<ClapTranspileVerify> for TranspileVerify {
+    fn from(value: ClapTranspileVerify) -> Self {
+        Self {
+            input: value.input.contents().unwrap(),
+            output_path: value.output_path,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Args)]
-pub struct Generate {
+pub struct ClapGenerate {
     /// Path of Pancake file with shared memory prototypes
     input: FileOrStdin<String>,
     /// Destination path of generated file
     output_path: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct Generate {
+    pub input: String,
+    pub output_path: String,
+}
+
+impl From<ClapGenerate> for Generate {
+    fn from(value: ClapGenerate) -> Self {
+        Self {
+            input: value.input.contents().unwrap(),
+            output_path: value.output_path,
+        }
+    }
+}
+
 #[derive(Debug, Parser, Clone)]
 #[command(version, about, rename_all = "kebab-case")]
-pub struct CliOptions {
+pub struct ClapCliOptions {
     #[command(subcommand)]
-    pub cmd: Command,
+    pub cmd: ClapCommand,
     //
     #[arg(global = true, short, long, default_value_t=WordSize::Bits64, value_enum, help = "Specify the word size in bits")]
     pub word_size: WordSize,
@@ -175,6 +250,84 @@ pub struct CliOptions {
 
     #[arg(global = true, long, help = "Ignore warnings")]
     pub ignore_warnings: bool,
+
+    #[arg(
+        global = true,
+        value_delimiter = ' ',
+        short,
+        long,
+        help = "Verify only the following function(s) (multiple names separate by spaces)"
+    )]
+    pub only: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CliOptions {
+    pub cmd: Command,
+    pub word_size: WordSize,
+    pub tac: bool,
+    pub check_overflows: bool,
+    pub bounded_arithmetic: bool,
+    pub disable_assert_alignment: bool,
+    pub heap_size: u64,
+    pub cake_path: String,
+    pub viper_path: String,
+    pub z3_exe: String,
+    pub debug_comments: bool,
+    pub disable_prelude: bool,
+    pub disable_return_post: bool,
+    pub model: Option<String>,
+    pub allow_undefined_shared: bool,
+    pub ignore_warnings: bool,
+    pub only: Option<Vec<String>>,
+}
+
+impl From<ClapCliOptions> for CliOptions {
+    fn from(value: ClapCliOptions) -> Self {
+        Self {
+            cmd: value.cmd.into(),
+            word_size: value.word_size,
+            tac: value.tac,
+            check_overflows: value.check_overflows,
+            bounded_arithmetic: value.bounded_arithmetic,
+            disable_assert_alignment: value.disable_assert_alignment,
+            heap_size: value.heap_size,
+            cake_path: value.cake_path,
+            viper_path: value.viper_path,
+            z3_exe: value.z3_exe,
+            debug_comments: value.debug_comments,
+            disable_prelude: value.disable_prelude,
+            disable_return_post: value.disable_return_post,
+            model: value.model.map(|f| f.contents().unwrap()),
+            allow_undefined_shared: value.allow_undefined_shared,
+            ignore_warnings: value.ignore_warnings,
+            only: value.only,
+        }
+    }
+}
+
+impl Default for CliOptions {
+    fn default() -> Self {
+        Self {
+            cmd: Command::Verify(Verify { input: "".into() }),
+            word_size: WordSize::Bits64,
+            tac: true,
+            check_overflows: true,
+            bounded_arithmetic: false,
+            disable_assert_alignment: false,
+            heap_size: 16384,
+            cake_path: get_cake_path(),
+            viper_path: get_viper_path(),
+            z3_exe: get_z3_path(),
+            debug_comments: false,
+            disable_prelude: false,
+            disable_return_post: false,
+            model: None,
+            allow_undefined_shared: false,
+            ignore_warnings: false,
+            only: None,
+        }
+    }
 }
 
 impl From<CliOptions> for EncodeOptions {
