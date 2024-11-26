@@ -273,7 +273,7 @@ impl SharedPerm {
 }
 
 impl Program {
-    pub fn get_method_names(&self) -> Vec<String> {
+    pub fn get_method_names(&self) -> (Vec<String>, Vec<String>) {
         let fnames = self.functions.iter().map(|f| f.fname.to_owned());
         let shared_names = self.shared.iter().flat_map(|s| match s.typ {
             SharedPerm::ReadOnly => vec![format!("load_{}", s.name)],
@@ -282,7 +282,7 @@ impl Program {
                 vec![format!("load_{}", s.name), format!("store_{}", s.name)]
             }
         });
-        fnames.chain(shared_names).collect()
+        (fnames.collect(), shared_names.collect())
     }
 
     pub fn exclude_functions(&mut self, exclude_list: &[String]) {
@@ -290,9 +290,5 @@ impl Program {
             .iter_mut()
             .filter(|f| exclude_list.contains(&f.fname))
             .for_each(|f| f.trusted = true);
-    }
-
-    pub fn exclude_all(&mut self) {
-        self.functions.iter_mut().for_each(|f| f.trusted = true);
     }
 }

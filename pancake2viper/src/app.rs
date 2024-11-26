@@ -1,10 +1,11 @@
+use std::collections::HashSet;
 use std::path::Path;
 use std::process::Command;
 use std::rc::Rc;
 use std::{fs::File, io::Write};
 
 use crate::cli::{self, CliOptions};
-use crate::utils::{MethodContext, ViperEncodeCtx};
+use crate::utils::{EncodeOptions, MethodContext, TypeContext, ViperEncodeCtx};
 use crate::{
     ir::{self, shared::SharedContext},
     pancake,
@@ -61,13 +62,74 @@ impl App {
         }
     }
 
-    pub fn verify_code(&self, verifier: &mut ViperHandle, program: Program<'_>) -> Result<()> {
+    fn verify_code_no_model(&self, verifier: &mut ViperHandle, program: Program<'_>) -> Result<()> {
         self.println("Verifying...");
         let (s, success) = verifier.verify(program);
         self.println(&s);
         if !success {
             return Err(anyhow!("Failed verification"));
         }
+        Ok(())
+    }
+
+    fn verify_code_model(&self, transpiled: String) -> Result<()> {
+        // When using a model we just add the model to the transpiled program and pass
+        // it to Viper via CLI
+        let mut file = File::create("tmp.vpr")
+            .map_err(|e| anyhow!(format!("Error: Could not create temporary file:\n{}", e)))?;
+        file.write_all(transpiled.as_bytes())
+            .map_err(|e| anyhow!(format!("Error: Could not write to temporary file:\n{}", e)))?;
+        let path = Path::new(&self.options.viper_path).join("viperserver.jar");
+
+        let verify = Command::new("java")
+            .args([
+                "-Xss30M",
+                "-cp",
+                path.to_str().unwrap(),
+                "viper.silicon.SiliconRunner",
+                "--logLevel=OFF",
+                "--exhaleMode=1",
+                "tmp.vpr",
+            ])
+            .spawn()?
+            .wait_with_output()?;
+        if !verify.status.success() {
+            Err(anyhow!("Verification failure"))
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn generate(
+        &self,
+        type_ctx: TypeContext,
+        viper_handle: &ViperHandle,
+        encode_opts: EncodeOptions,
+        program: ir::Program,
+        output_path: String,
+    ) -> Result<()> {
+        self.println("Generating model boilerplate");
+        let state = program.state.clone();
+        let shared = Rc::new(SharedContext::new(&encode_opts, &program.shared));
+        let method_ctx = Rc::new(MethodContext::new(&program.functions));
+
+        let mut ctx = ViperEncodeCtx::new(
+            type_ctx,
+            program.predicates.iter().map(|p| p.name.clone()).collect(),
+            viper_handle.ast,
+            encode_opts,
+            shared.clone(),
+            method_ctx,
+            state.clone(),
+        );
+        let gen_methods = shared.gen_boilerplate(&mut ctx, state)?;
+        let program = viper_handle.ast.program(&[], &[], &[], &[], &gen_methods);
+        let boilerplate = viper_handle.utils.pretty_print(program);
+
+        let mut file = File::create(output_path)
+            .map_err(|e| anyhow!(format!("Error: Could not open output file:\n{}", e)))?;
+        file.write_all(boilerplate.as_bytes())
+            .map_err(|e| anyhow!(format!("Error: Could not write to output file:\n{}", e)))?;
         Ok(())
     }
 
@@ -89,75 +151,43 @@ impl App {
         });
 
         if let cli::Command::Generate(cli::Generate { output_path, .. }) = &self.options.cmd {
-            self.println("Generating model boilerplate");
-            let state = program.state.clone();
-            let shared = Rc::new(SharedContext::new(&encode_opts, &program.shared));
-            let method_ctx = Rc::new(MethodContext::new(&program.functions));
-
-            let mut ctx = ViperEncodeCtx::new(
+            return self.generate(
                 ctx,
-                program.predicates.iter().map(|p| p.name.clone()).collect(),
-                viper_handle.ast,
+                &viper_handle,
                 encode_opts,
-                shared.clone(),
-                method_ctx,
-                state.clone(),
+                program,
+                output_path.clone(),
             );
-            let gen_methods = shared.gen_boilerplate(&mut ctx, state)?;
-            let program = viper_handle.ast.program(&[], &[], &[], &[], &gen_methods);
-            let boilerplate = viper_handle.utils.pretty_print(program);
 
-            let mut file = File::create(output_path)
-                .map_err(|e| anyhow!(format!("Error: Could not open output file:\n{}", e)))?;
-            file.write_all(boilerplate.as_bytes())
-                .map_err(|e| anyhow!(format!("Error: Could not write to output file:\n{}", e)))?;
-            return Ok(());
         }
 
         self.println("Transpiling to Viper...");
-        let program = program.to_viper(ctx, viper_handle.ast, encode_opts)?;
+        let vpr_program = program
+            .clone()
+            .to_viper(ctx, viper_handle.ast, encode_opts)?;
+        let mut transpiled = viper_handle.utils.pretty_print(vpr_program);
 
-        let mut transpiled = viper_handle.utils.pretty_print(program);
+        // Add the model, if present
         if let Some(mut model) = self.options.model.clone() {
             model.push_str("\n\n");
             model.push_str(&transpiled);
             transpiled = model;
         }
+
+        // Save the transpiled Viper code in a file
         if let Some(path) = &self.options.cmd.get_output_path() {
             let mut file = File::create(path)
                 .map_err(|e| anyhow!(format!("Error: Could not open output file:\n{}", e)))?;
             file.write_all(transpiled.as_bytes())
                 .map_err(|e| anyhow!(format!("Error: Could not write to output file:\n{}", e)))?;
         }
+
+        // Verify the Viper code
         if self.options.cmd.is_verify() {
             if self.options.model.is_none() {
-                self.verify_code(&mut viper_handle, program)?;
+                self.verify_code_no_model(&mut viper_handle, vpr_program)?;
             } else {
-                // When using a model we just add the model to the transpiled program and pass
-                // it to Viper via CLI
-                let mut file = File::create("tmp.vpr").map_err(|e| {
-                    anyhow!(format!("Error: Could not create temporary file:\n{}", e))
-                })?;
-                file.write_all(transpiled.as_bytes()).map_err(|e| {
-                    anyhow!(format!("Error: Could not write to temporary file:\n{}", e))
-                })?;
-                let path = Path::new(&self.options.viper_path).join("viperserver.jar");
-
-                let verify = Command::new("java")
-                    .args([
-                        "-Xss30M",
-                        "-cp",
-                        path.to_str().unwrap(),
-                        "viper.silicon.SiliconRunner",
-                        "--logLevel=OFF",
-                        "--exhaleMode=1",
-                        "tmp.vpr",
-                    ])
-                    .spawn()?
-                    .wait_with_output()?;
-                if !verify.status.success() {
-                    return Err(anyhow!("Verification failure"));
-                }
+                self.verify_code_model(transpiled)?;
             }
         }
         Ok(())
