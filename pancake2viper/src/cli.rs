@@ -269,6 +269,9 @@ pub struct ClapCliOptions {
         help = "Trust and skip verification of model methods"
     )]
     pub trust_model: bool,
+
+    #[arg(global = true, long, short = 'I', help = "Include Viper files")]
+    pub include: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone)]
@@ -292,6 +295,7 @@ pub struct CliOptions {
     pub only: Option<Vec<String>>,
     pub incremental: bool,
     pub trust_model: bool,
+    pub include: Vec<String>,
 }
 
 impl From<ClapCliOptions> for CliOptions {
@@ -316,6 +320,7 @@ impl From<ClapCliOptions> for CliOptions {
             only: value.only,
             incremental: value.incremental,
             trust_model: value.trust_model,
+            include: value.include.unwrap_or_default(),
         }
     }
 }
@@ -342,6 +347,7 @@ impl Default for CliOptions {
             only: None,
             incremental: false,
             trust_model: false,
+            include: vec![],
         }
     }
 }

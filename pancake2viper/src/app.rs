@@ -69,11 +69,12 @@ impl App {
         program: Program<'_>,
         transpiled: String,
         exclude_list: &[String],
+        use_viper_cli: bool,
     ) -> Result<()> {
-        if self.options.model.is_none() {
-            self.verify_code_no_model(verifier, program)
-        } else {
+        if use_viper_cli {
             self.verify_code_model(transpiled, exclude_list)
+        } else {
+            self.verify_code_no_model(verifier, program)
         }
     }
 
@@ -149,6 +150,7 @@ impl App {
     }
 
     pub fn run(&self, viper: &'static viper::Viper) -> Result<()> {
+        let use_viper_cli = self.options.model.is_some() || !self.options.include.is_empty();
         let mut viper_handle = ViperHandle::from_handle(viper, self.options.z3_exe.clone());
         let mut program: ir::Program = run_step!(self, "Parsing S-expr from cake", {
             pancake::Program::parse_str(self.options.cmd.get_input(), &self.options.cake_path)
@@ -184,6 +186,18 @@ impl App {
             .clone()
             .to_viper(ctx.clone(), viper_handle.ast, encode_opts)?;
         let mut transpiled = viper_handle.utils.pretty_print(vpr_program);
+
+        // Add includes
+        let mut includes = self
+            .options
+            .include
+            .iter()
+            .map(std::fs::read_to_string)
+            .collect::<Result<Vec<_>, _>>()?
+            .join("\n\n");
+        includes.push_str("\n\n");
+        includes.push_str(&transpiled);
+        transpiled = includes;
 
         // Add the model, if present
         if let Some(mut model) = self.options.model.clone() {
@@ -221,14 +235,26 @@ impl App {
                         new_transpiled = model;
                     }
 
-                    self.verify(&mut viper_handle, only_vpr, new_transpiled, &[])?;
+                    self.verify(
+                        &mut viper_handle,
+                        only_vpr,
+                        new_transpiled,
+                        &[],
+                        use_viper_cli,
+                    )?;
                 }
                 println!(
                     "Total verification time: {:.2}s",
                     start.elapsed().as_secs_f32()
                 );
             } else {
-                self.verify(&mut viper_handle, vpr_program, transpiled, &[])?;
+                self.verify(
+                    &mut viper_handle,
+                    vpr_program,
+                    transpiled,
+                    &[],
+                    use_viper_cli,
+                )?;
             }
         }
         Ok(())
