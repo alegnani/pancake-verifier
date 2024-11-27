@@ -2,19 +2,23 @@
 // instead of using the newline character '\n'.
 WHITESPACE = _{ " " | "\\t" | "\t" | "\\r" | "\\n" | NEWLINE }
 
-integer = @{ ASCII_DIGIT+ }
+integer = @{ ASCII_DIGIT ~ ("_" | ASCII_DIGIT)* }
+hex = @{ ASCII_HEX_DIGIT ~ ("_" | ASCII_HEX_DIGIT)* }
 ident = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_" )* }
 
-type = _{ int_t | bool_t | iarray_t | shape_t }
+type = _{ int_t | bool_t | iarray_t | shape_t | set_t | seq_t | map_t }
     int_t = { "Int" }
     bool_t = { "Bool" }
     iarray_t = { "IArray" }
+	set_t = { "Set[" ~ type ~ "]" }
+	seq_t = { "Seq[" ~ type ~ "]" }
+	map_t = { "Map[" ~ type ~ "," ~ type ~ "]" }
     shape_t = { ("{" ~ shape_t ~ ("," ~ shape_t)* ~ "}") | "1" }
 decl = { ident ~ ":" ~ type }
 
 int_lit = { hex_lit | decimal_lit }
     decimal_lit = @{ "-"? ~ integer}
-    hex_lit = @{ "0x" ~ integer}
+    hex_lit = @{ "0x" ~ hex}
 bool_lit = _{ true_lit | false_lit }
     true_lit = { "true" }
     false_lit = { "false" }
@@ -41,13 +45,14 @@ bin_op = _{ add | sub | mul | div | modulo | imp | iff | viper_eq | viper_neq | 
     bit_or = { "|" }
     bit_xor = { "^" }
 
-expr = !{ prefix? ~ primary ~ postfix? ~ (infix ~ prefix? ~ primary ~ postfix?)* }
+expr = !{ prefix? ~ primary ~ postfix* ~ (infix ~ prefix? ~ primary ~ postfix*)* }
     infix = _{ bin_op }
     prefix = _{ neg | minus }
         neg = { "!" }
         minus = { "-" }
     
-    postfix = _{ field_acc | arr_acc | ternary | shift }
+    postfix = _{ field_acc | viper_field_acc | arr_acc | ternary | shift }
+		viper_field_acc = @{ "." ~ ident }	
         field_acc = @{ ("." ~ field_idx)+ }
             field_idx = !{ integer }
         arr_acc = @{ "[" ~ expr ~ "]" }
@@ -82,7 +87,7 @@ expr = !{ prefix? ~ primary ~ postfix? ~ (infix ~ prefix? ~ primary ~ postfix?)*
         base = { "@base" }
 
 annotation_comment = _{"@"? ~ WHITESPACE* ~ annotation ~ WHITESPACE* ~ "@"? }
-annotation = { annotation_keyword ~ expr }
+annotation = { (annotation_keyword ~ expr) | trusted }
     annotation_keyword = _{ pre | post | invariant | assertion | refutation | assumption | inhale | exhale | fold | unfold }
         pre = { "requires" }
         post = { "ensures" }
@@ -94,6 +99,7 @@ annotation = { annotation_keyword ~ expr }
         exhale = { "exhale" }
         fold = { "fold" }
         unfold = { "unfold" }
+		trusted = { "trusted" }
 
 predicate = { "/@" ~ "predicate" ~ ident ~ "(" ~ pred_args ~ ")" ~ pred_body ~ "@/" }
     pred_args = { (decl ~ ("," ~ decl)*) | "" }
@@ -109,10 +115,15 @@ method = { "/@" ~ "method" ~ ident ~ "(" ~ method_args ~ ")" ~ method_ret ~ prep
     method_args = { (decl ~ ("," ~ decl)*) | "" }
     method_ret = { (":" ~ "(" ~ decl ~ ("," ~ decl)* ~ ")") | "" }
 
+state = { "/@" ~ "state" ~ expr ~ "@/" }
+
+ext_predicate = { "/@" ~ "extern" ~ "predicate" ~ ident ~ "@/" }
+ext_field = { "/@" ~ "extern" ~ "field" ~ decl ~ "@/" }
 
 // Shared memory annotations
 
-shared_prototype = @{ "/@" ~ WHITESPACE* ~ "shared" ~ WHITESPACE+ ~ "u" ~ shared_bits ~ WHITESPACE+ ~ shared_name ~ "[" ~ WHITESPACE* ~ shared_mem ~ WHITESPACE* ~ "]" ~ WHITESPACE* ~ "@/" }
+shared_prototype = @{ "/@" ~ WHITESPACE* ~ "shared" ~ WHITESPACE+ ~ shared_type ~ WHITESPACE+ ~ "u" ~ shared_bits ~ WHITESPACE+ ~ shared_name ~ "[" ~ WHITESPACE* ~ shared_mem ~ WHITESPACE* ~ "]" ~ WHITESPACE* ~ "@/" }
+	shared_type = !{ "rw" | "wr" | "r" | "w" }
     shared_bits = !{ decimal_lit }
     shared_name = !{ ident }
     shared_mem = _{ shared_stride | shared_range | expr }

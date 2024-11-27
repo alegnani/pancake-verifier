@@ -4,8 +4,8 @@ use viper::BinOpBv;
 use viper::BvSize::BV64;
 
 use crate::utils::{
-    ExprSubstitution, Mangler, Shape, ToType, ToViper, ToViperError, ToViperType, TranslationMode,
-    TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
+    ExprSubstitution, ExprTypeResolution, Mangler, Shape, ToType, ToViper, ToViperError,
+    ToViperType, TranslationMode, TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
 };
 
 use crate::ir::{self, BinOpType, Type};
@@ -136,7 +136,10 @@ impl<'a> TryToViper<'a> for ir::BinOp {
             }
 
             if ctx.options.check_overflows {
-                let assertion = ast.assert(ctx.utils.bounded_f(fresh_var.1), ast.no_position());
+                let assertion = ast.assert(
+                    ctx.utils.bounded_f(fresh_var.1, ctx.options.word_size),
+                    ast.no_position(),
+                );
                 ctx.stack.push(assertion);
                 if let TranslationMode::WhileCond = ctx.get_mode() {
                     ctx.while_stack.push(assertion);
@@ -291,14 +294,27 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
             }
             "f_old" => ast.old(args[0]),
             pred if ctx.is_predicate(pred) => {
-                args.insert(0, ctx.heap_var().1);
                 args.insert(0, ctx.state_var().1);
+                args.insert(0, ctx.heap_var().1);
                 ast.predicate_access_predicate(ast.predicate_access(&args, pred), ast.full_perm())
             }
-            "f_bounded" => ctx.utils.bounded_f(args[0]),
-            fname => {
-                args.insert(0, ctx.heap_var().1);
+            // Only used for model generation to remove "f_" prefix from predicate names
+            pred if ctx.is_predicate(pred.trim_start_matches("f_")) => {
                 args.insert(0, ctx.state_var().1);
+                args.insert(0, ctx.heap_var().1);
+                ast.predicate_access_predicate(
+                    ast.predicate_access(&args, pred.trim_start_matches("f_")),
+                    ast.full_perm(),
+                )
+            }
+            "f_bounded" => ctx.utils.bounded_f(args[0], ctx.options.word_size),
+            "f_bounded8" => ctx.utils.bounded_f(args[0], 8),
+            "f_bounded16" => ctx.utils.bounded_f(args[0], 16),
+            "f_bounded32" => ctx.utils.bounded_f(args[0], 32),
+            "f_bounded64" => ctx.utils.bounded_f(args[0], 64),
+            fname => {
+                args.insert(0, ctx.state_var().1);
+                args.insert(0, ctx.heap_var().1);
                 let ret_type = ctx
                     .typectx_get()
                     .get_function_type(fname)?
@@ -307,6 +323,50 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
             }
         })
     }
+}
+
+fn auto_unfold_fold(
+    ctx: &ViperEncodeCtx<'_>,
+    annots: &[ir::Expr],
+    arg_mapping: &[(ir::Expr, ir::Expr)],
+    copy_mapping: &Vec<(ir::Expr, ir::Expr)>,
+    reverse: bool,
+) -> (Vec<ir::Stmt>, Vec<ir::Stmt>) {
+    let mut first = vec![];
+    let mut second = vec![];
+    let (op1, op2) = if reverse {
+        (ir::AnnotationType::Fold, ir::AnnotationType::Unfold)
+    } else {
+        (ir::AnnotationType::Unfold, ir::AnnotationType::Fold)
+    };
+    for annot in annots {
+        if let Some(pred) = get_predicate(ctx, annot) {
+            let mut annot = annot.clone();
+            let mut sub_count = 0;
+
+            for (old, new) in arg_mapping.iter() {
+                if annot.substitute(old, new) {
+                    sub_count += 1;
+                }
+            }
+            if pred.args.len() == sub_count {
+                first.push(ir::Stmt::Annotation(ir::Annotation {
+                    typ: op1,
+                    expr: annot.clone(),
+                }));
+
+                for (old, new) in copy_mapping {
+                    annot.substitute(old, new);
+                }
+
+                second.push(ir::Stmt::Annotation(ir::Annotation {
+                    typ: op2,
+                    expr: annot.clone(),
+                }));
+            }
+        }
+    }
+    (first, second)
 }
 
 impl<'a> TryToViper<'a> for ir::MethodCall {
@@ -323,7 +383,7 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
         let mut args = vec![];
         // Statements for copying the compound shapes
         let mut copy_stmts = vec![];
-        let mut copy_mappings = vec![];
+        let mut copy_mapping = vec![];
         let arg_mapping: HashMap<_, _> = self
             .args
             .iter()
@@ -354,53 +414,76 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
                     let typ_ctx = ctx.typectx_get_mut();
                     let typ = typ_ctx.get_type_no_mangle(&arg_mapping.get(&arg).unwrap().name)?;
                     typ_ctx.set_type(fresh_name.clone(), typ);
-                    copy_mappings.push((arg, ir::Expr::Var(fresh_name)));
+                    copy_mapping.push((arg, ir::Expr::Var(fresh_name)));
                     fresh.1
                 }
             };
             args.push(copied_arg);
         }
 
-        let mut in_unfoldings = vec![];
-        let mut in_foldings = vec![];
+        // arg_mapping: arg -> var
+        // copy_mapping: var -> copied
+        // rev_arg_mappings: arg -> copied
+        // rev_copy_mapping: copied -> var
+
+        let arg_mapping = arg_mapping
+            .into_iter()
+            .map(|(e, a)| (a.into(), e))
+            .collect::<Vec<_>>();
 
         // Unfold/fold predicates using the copied arguments
-        for pre in ctx.method.get_pre(&self.fname) {
-            if let Some(pred) = get_predicate(ctx, pre) {
-                let mut pre = pre.clone();
-                let mut did_substitute = false;
-                for (new, old) in &arg_mapping {
-                    println!("PREdicate: {}, old: {:?}, new: {}", pre, old, new);
-                    did_substitute = did_substitute || pre.substitute(&old.to_owned().into(), new);
-                }
-                if did_substitute {
-                    in_unfoldings.push(ir::Stmt::Annotation(ir::Annotation {
-                        typ: ir::AnnotationType::Unfold,
-                        expr: pre.clone(),
-                    }));
-                    for (old, new) in &copy_mappings {
-                        pre.substitute(old, new);
-                    }
-                    in_foldings.push(ir::Stmt::Annotation(ir::Annotation {
-                        typ: ir::AnnotationType::Fold,
-                        expr: pre.clone(),
-                    }));
-                }
-            }
-        }
-        println!("Unfoldings: {:?}", in_unfoldings);
-        println!("Foldings: {:?}", in_foldings);
+        let (in_unfoldings, in_foldings) = auto_unfold_fold(
+            ctx,
+            ctx.method.get_pre(&self.fname),
+            &arg_mapping,
+            &copy_mapping,
+            false,
+        );
+        //println!("Arg mapping: {:?}", arg_mapping);
+        //println!("Copy mapping: {:?}", copy_mapping);
+        //
+        //let rev_arg_mapping = arg_mapping
+        //    .iter()
+        //    .filter_map(|(old, inter)| {
+        //        copy_mapping.iter().find_map(|(inter2, new)| {
+        //            if *inter == *inter2 {
+        //                Some((old.clone(), new.clone()))
+        //            } else {
+        //                None
+        //            }
+        //        })
+        //    })
+        //    .collect::<Vec<_>>();
+        //let rev_copy_mapping = copy_mapping.into_iter().map(|t| (t.1, t.0)).collect();
+        //
+        //println!("Rev Arg mapping: {:?}", rev_arg_mapping);
+        //println!("Rev Copy mapping: {:?}", rev_copy_mapping);
+
+        let (out_foldings, out_unfoldings) = auto_unfold_fold(
+            ctx,
+            ctx.method.get_post(&self.fname),
+            //&rev_arg_mapping,
+            //&rev_copy_mapping,
+            &arg_mapping,
+            &copy_mapping,
+            true,
+        );
+
         let in_unfoldings = in_unfoldings.to_viper(ctx)?;
         let in_foldings = in_foldings.to_viper(ctx)?;
+        let out_unfoldings = out_unfoldings.to_viper(ctx)?;
+        let out_foldings = out_foldings.to_viper(ctx)?;
 
-        args.insert(0, ctx.heap_var().1);
         args.insert(0, ctx.state_var().1);
+        args.insert(0, ctx.heap_var().1);
         let call = ast.method_call(&self.fname, &args, &[ret.1]);
         ctx.declarations.push(ret.0);
         ctx.stack.extend(in_unfoldings);
         ctx.stack.extend(copy_stmts);
         ctx.stack.extend(in_foldings);
         ctx.stack.push(call);
+        ctx.stack.extend(out_unfoldings);
+        ctx.stack.extend(out_foldings);
         ctx.consume_stack = true;
 
         // TODO: push post folds/unfolds
@@ -419,9 +502,13 @@ fn get_predicate<'a>(ctx: &ViperEncodeCtx<'_>, expr: &'a ir::Expr) -> Option<&'a
 impl<'a> TryToViper<'a> for ir::ArrayAccess {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
-        let obj = self.obj.to_viper(ctx)?;
         let idx = self.idx.to_viper(ctx)?;
-        Ok(ctx.iarray.access(obj, idx))
+        let typ = self.obj.resolve_expr_type(ctx.typectx_get_mut())?;
+        let obj = self.obj.to_viper(ctx)?;
+        Ok(match typ {
+            Type::Seq(_) => ctx.ast.seq_index(obj, idx),
+            _ => ctx.iarray.access(obj, idx),
+        })
     }
 }
 
@@ -445,7 +532,11 @@ impl<'a> TryToViper<'a> for ir::AccessPredicate {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let perm = self.perm.to_viper(ctx);
-        Ok(ast.field_access_predicate(self.field.to_viper(ctx)?, perm))
+        // If specified as `acc(predicate(...))` turn into `predicate(...)` as the `acc` will be added later
+        match *self.field {
+            ir::Expr::FunctionCall(fcall) if ctx.is_predicate(&fcall.fname) => fcall.to_viper(ctx),
+            field => Ok(ast.field_access_predicate(field.to_viper(ctx)?, perm)),
+        }
     }
 }
 
@@ -520,6 +611,19 @@ impl<'a> TryToViper<'a> for ir::AccessSlice {
     }
 }
 
+impl<'a> TryToViper<'a> for ir::ViperFieldAccess {
+    type Output = viper::Expr<'a>;
+
+    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
+        let ast = ctx.ast;
+        let typ = ctx
+            .type_ctx()
+            .get_field_type(&self.field)?
+            .to_viper_type(ctx);
+        Ok(ast.field_access(self.obj.to_viper(ctx)?, ast.field(&self.field, typ)))
+    }
+}
+
 impl<'a> TryToViper<'a> for ir::Expr {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
@@ -542,6 +646,7 @@ impl<'a> TryToViper<'a> for ir::Expr {
             LoadBits(load) => load.to_viper(ctx),
             Ternary(ternary) => ternary.to_viper(ctx),
             AccessSlice(slice) => slice.to_viper(ctx),
+            ViperFieldAccess(acc) => acc.to_viper(ctx),
             x => Ok(match x {
                 Const(c) => ast.int_lit(c),
                 BoolLit(b) if b => ast.true_lit(),

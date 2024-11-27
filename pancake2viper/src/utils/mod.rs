@@ -25,8 +25,12 @@ lazy_static::lazy_static! {
         ("acc", Type::Bool),
         ("alen", Type::Int),
         ("old", Type::Wildcard),
-        ("bounded", Type::Bool),
         ("result", Type::Wildcard),
-        ("state", Type::Ref)
+        ("state", Type::Ref),
+        ("bounded", Type::Bool),
+        ("bounded8", Type::Bool),
+        ("bounded16", Type::Bool),
+        ("bounded32", Type::Bool),
+        ("bounded64", Type::Bool),
     ]);
 }

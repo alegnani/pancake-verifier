@@ -44,6 +44,8 @@ pub enum TranslationError {
     UnknownReturnType(String),
     #[error("Invalid label, might be function pointer. Got {0:?}")]
     InvalidLabel(pancake::Expr),
+    #[error("Viper field not found {0}")]
+    UnknownField(String),
 }
 
 #[derive(Error, Debug)]

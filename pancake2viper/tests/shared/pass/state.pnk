@@ -1,0 +1,13 @@
+/@ state valid_state() @/
+/@ state foo() @/
+
+/@ predicate foo() @/
+
+/@ shared r u8 STRIDE[0x420..0x460:0x10] @/
+
+fun main(1 addr) {
+    /@ requires addr == 0x420 || addr == 0x430 @/ 
+    var x = 0;
+    !ld8 x, addr;
+    return x;
+}

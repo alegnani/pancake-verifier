@@ -1,5 +1,8 @@
 use crate::{
-    annotation::{parse_function, parse_method, parse_predicate, parse_shared},
+    annotation::{
+        parse_extern_field, parse_extern_predicate, parse_function, parse_method, parse_predicate,
+        parse_shared, parse_state,
+    },
     ir, pancake,
     utils::{ToType, TranslationError, TryToIR},
 };
@@ -29,7 +32,7 @@ impl TryToIR for pancake::FnDec {
                 scope: Box::new(scope),
             })
         });
-        let (pres, posts) = stmt_annotation_push(&mut body);
+        let ((pres, posts), trusted) = stmt_annotation_push(&mut body);
         Ok(Self::Output {
             fname: self.fname,
             args,
@@ -37,6 +40,7 @@ impl TryToIR for pancake::FnDec {
             pres,
             posts,
             retvar: "retval".into(),
+            trusted,
         })
     }
 }
@@ -73,6 +77,14 @@ impl TryToIR for pancake::Shared {
     }
 }
 
+impl TryToIR for pancake::State {
+    type Output = ir::Expr;
+
+    fn to_ir(self) -> Result<Self::Output, TranslationError> {
+        Ok(parse_state(&self.text))
+    }
+}
+
 impl TryFrom<pancake::Program> for ir::Program {
     type Error = TranslationError;
 
@@ -82,6 +94,20 @@ impl TryFrom<pancake::Program> for ir::Program {
         let functions = value.functions.to_ir()?;
         let methods = value.methods.to_ir()?;
         let shared = value.shared.to_ir()?;
+        let state = value.state.to_ir()?;
+        let extern_predicates = value
+            .extern_predicates
+            .iter()
+            .map(|s| parse_extern_predicate(s))
+            .collect();
+        let extern_fields = value
+            .extern_fields
+            .iter()
+            .map(|s| {
+                let decl = parse_extern_field(s);
+                (decl.name, decl.typ)
+            })
+            .collect();
 
         Ok(ir::Program {
             functions,
@@ -89,6 +115,9 @@ impl TryFrom<pancake::Program> for ir::Program {
             viper_functions,
             methods,
             shared,
+            state,
+            extern_predicates,
+            extern_fields,
         })
     }
 }

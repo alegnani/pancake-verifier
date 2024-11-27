@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::{Decl, Expr, Stmt, Type};
 
 #[derive(Debug, Clone)]
@@ -8,6 +10,7 @@ pub struct FnDec {
     pub posts: Vec<Expr>,
     pub body: Stmt,
     pub retvar: String,
+    pub trusted: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -42,9 +45,17 @@ pub struct AbstractMethod {
     pub rettyps: Vec<Decl>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum SharedPerm {
+    ReadWrite,
+    WriteOnly,
+    ReadOnly,
+}
+
 #[derive(Debug, Clone)]
 pub struct Shared {
     pub name: String,
+    pub typ: SharedPerm,
     pub bits: u64,
     pub lower: Expr,
     pub upper: Expr,
@@ -58,4 +69,7 @@ pub struct Program {
     pub viper_functions: Vec<Function>,
     pub methods: Vec<AbstractMethod>,
     pub shared: Vec<Shared>,
+    pub state: Vec<Expr>,
+    pub extern_predicates: Vec<String>,
+    pub extern_fields: HashMap<String, Type>,
 }

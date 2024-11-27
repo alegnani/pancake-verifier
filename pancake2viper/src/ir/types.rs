@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::{
     ir::{self, Expr},
     utils::{
@@ -15,6 +17,9 @@ pub enum Type {
     Array,
     Wildcard,
     Ref,
+    Set(Box<Self>),
+    Seq(Box<Self>),
+    Map(Box<Self>, Box<Self>),
 }
 
 impl ExprTypeResolution for ir::Expr {
@@ -43,6 +48,7 @@ impl ExprTypeResolution for ir::Expr {
                 Ok(Type::Bool)
             }
             Old(old) => old.expr.resolve_expr_type(ctx),
+            ViperFieldAccess(acc) => ctx.get_field_type(&acc.field),
         }
     }
 }
@@ -63,6 +69,7 @@ impl ExprTypeResolution for ir::ArrayAccess {
                 }
             }),
             Type::Array => Ok(Type::Int),
+            Type::Seq(i) => Ok(*i),
             _ => Err(TranslationError::ShapeError(IRSimpleShapeFieldAccess(
                 *self.obj.clone(),
             ))),
@@ -124,20 +131,26 @@ impl TypeResolution for ir::Stmt {
 
 impl<T: TypeResolution> TypeResolution for Vec<T> {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
+        let mut ret = Ok(());
         for stmt in self {
             let typ = stmt.resolve_type(ctx);
-            ignore_unknown(typ)?;
+            if let Err(e) = ignore_unknown(typ) {
+                ret = Err(e);
+            }
         }
-        Ok(())
+        ret
     }
 }
 
 impl<T: ExprTypeResolution> ExprTypeResolution for Vec<T> {
     fn resolve_expr_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError> {
+        let mut ret = Ok(Type::Wildcard);
         for expr in self {
-            ignore_unknown(expr.resolve_expr_type(ctx).map(|_| ()))?;
+            if let Err(e) = ignore_unknown(expr.resolve_expr_type(ctx).map(|_| ())) {
+                ret = Err(e);
+            }
         }
-        Ok(Type::Wildcard)
+        ret
     }
 }
 
@@ -195,20 +208,20 @@ impl TypeResolution for ir::Decl {
 
 impl TypeResolution for ir::Predicate {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
+        ctx.set_type(self.name.clone(), Type::Bool);
         self.args.resolve_type(ctx)?;
         self.body.resolve_expr_type(ctx)?;
-        ctx.set_type(self.name.clone(), Type::Bool);
         Ok(())
     }
 }
 
 impl TypeResolution for ir::Function {
     fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
+        ctx.set_type(self.name.clone(), self.typ.clone());
         self.args.resolve_type(ctx)?;
         self.body.resolve_expr_type(ctx)?;
         self.pres.resolve_expr_type(ctx)?;
         self.posts.resolve_expr_type(ctx)?;
-        ctx.set_type(self.name.clone(), self.typ.clone());
         Ok(())
     }
 }
@@ -232,13 +245,22 @@ impl TypeResolution for ir::AbstractMethod {
 
 impl ir::Program {
     pub fn resolve_types(&self) -> Result<TypeContext, TranslationError> {
-        let mut ctx = TypeContext::new();
+        let mut ctx = TypeContext::new(Rc::new(self.extern_fields.clone()));
         let mut prev_size = ctx.size();
+        for pred in &self.state {
+            if let Expr::FunctionCall(call) = pred {
+                ctx.set_type(call.fname.clone(), Type::Bool);
+            }
+        }
+        for pred in &self.extern_predicates {
+            ctx.set_type(format!("f_{}", pred), Type::Bool);
+        }
         loop {
             ignore_unknown(self.viper_functions.resolve_type(&mut ctx))?;
             ignore_unknown(self.predicates.resolve_type(&mut ctx))?;
             ignore_unknown(self.methods.resolve_type(&mut ctx))?;
             ignore_unknown(self.functions.resolve_type(&mut ctx))?;
+            ignore_unknown(self.state.resolve_expr_type(&mut ctx).map(|_| ()))?;
             let new_size = ctx.size();
             if new_size == prev_size {
                 break;

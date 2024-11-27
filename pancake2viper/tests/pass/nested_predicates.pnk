@@ -1,0 +1,18 @@
+/@ predicate hardware_ring_rx()
+{
+    acc(heap[0]) && acc(heap[1]) &&
+    bounded8(heap[0]) && bounded8(heap[1])
+}
+@/
+
+/@ predicate rx_heap_access()
+{
+    (forall i: Int::
+        (i >= 4 && i < 260) ==> acc(heap[i])) &&
+    acc(hardware_ring_rx())
+}
+@/
+
+fun main() {
+    return 0;
+}

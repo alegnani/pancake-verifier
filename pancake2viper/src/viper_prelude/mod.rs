@@ -7,7 +7,7 @@ pub mod utils;
 use bitvector::create_bv_domain;
 pub use iarray::IArrayHelper;
 use shared_mem::create_shared_mem_methods;
-use utils::{bound_function, pow_function};
+use utils::{bound_bits_function, bound_function, Utils};
 use viper::{AstFactory, Domain, Field, Function, Method};
 
 use crate::utils::EncodeOptions;
@@ -20,14 +20,19 @@ pub fn create_viper_prelude(
         return (vec![], vec![], vec![], vec![]);
     }
     let iarray = IArrayHelper::new(ast);
+    let utils = Utils::new(ast, iarray.get_type());
     let domains = vec![iarray.domain, create_bv_domain(ast)];
     let fields = vec![iarray.field()];
     let mut methods = iarray.slice_defs();
-    methods.extend(create_shared_mem_methods(ast));
+    methods.extend(create_shared_mem_methods(ast, &utils));
     (
         domains,
         fields,
         methods,
-        vec![pow_function(ast), bound_function(ast, options.word_size)],
+        [8, 16, 32, 64]
+            .into_iter()
+            .map(|bits| bound_bits_function(ast, bits))
+            .chain(std::iter::once(bound_function(ast, &utils, options)))
+            .collect(),
     )
 }

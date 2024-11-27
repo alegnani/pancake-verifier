@@ -1,0 +1,6 @@
+fun main(1 x) {
+	var y = x & ((1 << 32) - 1);
+	/@ assert y < (1 << 32) @/
+	/@ assert y == x % (1 << 32) @/
+	return 0;
+}

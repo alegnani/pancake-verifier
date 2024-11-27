@@ -1,0 +1,14 @@
+/@ shared r u8 B[100] @/
+/@ shared w u64 A[200..200 + @biw] @/
+/@ shared rw u64 C[300..332 : 2 * @biw] @/
+/@ shared rw u64 D[(200 + @biw)..200 + 4 * @biw] @/
+/@ shared rw u32 EIR[33554432 + 4.. (33554432+4+4) : 4] @/
+/@ shared rw u32 STAT[0x400.. (0x400+0x4+0x4+0x4+0x4)] @/
+
+
+fun main() {
+    !stw 200, 42;
+    var x = 0;
+    !ld8 x, 100;
+    return 0;
+}

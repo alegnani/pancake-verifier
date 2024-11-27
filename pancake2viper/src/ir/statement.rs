@@ -132,6 +132,7 @@ pub enum AnnotationType {
     Exhale,
     Fold,
     Unfold,
+    Trusted,
 }
 
 #[derive(Debug, Clone)]

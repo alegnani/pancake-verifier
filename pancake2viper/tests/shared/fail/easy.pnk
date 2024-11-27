@@ -1,0 +1,8 @@
+/@ shared u8 B[100] @/
+
+fun main() {
+    /@ ensures retval >= 256 @/
+    var x = 0;
+    !ld8 x, 100;
+    return x;
+}

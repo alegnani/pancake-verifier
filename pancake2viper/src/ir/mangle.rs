@@ -73,6 +73,7 @@ impl Mangleable for ir::Expr {
             // XXX: should the indices be expressions instead of ints?
             AccessSlice(slice) => slice.field.mangle(mangler)?,
             Old(old) => old.expr.mangle(mangler)?,
+            ViperFieldAccess(field) => field.obj.mangle(mangler)?,
         }
         Ok(())
     }
@@ -203,6 +204,7 @@ impl Mangleable for ir::Program {
         self.methods.mangle(mangler)?;
         self.functions
             .iter_mut()
-            .try_for_each(|e| e.mangle(&mut mangler.clone()))
+            .try_for_each(|e| e.mangle(&mut mangler.clone()))?;
+        self.state.mangle(mangler)
     }
 }

@@ -1,47 +1,72 @@
-method store_base8(heap: IArray, address: Int, value: Int)
+predicate valid_state(heap: IArray, state: Ref) {
+    acc(state.device) && state.device == 42 && other_pred(heap, state) && seq_pred(heap, state)
+}
+
+predicate other_pred(heap: IArray, state: Ref) {
+    acc(state.device2) && state.device2 >= 0 && acc(state.device3) && acc(slot(state.device3, 0).heap_elem) && slot(state.device3, 0).heap_elem == 17
+}
+
+predicate seq_pred(heap: IArray, state: Ref) {
+    acc(state.device4) && |state.device4| == 2 && state.device4[0] == false && state.device4[1] == false
+}
+
+field device: Int
+field device2: Int
+field device3: IArray
+field device4: Seq[Bool]
+
+method store_base8(heap: IArray, state: Ref, address: Int, value: Int)
     requires address == 0
     requires 0 <= value < 256
 
-method store_base32(heap: IArray, address: Int, value: Int)
+method store_base32(heap: IArray, state: Ref, address: Int, value: Int)
     requires address == 0
     requires 0 <= value < 4294967296
 
-method store_base64(heap: IArray, address: Int, value: Int)
+method store_base64(heap: IArray, state: Ref, address: Int, value: Int)
     requires address == 0
     requires 0 <= value < 4294967296 * 4294967296
 
-method load_base8(heap: IArray, address: Int) returns (retval: Int)
+method load_base8(heap: IArray, state: Ref, address: Int) returns (retval: Int)
     requires address == 0
     ensures 0 <= retval < 256
 
-method load_base32(heap: IArray, address: Int) returns (retval: Int)
+method load_base32(heap: IArray, state: Ref, address: Int) returns (retval: Int)
     requires address == 0
     ensures 0 <= retval < 4294967296
 
-method load_base64(heap: IArray, address: Int) returns (retval: Int)
+method load_base64(heap: IArray, state: Ref, address: Int) returns (retval: Int)
     requires address == 0
     ensures 0 <= retval < 4294967296 * 4294967296
 
-method store_align(heap: IArray, address: Int, value: Int)
+method store_align(heap: IArray, state: Ref, address: Int, value: Int)
     requires address == 4
     requires 0 <= value < 4294967296
 
-method load_align(heap: IArray, address: Int) returns (retval: Int)
+method load_align(heap: IArray, state: Ref, address: Int) returns (retval: Int)
     requires address == 4
     ensures 0 <= retval < 4294967296
 
-method store_A(heap: IArray, address: Int, value: Int)
+method store_A(heap: IArray, state: Ref, address: Int, value: Int)
     requires 200 <= address < 208
     requires 0 <= value < 4294967296 * 4294967296
 
-method load_A(heap: IArray, address: Int) returns (retval: Int)
+method load_A(heap: IArray, state: Ref, address: Int) returns (retval: Int)
     requires 200 <= address < 208
     ensures 0 <= retval < 4294967296 * 4294967296
 
-method store_B(heap: IArray, address: Int, value: Int)
+method store_B(heap: IArray, state: Ref, address: Int, value: Int)
     requires address == 100
     requires 0 <= value < 256
 
-method load_B(heap: IArray, address: Int) returns (retval: Int)
+method load_B(heap: IArray, state: Ref, address: Int) returns (retval: Int)
     requires address == 100
+    ensures 0 <= retval < 256
+
+method store_STRIDE(heap: IArray, state: Ref, address: Int, value: Int)
+    requires 1056 <= address && address < 1120 && address % 16 == 0
+    requires 0 <= value < 256
+
+method load_STRIDE(heap: IArray, state: Ref, address: Int) returns (retval: Int)
+    requires 1056 <= address && address < 1120 && address % 16 == 0
     ensures 0 <= retval < 256

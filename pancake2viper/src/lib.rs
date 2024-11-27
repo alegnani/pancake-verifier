@@ -1,4 +1,5 @@
 pub mod annotation;
+pub mod app;
 pub mod cli;
 pub mod ir;
 pub mod ir_to_viper;

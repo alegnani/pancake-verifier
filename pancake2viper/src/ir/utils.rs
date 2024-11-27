@@ -1,4 +1,4 @@
-use std::ops::Add;
+use std::{collections::HashSet, ops::Add};
 
 use crate::{
     ir,
@@ -7,8 +7,9 @@ use crate::{
 
 use super::{
     expression::{Expr, Struct},
+    shared::SharedOpType,
     statement::MemOpBytes,
-    Arg, BinOp, BinOpType, Decl, ShiftType, Type, UnOpType,
+    Arg, BinOp, BinOpType, Decl, Program, SharedPerm, ShiftType, Type, UnOpType,
 };
 
 impl Struct {
@@ -228,6 +229,7 @@ impl ExprSubstitution for Expr {
                 a || b
             }
             Self::FieldAccessChain(acc) => acc.obj.substitute(old, new),
+            Self::ViperFieldAccess(acc) => acc.obj.substitute(old, new),
             Self::BaseAddr
             | Self::BoolLit(_)
             | Self::Const(_)
@@ -250,5 +252,57 @@ impl ExprSubstitution for Vec<Expr> {
 impl From<Arg> for Expr {
     fn from(value: Arg) -> Self {
         Expr::Var(value.name)
+    }
+}
+
+impl SharedPerm {
+    pub fn is_read(&self) -> bool {
+        matches!(self, Self::ReadOnly | Self::ReadWrite)
+    }
+
+    pub fn is_write(&self) -> bool {
+        matches!(self, Self::WriteOnly | Self::ReadWrite)
+    }
+
+    pub fn is_allowed(&self, op: SharedOpType) -> bool {
+        match op {
+            SharedOpType::Load => self.is_read(),
+            SharedOpType::Store => self.is_write(),
+        }
+    }
+}
+
+impl Program {
+    pub fn get_method_names(&self) -> (Vec<String>, Vec<String>) {
+        let fnames = self.functions.iter().map(|f| f.fname.to_owned());
+        let shared_names = self.shared.iter().flat_map(|s| match s.typ {
+            SharedPerm::ReadOnly => vec![format!("load_{}", s.name)],
+            SharedPerm::WriteOnly => vec![format!("store_{}", s.name)],
+            SharedPerm::ReadWrite => {
+                vec![format!("load_{}", s.name), format!("store_{}", s.name)]
+            }
+        });
+        (fnames.collect(), shared_names.collect())
+    }
+
+    pub fn exclude_functions(&mut self, exclude_list: &[String]) {
+        self.functions
+            .iter_mut()
+            .filter(|f| exclude_list.contains(&f.fname))
+            .for_each(|f| f.trusted = true);
+    }
+
+    pub fn trust_except(&mut self, include_list: &[String]) {
+        let (fnames, shared) = self.get_method_names();
+        let fnames_set = fnames.into_iter().collect::<HashSet<_>>();
+        let include_set = include_list
+            .iter()
+            .map(|s| format!("f_{}", s))
+            .collect::<HashSet<_>>();
+        let exclude_list = fnames_set
+            .difference(&include_set)
+            .cloned()
+            .collect::<Vec<_>>();
+        self.exclude_functions(&exclude_list);
     }
 }

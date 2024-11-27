@@ -3,8 +3,8 @@ use std::fmt::{Display, Formatter, Result};
 use crate::utils::Shape;
 
 use super::{
-    AnnotationType, BinOpType, Decl, Expr, Permission, Quantifier, ShiftType, SliceType, Stmt,
-    Type, UnOpType,
+    AnnotationType, BinOpType, Decl, Expr, Permission, Quantifier, SharedPerm, ShiftType,
+    SliceType, Stmt, Type, UnOpType,
 };
 
 impl Display for Stmt {
@@ -88,6 +88,7 @@ impl Display for Expr {
             }
             Self::UnfoldingIn(fold) => write!(f, "(unfolding {} in {})", fold.pred, fold.expr),
             Self::Ternary(t) => write!(f, "(({}) ? {} : {})", t.cond, t.left, t.right),
+            Self::ViperFieldAccess(acc) => write!(f, "{}.{}", acc.obj, acc.field),
         }
     }
 }
@@ -178,6 +179,7 @@ impl Display for AnnotationType {
                 Self::Postcondition => "ensures",
                 Self::Fold => "fold",
                 Self::Unfold => "unfold",
+                Self::Trusted => "trusted",
             }
         )
     }
@@ -193,6 +195,9 @@ impl Display for Type {
             Self::Void => write!(f, "Void"),
             Self::Array => write!(f, "IArray"),
             Self::Ref => write!(f, "Ref"),
+            Self::Map(k, v) => write!(f, "Map[{}, {}]", *k, *v),
+            Self::Seq(i) => write!(f, "Seq[{}]", *i),
+            Self::Set(i) => write!(f, "Set[{}]", *i),
         }
     }
 }
@@ -208,6 +213,16 @@ impl Display for Quantifier {
         match self {
             Self::Forall => write!(f, "forall"),
             Self::Exists => write!(f, "exists"),
+        }
+    }
+}
+
+impl Display for SharedPerm {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self {
+            Self::ReadOnly => write!(f, "read-only"),
+            Self::WriteOnly => write!(f, "write-only"),
+            Self::ReadWrite => write!(f, "read-write"),
         }
     }
 }

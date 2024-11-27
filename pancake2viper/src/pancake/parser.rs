@@ -460,6 +460,12 @@ impl Program {
             .into_iter()
             .map(Shared::new)
             .collect();
+        let state = Self::get_toplevel_annotations(&s, "state")
+            .into_iter()
+            .map(State::new)
+            .collect();
+        let extern_predicates = Self::get_toplevel_annotations(&s, "extern predicate");
+        let extern_fields = Self::get_toplevel_annotations(&s, "extern field");
 
         let functions = get_sexprs(s, cake_path)?
             .iter()
@@ -476,6 +482,9 @@ impl Program {
             viper_functions,
             methods,
             shared,
+            state,
+            extern_predicates,
+            extern_fields,
         })
     }
 

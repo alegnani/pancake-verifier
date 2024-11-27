@@ -1,0 +1,5 @@
+fun main() {
+    /@ ensures retval == 2 @/
+    var x = 1 + 2;
+    return x;
+}

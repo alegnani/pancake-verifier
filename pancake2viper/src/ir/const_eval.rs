@@ -4,8 +4,8 @@ use crate::{
 };
 
 use super::{
-    AbstractMethod, BinOp, Expr, FnDec, Function, Predicate, Program, Shared, Shift, Stmt, UnOp,
-    UnOpType,
+    AbstractMethod, BinOp, BinOpType, Expr, FnDec, Function, Predicate, Program, Shared, Shift,
+    Stmt, UnOp, UnOpType,
 };
 
 impl ConstEvalExpr for Expr {
@@ -83,6 +83,10 @@ impl ConstEvalExpr for Expr {
             Old(o) => Old(ir::Old {
                 expr: Box::new(o.expr.const_eval(options)),
             }),
+            ViperFieldAccess(f) => ViperFieldAccess(ir::ViperFieldAccess {
+                obj: Box::new(f.obj.const_eval(options)),
+                field: f.field,
+            }),
         }
     }
 }
@@ -97,6 +101,15 @@ impl ConstEvalExpr for BinOp {
                 if self.optype.is_arithmetic() || self.optype.is_bitwise() =>
             {
                 Expr::Const(self.optype.eval(l, r))
+            }
+            (l, Expr::Const(r))
+                if self.optype == BinOpType::BitAnd && (r + 1).count_ones() == 1 =>
+            {
+                Expr::BinOp(BinOp {
+                    optype: BinOpType::Modulo,
+                    left: Box::new(l),
+                    right: Box::new(Expr::Const(r + 1)),
+                })
             }
             (l, r) => Expr::BinOp(BinOp {
                 optype: self.optype,
@@ -289,6 +302,9 @@ impl ConstEval for Program {
             predicates: self.predicates.const_eval(options),
             viper_functions: self.viper_functions.const_eval(options),
             shared: self.shared.const_eval(options),
+            state: self.state.const_eval(options),
+            extern_predicates: self.extern_predicates,
+            extern_fields: self.extern_fields,
         }
     }
 }

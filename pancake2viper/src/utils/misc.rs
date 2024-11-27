@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, time::Instant};
 
 use anyhow::anyhow;
 use regex::Regex;
@@ -22,6 +22,10 @@ impl ViperHandle {
     pub fn new(viper_home: String, z3_exe: String) -> Self {
         let viper = Box::new(Viper::new_with_args(&viper_home, vec![]));
         let viper = Box::leak(viper);
+        Self::from_handle(viper, z3_exe)
+    }
+
+    pub fn from_handle(viper: &'static viper::Viper, z3_exe: String) -> Self {
         let ver_ctx = viper.attach_current_thread();
         let ver_ctx = Box::leak(Box::new(ver_ctx));
         let ast = ver_ctx.new_ast_factory();
@@ -34,10 +38,6 @@ impl ViperHandle {
             None,
             SmtManager::default(),
         );
-        // let verifier = ver_ctx.new_verifier_with_default_smt_and_extra_args(
-        //     viper::VerificationBackend::Silicon,
-        //     vec!["--logLevel=OFF".into()],
-        // );
         Self {
             viper,
             ver_ctx,
@@ -51,8 +51,15 @@ impl ViperHandle {
 impl ViperHandle {
     pub fn verify(&mut self, program: viper::Program) -> (String, bool) {
         use viper::VerificationResult::*;
+        let start = Instant::now();
         match self.verifier.verify(program) {
-            Success => ("️✅Verification Successful✅".into(), true),
+            Success => (
+                format!(
+                    "️✅Verification Successful in {:.2}s ✅",
+                    start.elapsed().as_secs_f32()
+                ),
+                true,
+            ),
             Failure(e) => {
                 let errors = e.into_iter().map(|e| e.message).collect::<Vec<_>>();
                 (

@@ -1,0 +1,6 @@
+/@ shared r u64 A[@base] @/
+/@ shared r u32 B[@base + 4] @/
+
+fun main() {
+	return 0;
+}

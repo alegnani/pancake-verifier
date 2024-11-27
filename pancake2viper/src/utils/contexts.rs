@@ -43,6 +43,7 @@ impl From<AnnotationType> for TranslationMode {
 #[derive(Debug, Clone)]
 pub struct TypeContext {
     type_map: HashMap<String, Type>,
+    fields: Rc<HashMap<String, Type>>,
 }
 
 type Exprs = Vec<ir::Expr>;
@@ -77,12 +78,12 @@ impl MethodContext {
 }
 
 impl TypeContext {
-    pub fn new() -> Self {
+    pub fn new(fields: Rc<HashMap<String, Type>>) -> Self {
         let type_map = RESERVED
             .iter()
             .map(|(&s, t)| (s.to_owned(), t.clone()))
             .collect();
-        Self { type_map }
+        Self { type_map, fields }
     }
 
     pub fn child(&self) -> Self {
@@ -110,11 +111,18 @@ impl TypeContext {
     pub fn size(&self) -> usize {
         self.type_map.len()
     }
+
+    pub fn get_field_type(&self, field: &str) -> Result<Type, TranslationError> {
+        self.fields
+            .get(field)
+            .map(|t| t.to_owned())
+            .ok_or(TranslationError::UnknownField(field.to_owned()))
+    }
 }
 
 impl Default for TypeContext {
     fn default() -> Self {
-        Self::new()
+        Self::new(Rc::new(HashMap::new()))
     }
 }
 
@@ -136,6 +144,7 @@ pub struct ViperEncodeCtx<'a> {
     pub mangler: Mangler,
     pub shared: Rc<SharedContext>,
     pub method: Rc<MethodContext>,
+    pub state: Vec<ir::Expr>,
 }
 
 #[derive(Clone, Copy)]
@@ -149,6 +158,8 @@ pub struct EncodeOptions {
     pub debug_comments: bool,
     pub include_prelude: bool,
     pub return_post: bool,
+    pub allow_undefined_shared: bool,
+    pub ignore_warnings: bool,
 }
 
 impl Default for EncodeOptions {
@@ -163,6 +174,8 @@ impl Default for EncodeOptions {
             debug_comments: false,
             include_prelude: true,
             return_post: true,
+            allow_undefined_shared: false,
+            ignore_warnings: false,
         }
     }
 }
@@ -175,7 +188,9 @@ impl<'a> ViperEncodeCtx<'a> {
         options: EncodeOptions,
         shared: Rc<SharedContext>,
         annot: Rc<MethodContext>,
+        state: Vec<ir::Expr>,
     ) -> Self {
+        let iarray = IArrayHelper::new(ast);
         Self {
             mode: TranslationMode::Normal,
             ast,
@@ -184,8 +199,8 @@ impl<'a> ViperEncodeCtx<'a> {
             declarations: vec![],
             types,
             while_counter: 0,
-            iarray: IArrayHelper::new(ast),
-            utils: Utils::new(ast),
+            iarray,
+            utils: Utils::new(ast, iarray.get_type()),
             options,
             consume_stack: true,
             invariants: vec![],
@@ -193,6 +208,7 @@ impl<'a> ViperEncodeCtx<'a> {
             mangler: Mangler::default(),
             shared,
             method: annot,
+            state,
         }
     }
 
@@ -214,6 +230,7 @@ impl<'a> ViperEncodeCtx<'a> {
             mangler: self.mangler.clone(),
             shared: self.shared.clone(),
             method: self.method.clone(),
+            state: self.state.clone(),
         }
     }
 
@@ -261,17 +278,11 @@ impl<'a> ViperEncodeCtx<'a> {
     }
 
     pub fn heap_var(&self) -> (viper::LocalVarDecl, viper::Expr) {
-        (
-            self.ast.local_var_decl("heap", self.heap_type()),
-            self.ast.local_var("heap", self.heap_type()),
-        )
+        self.utils.heap()
     }
 
     pub fn state_var(&self) -> (viper::LocalVarDecl, viper::Expr) {
-        (
-            self.ast.local_var_decl("state", self.ast.ref_type()),
-            self.ast.local_var("state", self.ast.ref_type()),
-        )
+        self.utils.state()
     }
 
     pub fn set_mode(&mut self, mode: TranslationMode) {

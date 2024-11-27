@@ -1,4 +1,4 @@
-/@ shared u32 align[@base + 0x4] @/
+/@ shared rw u32 align[@base + 0x4] @/
 
 fun main() {
     /@ requires acc(heap[0..10]) @/

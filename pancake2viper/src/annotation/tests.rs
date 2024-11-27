@@ -77,3 +77,19 @@ fn ternary() {
     let t = "assert x == y ? f(x) : f(h) + 1";
     println!("{:?}", parse_annot(t));
 }
+
+#[test]
+fn seq_type() {
+    let f = "/@ function sum(arg: Seq[Set[Int]]): Int 
+    { 1 }
+    @/";
+    println!("{:?}", parse_function(f));
+}
+
+#[test]
+fn map_type() {
+    let f = "/@ function sum(arg: Seq[Map[Int, Bool]]): Int 
+    { 1 }
+    @/";
+    println!("{:?}", parse_function(f));
+}
