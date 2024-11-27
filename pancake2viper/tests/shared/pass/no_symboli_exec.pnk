@@ -1,0 +1,10 @@
+/@ predicate rx_meta_data_access()
+{
+    (forall i: Int:: i >= 4 ==> (
+        acc(heap[i]) && bounded32(heap[i])))
+}
+@/
+
+fun main() {
+	return 0;
+}

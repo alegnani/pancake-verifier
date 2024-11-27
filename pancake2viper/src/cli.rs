@@ -262,6 +262,13 @@ pub struct ClapCliOptions {
 
     #[arg(global = true, long, help = "Verifies each function separately")]
     pub incremental: bool,
+
+    #[arg(
+        global = true,
+        long,
+        help = "Trust and skip verification of model methods"
+    )]
+    pub trust_model: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -284,6 +291,7 @@ pub struct CliOptions {
     pub ignore_warnings: bool,
     pub only: Option<Vec<String>>,
     pub incremental: bool,
+    pub trust_model: bool,
 }
 
 impl From<ClapCliOptions> for CliOptions {
@@ -307,6 +315,7 @@ impl From<ClapCliOptions> for CliOptions {
             ignore_warnings: value.ignore_warnings,
             only: value.only,
             incremental: value.incremental,
+            trust_model: value.trust_model,
         }
     }
 }
@@ -326,12 +335,13 @@ impl Default for CliOptions {
             z3_exe: get_z3_path(),
             debug_comments: false,
             disable_prelude: false,
-            disable_return_post: false,
+            disable_return_post: true,
             model: None,
             allow_undefined_shared: false,
             ignore_warnings: false,
             only: None,
             incremental: false,
+            trust_model: false,
         }
     }
 }

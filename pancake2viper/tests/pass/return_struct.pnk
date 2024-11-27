@@ -1,4 +1,6 @@
 fun foo() {
+    /@ ensures acc(retval[0..2]) @/
+    /@ ensures bounded64(retval.0) && bounded64(retval.1) @/
     return < 0, 1>;
 }
 

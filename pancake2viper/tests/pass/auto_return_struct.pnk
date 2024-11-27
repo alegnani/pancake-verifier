@@ -1,6 +1,9 @@
 fun dostuff() {
+    /@ ensures acc(retval[0..2]) @/
     /@ ensures retval.0 == 1 @/
     /@ ensures retval.1 == 2 @/
+    /@ ensures bounded64(retval.0) && bounded64(retval.1) @/
+
     return < 1, 2 >;
 }
 

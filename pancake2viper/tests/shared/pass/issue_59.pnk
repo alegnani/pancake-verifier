@@ -1,0 +1,75 @@
+/@ predicate rx_heap_access()
+{
+    rx_meta_data_access() && hardware_ring_rx()
+}
+@/
+
+/@ predicate rx_meta_data_access()
+{
+    (forall i: Int:: (i >= 4 && i < 260) ==>
+        acc(heap[i]) && bounded32(heap[i]))
+}
+@/
+
+/@ predicate hardware_ring_rx()
+{
+    acc(heap[0]) && acc(heap[1]) &&
+    bounded8(heap[0]) && bounded8(heap[1])
+}
+@/
+
+/@ predicate net_queue(queue: {1,1,1}, capacity: Int) {
+    ((capacity == 512) || (capacity == 1024)) &&
+    alen(queue) == 3 && acc(queue[0..3]) &&
+    queue.0 >= 0 && queue.0 < capacity &&
+    queue.1 >= 0 && queue.1 < capacity &&
+    ((queue[2] == 0) || (queue.2 == 1))
+}
+@/
+
+fun share_load_net_queue(1 queue_ptr, 1 capacity)
+{
+    /@ requires queue_ptr == 37748736 @/
+    /@ requires queue_ptr == 37748736 <==> capacity == 512 @/
+    /@ requires (capacity == 512) || (capacity == 1024) @/
+    /@ ensures queue_ptr == old(queue_ptr) @/
+    /@ ensures capacity == old(capacity) @/
+    /@ ensures net_queue(retval, capacity) @/
+
+    var tail = 0;
+    var head = 0;
+    var signal = 0;
+    // !ldw tail, queue_ptr;
+    // !ldw head, queue_ptr + @biw;
+    // !ld8 signal, queue_ptr + 2 * @biw;
+
+    /@ assume ((tail + 1) % capacity) != head @/ // todo
+
+    var queue = <tail, head, signal>;
+    /@ fold net_queue(queue, capacity) @/
+    return queue;
+}
+
+fun net_queue_empty({1,1,1} queue, 1 capacity)
+{
+    /@ requires net_queue(queue, capacity) @/
+    /@ ensures net_queue(queue, capacity) @/
+
+    var empty = 1;
+    return empty;
+}
+
+fun rx_provide()
+{
+    /@ requires rx_heap_access() @/
+    /@ ensures rx_heap_access() @/
+
+    var reprocess = true;
+    var rx_free = 37748736;
+    var capacity = 512;
+
+    var {1,1,1} rx_free_queue = share_load_net_queue(rx_free, capacity);
+    var 1 empty = net_queue_empty(rx_free_queue, capacity);
+    return 0;
+}
+
