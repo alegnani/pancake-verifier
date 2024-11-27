@@ -330,19 +330,28 @@ fn auto_unfold_fold(
     annots: &[ir::Expr],
     arg_mapping: &[(ir::Expr, ir::Expr)],
     copy_mapping: &Vec<(ir::Expr, ir::Expr)>,
+    reverse: bool,
 ) -> (Vec<ir::Stmt>, Vec<ir::Stmt>) {
-    let mut unfold = vec![];
-    let mut fold = vec![];
+    let mut first = vec![];
+    let mut second = vec![];
+    let (op1, op2) = if reverse {
+        (ir::AnnotationType::Fold, ir::AnnotationType::Unfold)
+    } else {
+        (ir::AnnotationType::Unfold, ir::AnnotationType::Fold)
+    };
     for annot in annots {
-        if get_predicate(ctx, annot).is_some() {
+        if let Some(pred) = get_predicate(ctx, annot) {
             let mut annot = annot.clone();
-            let mut did_substitute = false;
+            let mut sub_count = 0;
+
             for (old, new) in arg_mapping.iter() {
-                did_substitute = did_substitute || annot.substitute(old, new);
+                if annot.substitute(old, new) {
+                    sub_count += 1;
+                }
             }
-            if did_substitute {
-                unfold.push(ir::Stmt::Annotation(ir::Annotation {
-                    typ: ir::AnnotationType::Unfold,
+            if pred.args.len() == sub_count {
+                first.push(ir::Stmt::Annotation(ir::Annotation {
+                    typ: op1,
                     expr: annot.clone(),
                 }));
 
@@ -350,14 +359,14 @@ fn auto_unfold_fold(
                     annot.substitute(old, new);
                 }
 
-                fold.push(ir::Stmt::Annotation(ir::Annotation {
-                    typ: ir::AnnotationType::Fold,
+                second.push(ir::Stmt::Annotation(ir::Annotation {
+                    typ: op2,
                     expr: annot.clone(),
                 }));
             }
         }
     }
-    (unfold, fold)
+    (first, second)
 }
 
 impl<'a> TryToViper<'a> for ir::MethodCall {
@@ -428,27 +437,36 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
             ctx.method.get_pre(&self.fname),
             &arg_mapping,
             &copy_mapping,
+            false,
         );
+        //println!("Arg mapping: {:?}", arg_mapping);
+        //println!("Copy mapping: {:?}", copy_mapping);
+        //
+        //let rev_arg_mapping = arg_mapping
+        //    .iter()
+        //    .filter_map(|(old, inter)| {
+        //        copy_mapping.iter().find_map(|(inter2, new)| {
+        //            if *inter == *inter2 {
+        //                Some((old.clone(), new.clone()))
+        //            } else {
+        //                None
+        //            }
+        //        })
+        //    })
+        //    .collect::<Vec<_>>();
+        //let rev_copy_mapping = copy_mapping.into_iter().map(|t| (t.1, t.0)).collect();
+        //
+        //println!("Rev Arg mapping: {:?}", rev_arg_mapping);
+        //println!("Rev Copy mapping: {:?}", rev_copy_mapping);
 
-        let rev_arg_mapping = arg_mapping
-            .iter()
-            .filter_map(|(old, inter)| {
-                copy_mapping.iter().find_map(|(inter2, new)| {
-                    if *inter == *inter2 {
-                        Some((old.clone(), new.clone()))
-                    } else {
-                        None
-                    }
-                })
-            })
-            .collect::<Vec<_>>();
-        let rev_copy_mapping = copy_mapping.into_iter().map(|t| (t.1, t.0)).collect();
-
-        let (out_unfoldings, out_foldings) = auto_unfold_fold(
+        let (out_foldings, out_unfoldings) = auto_unfold_fold(
             ctx,
             ctx.method.get_post(&self.fname),
-            &rev_arg_mapping,
-            &rev_copy_mapping,
+            //&rev_arg_mapping,
+            //&rev_copy_mapping,
+            &arg_mapping,
+            &copy_mapping,
+            true,
         );
 
         let in_unfoldings = in_unfoldings.to_viper(ctx)?;
