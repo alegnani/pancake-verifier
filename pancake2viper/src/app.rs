@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::path::Path;
 use std::process::Command;
 use std::rc::Rc;
@@ -159,7 +158,9 @@ impl App {
         let encode_opts = self.options.clone().into();
 
         run_step!(self, "Mangling", {
-            program.mangle(&mut Mangler::default())?
+            program.mangle(&mut Mangler::new(
+                program.model.fields.clone().into_iter().collect(),
+            ))?
         });
 
         let ctx = run_step!(self, "Resolving types", { program.resolve_types()? });

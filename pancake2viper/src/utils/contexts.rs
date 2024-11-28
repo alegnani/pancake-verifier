@@ -205,7 +205,7 @@ impl<'a> ViperEncodeCtx<'a> {
             consume_stack: true,
             invariants: vec![],
             predicates,
-            mangler: Mangler::default(),
+            mangler: Mangler::new(model.fields.clone().into_iter().collect()),
             shared,
             method: annot,
             model,

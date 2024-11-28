@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{LazyLock, Mutex},
 };
 
@@ -21,6 +21,7 @@ pub struct Mangler {
     annot_map: HashMap<String, String>,
     var_map: HashMap<String, String>,
     arg_map: HashMap<String, String>,
+    ref_set: HashSet<String>,
 }
 
 pub enum VariableType {
@@ -29,6 +30,13 @@ pub enum VariableType {
 }
 
 impl Mangler {
+    pub fn new(ref_set: HashSet<String>) -> Self {
+        Self {
+            ref_set,
+            ..Default::default()
+        }
+    }
+
     pub fn child(&self) -> Self {
         Self {
             mode: self.mode,
@@ -36,6 +44,7 @@ impl Mangler {
             annot_map: self.annot_map.clone(),
             var_map: self.var_map.clone(),
             arg_map: self.arg_map.clone(),
+            ref_set: self.ref_set.clone(),
         }
     }
 
@@ -52,6 +61,9 @@ impl Mangler {
     ) -> Result<String, MangleError> {
         if RESERVED.contains_key(name.as_str()) {
             return Err(MangleError::ReservedKeyword(name));
+        }
+        if self.ref_set.contains(name.as_str()) {
+            return Err(MangleError::DoubleDeclaration(name));
         }
         let mangled = format!("{}_{}", &name, get_inc_counter());
         let map = match (&typ, self.mode) {
@@ -94,10 +106,11 @@ impl Mangler {
         let maybe_arg = self.arg_map.get(var);
         let maybe_annot = self.annot_map.get(var);
         let maybe_var = self.var_map.get(var);
+        let maybe_ref = self.ref_set.get(var);
         match self.mode {
             TranslationMode::Normal | TranslationMode::WhileCond => maybe_var.or(maybe_arg),
-            TranslationMode::Assertion => maybe_annot.or(maybe_var),
-            TranslationMode::PrePost => maybe_annot.or(maybe_arg),
+            TranslationMode::Assertion => maybe_annot.or(maybe_var).or(maybe_ref),
+            TranslationMode::PrePost => maybe_annot.or(maybe_arg).or(maybe_ref),
         }
         .map(String::as_str)
         .ok_or(MangleError::UndeclaredVar(var.to_owned()))

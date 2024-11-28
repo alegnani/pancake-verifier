@@ -253,6 +253,9 @@ impl ir::Program {
     pub fn resolve_types(&self) -> Result<TypeContext, TranslationError> {
         let mut ctx = TypeContext::new(Rc::new(self.extern_fields.clone()));
         let mut prev_size = ctx.size();
+        for field in &self.model.fields {
+            ctx.set_type(field.to_string(), Type::Ref);
+        }
         for pred in &self.model.predicates {
             if let Expr::FunctionCall(call) = pred {
                 ctx.set_type(call.fname.clone(), Type::Bool);
