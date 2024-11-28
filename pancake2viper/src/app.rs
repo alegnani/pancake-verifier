@@ -229,6 +229,19 @@ impl App {
                     let only_vpr =
                         only_program.to_viper(ctx.clone(), viper_handle.ast, encode_opts)?;
                     let mut new_transpiled = viper_handle.utils.pretty_print(only_vpr);
+
+                    // Add includes
+                    let mut includes = self
+                        .options
+                        .include
+                        .iter()
+                        .map(std::fs::read_to_string)
+                        .collect::<Result<Vec<_>, _>>()?
+                        .join("\n\n");
+                    includes.push_str("\n\n");
+                    includes.push_str(&new_transpiled);
+                    new_transpiled = includes;
+
                     if let Some(mut model) = self.options.model.clone() {
                         model.push_str("\n\n");
                         model.push_str(&new_transpiled);
