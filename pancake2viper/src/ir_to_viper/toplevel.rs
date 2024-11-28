@@ -25,7 +25,7 @@ impl<'a> TryToViper<'a> for FnDec {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
 
-        let mut pres = ctx.state.clone().to_viper(ctx)?;
+        let mut pres = ctx.model.predicates.clone().to_viper(ctx)?;
         let mut posts = pres.clone();
 
         // add access permissions to arguments if structs
@@ -143,7 +143,7 @@ impl<'a> ProgramToViper<'a> for Program {
         let shared = Rc::new(SharedContext::new(&options, &self.shared));
         // Create method context for automatic unfolding/folding of function predicates
         let method_ctx = Rc::new(MethodContext::new(&self.functions));
-        let state = self.state.clone();
+        let model = self.model.clone();
         let fields = Rc::new(self.extern_fields);
 
         let mut predicate_names = self
@@ -163,7 +163,7 @@ impl<'a> ProgramToViper<'a> for Program {
                     options,
                     shared.clone(),
                     method_ctx.clone(),
-                    state.clone(),
+                    model.clone(),
                 );
                 ctx.set_mode(TranslationMode::PrePost);
                 p.to_viper(&mut ctx)
@@ -174,7 +174,7 @@ impl<'a> ProgramToViper<'a> for Program {
         for pred in self.extern_predicates {
             predicate_names.insert(pred);
         }
-        for pred in &self.state {
+        for pred in &self.model.predicates {
             if let Expr::FunctionCall(call) = pred {
                 predicate_names.insert(call.fname.trim_start_matches("f_").to_owned());
             }
@@ -191,7 +191,7 @@ impl<'a> ProgramToViper<'a> for Program {
                     options,
                     shared.clone(),
                     method_ctx.clone(),
-                    state.clone(),
+                    model.clone(),
                 );
                 ctx.set_mode(TranslationMode::PrePost);
                 f.to_viper(&mut ctx)
@@ -209,7 +209,7 @@ impl<'a> ProgramToViper<'a> for Program {
                     options,
                     shared.clone(),
                     method_ctx.clone(),
-                    state.clone(),
+                    model.clone(),
                 );
                 ctx.set_mode(TranslationMode::PrePost);
                 m.to_viper(&mut ctx)
@@ -227,7 +227,7 @@ impl<'a> ProgramToViper<'a> for Program {
                     options,
                     shared.clone(),
                     method_ctx.clone(),
-                    state.clone(),
+                    model.clone(),
                 );
                 f.to_viper(&mut ctx)
             })

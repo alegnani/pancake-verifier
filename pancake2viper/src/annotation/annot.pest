@@ -116,7 +116,8 @@ method = { "/@" ~ "method" ~ ident ~ "(" ~ method_args ~ ")" ~ method_ret ~ prep
     method_args = { (decl ~ ("," ~ decl)*) | "" }
     method_ret = { (":" ~ "(" ~ decl ~ ("," ~ decl)* ~ ")") | "" }
 
-state = { "/@" ~ "state" ~ expr ~ "@/" }
+model_predicate = { "/@" ~ "model" ~ "predicate" ~ expr ~ "@/" }
+model_field = { "/@" ~ "model" ~ "field" ~ ident ~ "@/" }
 
 ext_predicate = { "/@" ~ "extern" ~ "predicate" ~ ident ~ "@/" }
 ext_field = { "/@" ~ "extern" ~ "field" ~ decl ~ "@/" }

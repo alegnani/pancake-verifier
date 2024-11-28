@@ -1,9 +1,10 @@
 use crate::{
     annotation::{
-        parse_extern_field, parse_extern_predicate, parse_function, parse_method, parse_predicate,
-        parse_shared, parse_state,
+        parse_extern_field, parse_extern_predicate, parse_function, parse_method,
+        parse_model_field, parse_model_predicate, parse_predicate, parse_shared,
     },
-    ir, pancake,
+    ir::{self, Model},
+    pancake,
     utils::{ToType, TranslationError, TryToIR},
 };
 
@@ -77,14 +78,6 @@ impl TryToIR for pancake::Shared {
     }
 }
 
-impl TryToIR for pancake::State {
-    type Output = ir::Expr;
-
-    fn to_ir(self) -> Result<Self::Output, TranslationError> {
-        Ok(parse_state(&self.text))
-    }
-}
-
 impl TryFrom<pancake::Program> for ir::Program {
     type Error = TranslationError;
 
@@ -94,7 +87,23 @@ impl TryFrom<pancake::Program> for ir::Program {
         let functions = value.functions.to_ir()?;
         let methods = value.methods.to_ir()?;
         let shared = value.shared.to_ir()?;
-        let state = value.state.to_ir()?;
+
+        let model_predicates = value
+            .model_predicates
+            .iter()
+            .map(|s| parse_model_predicate(s))
+            .collect();
+        let model_fields = value
+            .model_fields
+            .iter()
+            .map(|s| parse_model_field(s))
+            .collect();
+
+        let model = Model {
+            predicates: model_predicates,
+            fields: model_fields,
+        };
+
         let extern_predicates = value
             .extern_predicates
             .iter()
@@ -115,9 +124,16 @@ impl TryFrom<pancake::Program> for ir::Program {
             viper_functions,
             methods,
             shared,
-            state,
             extern_predicates,
             extern_fields,
+            model,
         })
     }
+}
+
+fn parse_collection<F, T>(f: F, input: &[&str]) -> Vec<T>
+where
+    F: Fn(&str) -> T,
+{
+    input.iter().map(|s| f(s)).collect()
 }

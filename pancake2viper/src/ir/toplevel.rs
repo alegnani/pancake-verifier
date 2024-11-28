@@ -63,13 +63,19 @@ pub struct Shared {
 }
 
 #[derive(Debug, Clone)]
+pub struct Model {
+    pub fields: Vec<String>,
+    pub predicates: Vec<Expr>,
+}
+
+#[derive(Debug, Clone)]
 pub struct Program {
     pub functions: Vec<FnDec>,
     pub predicates: Vec<Predicate>,
     pub viper_functions: Vec<Function>,
     pub methods: Vec<AbstractMethod>,
     pub shared: Vec<Shared>,
-    pub state: Vec<Expr>,
+    pub model: Model,
     pub extern_predicates: Vec<String>,
     pub extern_fields: HashMap<String, Type>,
 }

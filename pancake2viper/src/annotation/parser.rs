@@ -110,10 +110,24 @@ pub fn parse_predicate(pred: &str) -> Predicate {
     }
 }
 
-pub fn parse_state(s: &str) -> Expr {
-    match AnnotParser::parse(Rule::state, s) {
+pub fn parse_model_predicate(s: &str) -> Expr {
+    match AnnotParser::parse(Rule::model_predicate, s) {
         Ok(mut pairs) => parse_expr(pairs.next().unwrap().into_inner()),
-        Err(e) => panic!("Failed to parse state, got {:?}", e),
+        Err(e) => panic!("Failed to parse model predicate, got {:?}", e),
+    }
+}
+
+pub fn parse_model_field(s: &str) -> String {
+    match AnnotParser::parse(Rule::model_field, s) {
+        Ok(mut pairs) => pairs
+            .next()
+            .unwrap()
+            .into_inner()
+            .next()
+            .unwrap()
+            .as_str()
+            .to_owned(),
+        Err(e) => panic!("Failed to parse model field, got {:?}", e),
     }
 }
 

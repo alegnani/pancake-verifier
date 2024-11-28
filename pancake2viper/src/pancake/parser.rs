@@ -460,10 +460,10 @@ impl Program {
             .into_iter()
             .map(Shared::new)
             .collect();
-        let state = Self::get_toplevel_annotations(&s, "state")
-            .into_iter()
-            .map(State::new)
-            .collect();
+
+        let model_predicates = Self::get_toplevel_annotations(&s, "model predicate");
+        let model_fields = Self::get_toplevel_annotations(&s, "model field");
+
         let extern_predicates = Self::get_toplevel_annotations(&s, "extern predicate");
         let extern_fields = Self::get_toplevel_annotations(&s, "extern field");
 
@@ -482,7 +482,8 @@ impl Program {
             viper_functions,
             methods,
             shared,
-            state,
+            model_predicates,
+            model_fields,
             extern_predicates,
             extern_fields,
         })

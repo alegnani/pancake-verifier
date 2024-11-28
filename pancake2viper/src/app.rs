@@ -125,7 +125,7 @@ impl App {
         output_path: String,
     ) -> Result<()> {
         self.println("Generating model boilerplate");
-        let state = program.state.clone();
+        let model = program.model.clone();
         let shared = Rc::new(SharedContext::new(&encode_opts, &program.shared));
         let method_ctx = Rc::new(MethodContext::new(&program.functions));
 
@@ -136,9 +136,9 @@ impl App {
             encode_opts,
             shared.clone(),
             method_ctx,
-            state.clone(),
+            model.clone(),
         );
-        let gen_methods = shared.gen_boilerplate(&mut ctx, state)?;
+        let gen_methods = shared.gen_boilerplate(&mut ctx, &model)?;
         let program = viper_handle.ast.program(&[], &[], &[], &[], &gen_methods);
         let boilerplate = viper_handle.utils.pretty_print(program);
 

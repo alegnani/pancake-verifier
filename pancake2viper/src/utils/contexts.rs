@@ -6,7 +6,7 @@ use std::{
 use viper::{AstFactory, Declaration, LocalVarDecl};
 
 use crate::{
-    ir::{self, shared::SharedContext, types::Type, AnnotationType, FnDec},
+    ir::{self, shared::SharedContext, types::Type, AnnotationType, FnDec, Model},
     viper_prelude::{utils::Utils, IArrayHelper},
 };
 
@@ -144,7 +144,7 @@ pub struct ViperEncodeCtx<'a> {
     pub mangler: Mangler,
     pub shared: Rc<SharedContext>,
     pub method: Rc<MethodContext>,
-    pub state: Vec<ir::Expr>,
+    pub model: Model,
 }
 
 #[derive(Clone, Copy)]
@@ -188,7 +188,7 @@ impl<'a> ViperEncodeCtx<'a> {
         options: EncodeOptions,
         shared: Rc<SharedContext>,
         annot: Rc<MethodContext>,
-        state: Vec<ir::Expr>,
+        model: Model,
     ) -> Self {
         let iarray = IArrayHelper::new(ast);
         Self {
@@ -208,7 +208,7 @@ impl<'a> ViperEncodeCtx<'a> {
             mangler: Mangler::default(),
             shared,
             method: annot,
-            state,
+            model,
         }
     }
 
@@ -230,7 +230,7 @@ impl<'a> ViperEncodeCtx<'a> {
             mangler: self.mangler.clone(),
             shared: self.shared.clone(),
             method: self.method.clone(),
-            state: self.state.clone(),
+            model: self.model.clone(),
         }
     }
 

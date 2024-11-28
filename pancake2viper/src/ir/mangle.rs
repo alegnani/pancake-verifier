@@ -197,6 +197,12 @@ impl Mangleable for ir::AbstractMethod {
     }
 }
 
+impl Mangleable for ir::Model {
+    fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
+        self.predicates.mangle(mangler)
+    }
+}
+
 impl Mangleable for ir::Program {
     fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
         self.viper_functions.mangle(mangler)?;
@@ -205,6 +211,6 @@ impl Mangleable for ir::Program {
         self.functions
             .iter_mut()
             .try_for_each(|e| e.mangle(&mut mangler.clone()))?;
-        self.state.mangle(mangler)
+        self.model.mangle(mangler)
     }
 }

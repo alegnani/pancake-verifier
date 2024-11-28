@@ -1,5 +1,5 @@
-/@ state valid_state() @/
-/@ state foo() @/
+/@ model predicate valid_state() @/
+/@ model predicate foo() @/
 
 /@ predicate foo() @/
 
