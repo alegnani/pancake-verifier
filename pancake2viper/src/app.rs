@@ -95,8 +95,7 @@ impl App {
         file.write_all(transpiled.as_bytes())
             .map_err(|e| anyhow!(format!("Error: Could not write to temporary file:\n{}", e)))?;
         let path = Path::new(&self.options.viper_path).join("viperserver.jar");
-        let include = format!("--includeMethods=\"{}\"", include_list.join("|"));
-        println!("Only verifying: {:?}", include);
+        let include = format!("--includeMethods={}", include_list.join("|"));
 
         let verify = Command::new("java")
             .args([
