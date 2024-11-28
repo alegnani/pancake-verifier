@@ -195,12 +195,15 @@ impl<'a> TryToViper<'a> for ir::SharedStoreBits {
             ast.comment("skipping alignment assertion")
         };
         let value = self.value.to_viper(ctx)?;
+        let mut args = ctx.get_default_args().1;
+        args.push(addr_expr);
+        args.push(value);
         match self.address {
             ir::Expr::Const(addr) => {
                 let store_stmt = ast.method_call(
                     &ctx.shared
                         .get_method_name(addr, ctx.options, Store, self.size),
-                    &[ctx.heap_var().1, ctx.state_var().1, addr_expr, value],
+                    &args,
                     &[],
                 );
                 Ok(ast.seqn(&[assertion, store_stmt], &[]))
@@ -244,10 +247,12 @@ impl<'a> TryToViper<'a> for ir::SharedLoadBits {
         let dst = self.dst.to_viper(ctx)?;
         match &self.address {
             ir::Expr::Const(addr) => {
+                let mut args = ctx.get_default_args().1;
+                args.push(addr_expr);
                 let store_stmt = ast.method_call(
                     &ctx.shared
                         .get_method_name(*addr, ctx.options, Load, self.size),
-                    &[ctx.heap_var().1, ctx.state_var().1, addr_expr],
+                    &args,
                     &[dst],
                 );
                 Ok(ast.seqn(&[assertion, store_stmt], &[]))

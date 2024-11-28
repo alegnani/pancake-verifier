@@ -2,7 +2,7 @@
     acc(heap[@base]) && heap[@base] == 42
 } @/
 
-/@ state test() @/
+/@ model predicate test() @/
 
 fun main() {
     var 1 x = foo();

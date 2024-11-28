@@ -1,6 +1,7 @@
 /@ extern predicate seq_pred @/
 /@ extern field device4 : Seq[Bool] @/
 /@ model predicate valid_state() @/
+/@ model field state @/
 
 fun main() {
 	/@ assert unfolding valid_state() in unfolding seq_pred() in (state.device4[0] == state.device4[1]) @/

@@ -36,7 +36,7 @@ impl<'a> TryToViper<'a> for FnDec {
         // - bound if returning word
         posts.extend(self.postcondition(ctx));
 
-        let mut args_local_decls = self.args.to_viper(ctx);
+        let args_local_decls = self.args.to_viper(ctx);
 
         let body = self.body.to_viper(ctx)?;
         let body = ast.seqn(
@@ -62,12 +62,12 @@ impl<'a> TryToViper<'a> for FnDec {
         posts.extend(self.posts.to_viper(ctx)?);
         ctx.set_mode(TranslationMode::Normal);
 
-        args_local_decls.insert(0, ctx.state_var().0);
-        args_local_decls.insert(0, ctx.heap_var().0);
+        let mut base_args_local_decls = ctx.get_default_args().0;
+        base_args_local_decls.extend(args_local_decls);
 
         Ok(ast.method(
             &self.fname,
-            &args_local_decls,
+            &base_args_local_decls,
             &[ast.local_var_decl(&self.retvar, ctx.get_type(&self.retvar)?.to_viper_type(ctx))],
             &pres,
             &posts,
@@ -80,11 +80,11 @@ impl<'a> TryToViper<'a> for Predicate {
     type Output = viper::Predicate<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let mut args = self.args.to_viper(ctx);
         let body = self.body.map(|e| e.to_viper(ctx)).transpose()?;
-        args.insert(0, ctx.state_var().0);
-        args.insert(0, ctx.heap_var().0);
-        Ok(ast.predicate(&self.name, &args, body))
+        let args = self.args.to_viper(ctx);
+        let mut base_args = ctx.get_default_args().0;
+        base_args.extend(args);
+        Ok(ast.predicate(&self.name, &base_args, body))
     }
 }
 
@@ -92,7 +92,6 @@ impl<'a> TryToViper<'a> for Function {
     type Output = viper::Function<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let mut args = self.args.to_viper(ctx);
 
         // set the type of `result` so it can be used in post-conditions
         ctx.typectx_get_mut()
@@ -102,11 +101,13 @@ impl<'a> TryToViper<'a> for Function {
         let posts = self.posts.to_viper(ctx)?;
         let body = self.body.map(|b| b.to_viper(ctx)).transpose()?;
 
-        args.insert(0, ctx.state_var().0);
-        args.insert(0, ctx.heap_var().0);
+        let args = self.args.to_viper(ctx);
+        let mut base_args = ctx.get_default_args().0;
+        base_args.extend(args);
+
         Ok(ast.function(
             &self.name,
-            &args,
+            &base_args,
             self.typ.to_viper_type(ctx),
             &pres,
             &posts,
@@ -120,15 +121,16 @@ impl<'a> TryToViper<'a> for AbstractMethod {
     type Output = viper::Method<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let mut args = self.args.to_viper(ctx);
+        let args = self.args.to_viper(ctx);
         let rettyps = self.rettyps.to_viper(ctx);
 
         let pres = self.pres.to_viper(ctx)?;
         let posts = self.posts.to_viper(ctx)?;
 
-        args.insert(0, ctx.state_var().0);
-        args.insert(0, ctx.heap_var().0);
-        Ok(ast.method(&self.name, &args, &rettyps, &pres, &posts, None))
+        let mut base_args = ctx.get_default_args().0;
+        base_args.extend(args);
+
+        Ok(ast.method(&self.name, &base_args, &rettyps, &pres, &posts, None))
     }
 }
 
@@ -232,7 +234,7 @@ impl<'a> ProgramToViper<'a> for Program {
                 f.to_viper(&mut ctx)
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let (domains, fields, mut methods, fs) = create_viper_prelude(ast, options);
+        let (domains, fields, mut methods, fs) = create_viper_prelude(ast, self.model, options);
         methods.extend(abstract_methods.iter());
         methods.extend(program_methods.iter());
         functions.extend(fs.iter());

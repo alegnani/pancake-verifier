@@ -40,11 +40,11 @@ method load_base64(heap: IArray, state: Ref, address: Int) returns (retval: Int)
     requires address == 0
     ensures 0 <= retval < 4294967296 * 4294967296
 
-method store_align(heap: IArray, state: Ref, address: Int, value: Int)
+method store_align(heap: IArray, address: Int, value: Int)
     requires address == 4
     requires 0 <= value < 4294967296
 
-method load_align(heap: IArray, state: Ref, address: Int) returns (retval: Int)
+method load_align(heap: IArray, address: Int) returns (retval: Int)
     requires address == 4
     ensures 0 <= retval < 4294967296
 

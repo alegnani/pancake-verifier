@@ -10,7 +10,7 @@ use crate::{
     viper_prelude::{utils::Utils, IArrayHelper},
 };
 
-use super::{mangler::Mangler, TranslationError, RESERVED};
+use super::{mangler::Mangler, TranslationError, ViperUtils, RESERVED};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub enum TranslationMode {
@@ -200,7 +200,7 @@ impl<'a> ViperEncodeCtx<'a> {
             types,
             while_counter: 0,
             iarray,
-            utils: Utils::new(ast, iarray.get_type()),
+            utils: Utils::new(ast, iarray.get_type(), model.clone()),
             options,
             consume_stack: true,
             invariants: vec![],
@@ -222,7 +222,7 @@ impl<'a> ViperEncodeCtx<'a> {
             types: self.types.child(),
             while_counter: self.while_counter,
             iarray: self.iarray,
-            utils: self.utils,
+            utils: self.utils.clone(),
             options: self.options,
             consume_stack: self.consume_stack,
             invariants: vec![],
@@ -281,10 +281,6 @@ impl<'a> ViperEncodeCtx<'a> {
         self.utils.heap()
     }
 
-    pub fn state_var(&self) -> (viper::LocalVarDecl, viper::Expr) {
-        self.utils.state()
-    }
-
     pub fn set_mode(&mut self, mode: TranslationMode) {
         self.mode = mode;
     }
@@ -327,5 +323,9 @@ impl<'a> ViperEncodeCtx<'a> {
             ast.int_lit(4),
             ast.int_lit(2i64.pow(self.options.word_size as u32 - 2)),
         )
+    }
+
+    pub fn get_default_args(&self) -> (Vec<viper::LocalVarDecl>, Vec<viper::Expr>) {
+        self.model.get_default_args(self.ast, self.heap_var())
     }
 }

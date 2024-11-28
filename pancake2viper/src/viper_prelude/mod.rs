@@ -10,17 +10,18 @@ use shared_mem::create_shared_mem_methods;
 use utils::{bound_bits_function, bound_function, Utils};
 use viper::{AstFactory, Domain, Field, Function, Method};
 
-use crate::utils::EncodeOptions;
+use crate::{ir::Model, utils::EncodeOptions};
 
 pub fn create_viper_prelude(
     ast: AstFactory,
+    model: Model,
     options: EncodeOptions,
 ) -> (Vec<Domain>, Vec<Field>, Vec<Method>, Vec<Function>) {
     if !options.include_prelude {
         return (vec![], vec![], vec![], vec![]);
     }
     let iarray = IArrayHelper::new(ast);
-    let utils = Utils::new(ast, iarray.get_type());
+    let utils = Utils::new(ast, iarray.get_type(), model);
     let domains = vec![iarray.domain, create_bv_domain(ast)];
     let fields = vec![iarray.field()];
     let mut methods = iarray.slice_defs();

@@ -64,9 +64,11 @@ impl SharedInternal {
             let mut posts = pres.clone();
             pres.push(self.get_precondition(ctx, addr.1));
             posts.push(ctx.utils.bounded_f(retval.1, self.size.bits() as u64));
+            let mut args = ctx.get_default_args().0;
+            args.push(addr.0);
             methods.push(ast.method(
                 &format!("load_{}", self.name),
-                &[ctx.heap_var().0, ctx.state_var().0, addr.0],
+                &args,
                 &[retval.0],
                 &pres,
                 &posts,
@@ -78,9 +80,12 @@ impl SharedInternal {
             let posts = pres.clone();
             pres.push(self.get_precondition(ctx, addr.1));
             pres.push(ctx.utils.bounded_f(value.1, self.size.bits() as u64));
+            let mut args = ctx.get_default_args().0;
+            args.push(addr.0);
+            args.push(value.0);
             methods.push(ast.method(
                 &format!("store_{}", self.name),
-                &[ctx.heap_var().0, ctx.state_var().0, addr.0, value.0],
+                &args,
                 &[],
                 &pres,
                 &posts,
@@ -201,11 +206,17 @@ impl SharedContext {
         op2: viper::Expr<'a>,
     ) -> viper::Stmt<'a> {
         let ast = ctx.ast;
-        let heap = ctx.heap_var().1;
-        let state = ctx.state_var().1;
-        let (args, rets) = match optyp {
-            SharedOpType::Store => (vec![heap, state, addr, op2], vec![]),
-            SharedOpType::Load => (vec![heap, state, addr], vec![op2]),
+        let mut args = ctx.get_default_args().1;
+        let rets = match optyp {
+            SharedOpType::Store => {
+                args.push(addr);
+                args.push(op2);
+                vec![]
+            }
+            SharedOpType::Load => {
+                args.push(addr);
+                vec![op2]
+            }
         };
         let init = if ctx.options.allow_undefined_shared {
             ast.method_call(&format!("shared_{}{}", optyp, bits.bits()), &args, &rets)

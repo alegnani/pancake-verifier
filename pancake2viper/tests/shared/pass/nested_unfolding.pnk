@@ -1,6 +1,7 @@
 /@ extern predicate other_pred @/
 /@ extern field device2 : Int @/
 /@ extern field device3 : IArray @/
+/@ model field state @/
 /@ model predicate valid_state() @/
 
 fun main() {
