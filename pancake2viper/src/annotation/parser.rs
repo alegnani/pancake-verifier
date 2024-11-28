@@ -401,6 +401,7 @@ impl FromPestPair for Type {
             Rule::bool_t => Self::Bool,
             Rule::int_t => Self::Int,
             Rule::iarray_t => Self::Array,
+            Rule::ref_t => Self::Ref,
             Rule::map_t => {
                 let mut inner = pair.into_inner();
                 let k = Box::new(Type::from_pest(inner.next().unwrap()));

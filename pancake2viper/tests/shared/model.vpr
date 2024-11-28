@@ -14,6 +14,7 @@ field device: Int
 field device2: Int
 field device3: IArray
 field device4: Seq[Bool]
+field device5: Ref
 
 method store_base8(heap: IArray, state: Ref, address: Int, value: Int)
     requires address == 0

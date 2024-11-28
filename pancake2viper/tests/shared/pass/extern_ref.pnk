@@ -1,0 +1,11 @@
+/@ extern field device5: Ref @/
+/@ extern field device4: Seq[Bool] @/
+
+/@ predicate test() {
+	acc(state.device5) && acc(state.device5.device4)
+}
+@/
+
+fun main() {
+	return 0;
+}
