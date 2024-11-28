@@ -103,14 +103,16 @@ impl Mangler {
         if RESERVED.contains_key(var) {
             return Ok(var);
         }
+        if self.ref_set.contains(var) {
+            return Ok(var);
+        }
         let maybe_arg = self.arg_map.get(var);
         let maybe_annot = self.annot_map.get(var);
         let maybe_var = self.var_map.get(var);
-        let maybe_ref = self.ref_set.get(var);
         match self.mode {
             TranslationMode::Normal | TranslationMode::WhileCond => maybe_var.or(maybe_arg),
-            TranslationMode::Assertion => maybe_annot.or(maybe_var).or(maybe_ref),
-            TranslationMode::PrePost => maybe_annot.or(maybe_arg).or(maybe_ref),
+            TranslationMode::Assertion => maybe_annot.or(maybe_var),
+            TranslationMode::PrePost => maybe_annot.or(maybe_arg),
         }
         .map(String::as_str)
         .ok_or(MangleError::UndeclaredVar(var.to_owned()))
