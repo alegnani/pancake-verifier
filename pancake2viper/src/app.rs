@@ -67,11 +67,11 @@ impl App {
         verifier: &mut ViperHandle,
         program: Program<'_>,
         transpiled: String,
-        exclude_list: &[String],
+        include_list: &[String],
         use_viper_cli: bool,
     ) -> Result<()> {
         if use_viper_cli {
-            self.verify_code_model(transpiled, exclude_list)
+            self.verify_code_model(transpiled, include_list)
         } else {
             self.verify_code_no_model(verifier, program)
         }
@@ -87,7 +87,7 @@ impl App {
         Ok(())
     }
 
-    fn verify_code_model(&self, transpiled: String, exclude_list: &[String]) -> Result<()> {
+    fn verify_code_model(&self, transpiled: String, include_list: &[String]) -> Result<()> {
         // When using a model we just add the model to the transpiled program and pass
         // it to Viper via CLI
         let mut file = File::create("tmp.vpr")
@@ -95,6 +95,8 @@ impl App {
         file.write_all(transpiled.as_bytes())
             .map_err(|e| anyhow!(format!("Error: Could not write to temporary file:\n{}", e)))?;
         let path = Path::new(&self.options.viper_path).join("viperserver.jar");
+        let include = format!("--includeMethods=\"{}\"", include_list.join("|"));
+        println!("Only verifying: {:?}", include);
 
         let verify = Command::new("java")
             .args([
@@ -104,6 +106,7 @@ impl App {
                 "viper.silicon.SiliconRunner",
                 "--logLevel=OFF",
                 "--exhaleMode=1",
+                &include,
                 "tmp.vpr",
             ])
             .spawn()?
@@ -148,9 +151,31 @@ impl App {
         Ok(())
     }
 
+    fn add_includes_model(&self, mut transpiled: String) -> Result<String> {
+        let mut includes = self
+            .options
+            .include
+            .iter()
+            .map(std::fs::read_to_string)
+            .collect::<Result<Vec<_>, _>>()?
+            .join("\n\n");
+        includes.push_str("\n\n");
+        includes.push_str(&transpiled);
+        transpiled = includes;
+
+        // Add the model, if present
+        if let Some(mut model) = self.options.model.clone() {
+            model.push_str("\n\n");
+            model.push_str(&transpiled);
+            transpiled = model;
+        }
+        Ok(transpiled)
+    }
+
     pub fn run(&self, viper: &'static viper::Viper) -> Result<()> {
         let use_viper_cli = self.options.model.is_some() || !self.options.include.is_empty();
         let mut viper_handle = ViperHandle::from_handle(viper, self.options.z3_exe.clone());
+
         let mut program: ir::Program = run_step!(self, "Parsing S-expr from cake", {
             pancake::Program::parse_str(self.options.cmd.get_input(), &self.options.cake_path)
         })?
@@ -186,26 +211,9 @@ impl App {
         let vpr_program = program
             .clone()
             .to_viper(ctx.clone(), viper_handle.ast, encode_opts)?;
-        let mut transpiled = viper_handle.utils.pretty_print(vpr_program);
+        let transpiled = viper_handle.utils.pretty_print(vpr_program);
 
-        // Add includes
-        let mut includes = self
-            .options
-            .include
-            .iter()
-            .map(std::fs::read_to_string)
-            .collect::<Result<Vec<_>, _>>()?
-            .join("\n\n");
-        includes.push_str("\n\n");
-        includes.push_str(&transpiled);
-        transpiled = includes;
-
-        // Add the model, if present
-        if let Some(mut model) = self.options.model.clone() {
-            model.push_str("\n\n");
-            model.push_str(&transpiled);
-            transpiled = model;
-        }
+        let transpiled = self.add_includes_model(transpiled)?;
 
         // Save the transpiled Viper code in a file
         if let Some(path) = &self.options.cmd.get_output_path() {
@@ -220,40 +228,35 @@ impl App {
             if self.options.incremental {
                 let start = Instant::now();
                 // check shared methods
-                // TODO:
+                let mut only_shared_program = program.clone();
+                only_shared_program.trust_except(&[]);
+                let only_shared =
+                    only_shared_program.to_viper(ctx.clone(), viper_handle.ast, encode_opts)?;
+                let new_transpiled =
+                    self.add_includes_model(viper_handle.utils.pretty_print(only_shared))?;
+                self.verify(
+                    &mut viper_handle,
+                    only_shared,
+                    new_transpiled,
+                    &["*".into()],
+                    use_viper_cli,
+                )?;
 
                 // check transpiled Pancake functions
                 for only in program.get_method_names().0 {
                     println!("\n========== Verifying function '{}' ==========\n", only);
                     let mut only_program = program.clone();
-                    only_program.trust_except(&[only]);
+                    only_program.trust_except(&[only.clone()]);
                     let only_vpr =
                         only_program.to_viper(ctx.clone(), viper_handle.ast, encode_opts)?;
-                    let mut new_transpiled = viper_handle.utils.pretty_print(only_vpr);
-
-                    // Add includes
-                    let mut includes = self
-                        .options
-                        .include
-                        .iter()
-                        .map(std::fs::read_to_string)
-                        .collect::<Result<Vec<_>, _>>()?
-                        .join("\n\n");
-                    includes.push_str("\n\n");
-                    includes.push_str(&new_transpiled);
-                    new_transpiled = includes;
-
-                    if let Some(mut model) = self.options.model.clone() {
-                        model.push_str("\n\n");
-                        model.push_str(&new_transpiled);
-                        new_transpiled = model;
-                    }
+                    let new_transpiled =
+                        self.add_includes_model(viper_handle.utils.pretty_print(only_vpr))?;
 
                     self.verify(
                         &mut viper_handle,
                         only_vpr,
                         new_transpiled,
-                        &[],
+                        &[only],
                         use_viper_cli,
                     )?;
                 }
@@ -266,7 +269,7 @@ impl App {
                     &mut viper_handle,
                     vpr_program,
                     transpiled,
-                    &[],
+                    &["f_*".into()],
                     use_viper_cli,
                 )?;
             }
