@@ -12,6 +12,7 @@ use crate::{
     utils::{ConstEval, Mangleable, Mangler, ProgramToViper, ViperHandle},
 };
 use anyhow::{anyhow, Result};
+use regex::Regex;
 use viper::Program;
 
 macro_rules! run_step {
@@ -67,11 +68,11 @@ impl App {
         verifier: &mut ViperHandle,
         program: Program<'_>,
         transpiled: String,
-        include_list: &[String],
+        include: &str,
         use_viper_cli: bool,
     ) -> Result<()> {
         if use_viper_cli {
-            self.verify_code_model(transpiled, include_list)
+            self.verify_code_model(transpiled, include)
         } else {
             self.verify_code_no_model(verifier, program)
         }
@@ -87,7 +88,7 @@ impl App {
         Ok(())
     }
 
-    fn verify_code_model(&self, transpiled: String, include_list: &[String]) -> Result<()> {
+    fn verify_code_model(&self, transpiled: String, include: &str) -> Result<()> {
         // When using a model we just add the model to the transpiled program and pass
         // it to Viper via CLI
         let mut file = File::create("tmp.vpr")
@@ -95,7 +96,7 @@ impl App {
         file.write_all(transpiled.as_bytes())
             .map_err(|e| anyhow!(format!("Error: Could not write to temporary file:\n{}", e)))?;
         let path = Path::new(&self.options.viper_path).join("viperserver.jar");
-        let include = format!("--includeMethods={}", include_list.join("|"));
+        let include = format!("--includeMethods={}", include);
 
         let verify = Command::new("java")
             .args([
@@ -150,7 +151,7 @@ impl App {
         Ok(())
     }
 
-    fn add_includes_model(&self, mut transpiled: String) -> Result<String> {
+    fn add_includes_model(&self, mut transpiled: String, allow_refute: bool) -> Result<String> {
         let mut includes = self
             .options
             .include
@@ -158,6 +159,14 @@ impl App {
             .map(std::fs::read_to_string)
             .collect::<Result<Vec<_>, _>>()?
             .join("\n\n");
+        if !allow_refute {
+            let re = Regex::new(r"(?s)^.*\brefute\b.*\bfalse\b.*$").unwrap();
+            includes = includes
+                .lines()
+                .filter(|line| !re.is_match(line))
+                .collect::<Vec<_>>()
+                .join("\n");
+        }
         includes.push_str("\n\n");
         includes.push_str(&transpiled);
         transpiled = includes;
@@ -212,7 +221,7 @@ impl App {
             .to_viper(ctx.clone(), viper_handle.ast, encode_opts)?;
         let transpiled = viper_handle.utils.pretty_print(vpr_program);
 
-        let transpiled = self.add_includes_model(transpiled)?;
+        let transpiled = self.add_includes_model(transpiled, true)?;
 
         // Save the transpiled Viper code in a file
         if let Some(path) = &self.options.cmd.get_output_path() {
@@ -232,12 +241,12 @@ impl App {
                 let only_shared =
                     only_shared_program.to_viper(ctx.clone(), viper_handle.ast, encode_opts)?;
                 let new_transpiled =
-                    self.add_includes_model(viper_handle.utils.pretty_print(only_shared))?;
+                    self.add_includes_model(viper_handle.utils.pretty_print(only_shared), true)?;
                 self.verify(
                     &mut viper_handle,
                     only_shared,
                     new_transpiled,
-                    &["*".into()],
+                    "*",
                     use_viper_cli,
                 )?;
 
@@ -249,13 +258,13 @@ impl App {
                     let only_vpr =
                         only_program.to_viper(ctx.clone(), viper_handle.ast, encode_opts)?;
                     let new_transpiled =
-                        self.add_includes_model(viper_handle.utils.pretty_print(only_vpr))?;
+                        self.add_includes_model(viper_handle.utils.pretty_print(only_vpr), false)?;
 
                     self.verify(
                         &mut viper_handle,
                         only_vpr,
                         new_transpiled,
-                        &[only],
+                        &only,
                         use_viper_cli,
                     )?;
                 }
@@ -268,7 +277,7 @@ impl App {
                     &mut viper_handle,
                     vpr_program,
                     transpiled,
-                    &["f_*".into()],
+                    "*",
                     use_viper_cli,
                 )?;
             }
