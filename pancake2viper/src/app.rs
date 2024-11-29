@@ -183,6 +183,7 @@ impl App {
 
     pub fn run(&self, viper: &'static viper::Viper) -> Result<()> {
         let use_viper_cli = self.options.model.is_some() || !self.options.include.is_empty();
+        let use_viper_cli = true;
         let mut viper_handle = ViperHandle::from_handle(viper, self.options.z3_exe.clone());
 
         let mut program: ir::Program = run_step!(self, "Parsing S-expr from cake", {
