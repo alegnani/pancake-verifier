@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::Path;
 use std::process::Command;
 use std::rc::Rc;
@@ -212,7 +213,8 @@ impl App {
         }
 
         if let Some(only) = &self.options.only {
-            program.trust_except(only);
+            let only = only.iter().map(|s| format!("f_{}", s)).collect::<Vec<_>>();
+            program.trust_except(&only);
         }
 
         self.println("Transpiling to Viper...");
@@ -236,22 +238,39 @@ impl App {
             if self.options.incremental {
                 let start = Instant::now();
                 // check shared methods
-                let mut only_shared_program = program.clone();
-                only_shared_program.trust_except(&[]);
-                let only_shared =
-                    only_shared_program.to_viper(ctx.clone(), viper_handle.ast, encode_opts)?;
-                let new_transpiled =
-                    self.add_includes_model(viper_handle.utils.pretty_print(only_shared), true)?;
-                self.verify(
-                    &mut viper_handle,
-                    only_shared,
-                    new_transpiled,
-                    "*",
-                    use_viper_cli,
-                )?;
+                if use_viper_cli {
+                    let mut only_shared_program = program.clone();
+                    only_shared_program.trust_except(&[]);
+                    let only_shared =
+                        only_shared_program.to_viper(ctx.clone(), viper_handle.ast, encode_opts)?;
+                    let new_transpiled = self
+                        .add_includes_model(viper_handle.utils.pretty_print(only_shared), true)?;
+                    self.verify(
+                        &mut viper_handle,
+                        only_shared,
+                        new_transpiled,
+                        "*",
+                        use_viper_cli,
+                    )?;
+                }
 
                 // check transpiled Pancake functions
+                let trusted = program
+                    .functions
+                    .iter()
+                    .filter_map(|f| {
+                        if f.trusted {
+                            Some(f.fname.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<HashSet<_>>();
                 for only in program.get_method_names().0 {
+                    // skip trusted functions
+                    if trusted.contains(&only) {
+                        continue;
+                    }
                     println!("\n========== Verifying function '{}' ==========\n", only);
                     let mut only_program = program.clone();
                     only_program.trust_except(&[only.clone()]);

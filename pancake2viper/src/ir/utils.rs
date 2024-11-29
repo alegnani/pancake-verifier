@@ -295,12 +295,9 @@ impl Program {
     }
 
     pub fn trust_except(&mut self, include_list: &[String]) {
-        let (fnames, shared) = self.get_method_names();
+        let fnames = self.get_method_names().0;
         let fnames_set = fnames.into_iter().collect::<HashSet<_>>();
-        let include_set = include_list
-            .iter()
-            .map(|s| format!("f_{}", s))
-            .collect::<HashSet<_>>();
+        let include_set = include_list.iter().cloned().collect::<HashSet<_>>();
         let exclude_list = fnames_set
             .difference(&include_set)
             .cloned()

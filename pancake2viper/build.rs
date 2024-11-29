@@ -35,7 +35,7 @@ fn main() {
         r#"
                 #[test]
                 fn tp_{}() {{
-                    verify_file("{}").unwrap();
+                    verify_file("{}", false).unwrap();
                 }}
                 "#
     );
@@ -46,7 +46,7 @@ fn main() {
                 #[test]
                 #[should_panic]
                 fn tf_{}() {{
-                    verify_file("{}").unwrap();
+                    verify_file("{}", false).unwrap();
                 }}
                 "#
     );
@@ -56,7 +56,7 @@ fn main() {
         r#"
                 #[test]
                 fn mp_{}() {{
-                    verify_file_model("{}").unwrap();
+                    verify_file_model("{}", false,).unwrap();
                 }}
                 "#
     );
@@ -67,7 +67,49 @@ fn main() {
                 #[test]
                 #[should_panic]
                 fn mf_{}() {{
-                    verify_file_model("{}").unwrap();
+                    verify_file_model("{}", false).unwrap();
+                }}
+                "#
+    );
+    gen_tests!(
+        test_file,
+        "./tests/pass",
+        r#"
+                #[test]
+                fn tp_{}_incremental() {{
+                    verify_file("{}", true).unwrap();
+                }}
+                "#
+    );
+    gen_tests!(
+        test_file,
+        "./tests/fail",
+        r#"
+                #[test]
+                #[should_panic]
+                fn tf_{}_incremental() {{
+                    verify_file("{}", true).unwrap();
+                }}
+                "#
+    );
+    gen_tests!(
+        test_file,
+        "./tests/shared/pass",
+        r#"
+                #[test]
+                fn mp_{}_incremental() {{
+                    verify_file_model("{}", true).unwrap();
+                }}
+                "#
+    );
+    gen_tests!(
+        test_file,
+        "./tests/shared/fail",
+        r#"
+                #[test]
+                #[should_panic]
+                fn mf_{}_incremental() {{
+                    verify_file_model("{}", true).unwrap();
                 }}
                 "#
     );
