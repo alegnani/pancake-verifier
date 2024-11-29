@@ -1,20 +1,16 @@
 fun nested() {
-    /@ ensures retval == 25 @/
+    /@ ensures retval == 55 @/
     var x = 0;
     var accu = 0;
     while (x < 100) {
-        /@ invariant 0 <= x && x <= 51 @/
-        /@ invariant accu == x / 2 @/
         if (x & 1 == 0) {
-			x = x + 1;
             continue;
         }
 
-        if (x == 51) {
+        if (x == 50) {
             break;
         }
         accu = accu + 1;
-		x = x + 1;
     }
     return accu;
 }
