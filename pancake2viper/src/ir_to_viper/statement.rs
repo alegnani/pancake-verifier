@@ -194,13 +194,7 @@ impl<'a> TryToViper<'a> for ir::Annotation {
                         Fold => ast.fold(e),
                         _ => unreachable!(),
                     };
-                    let args = access.args.to_viper(ctx)?;
-                    let mut base_args = ctx.get_default_args().1;
-                    base_args.extend(args);
-                    Ok(ast_node(ast.predicate_access_predicate(
-                        ast.predicate_access(&base_args, &access.fname),
-                        ast.full_perm(),
-                    )))
+                    Ok(ast_node(access.to_viper(ctx)?))
                 }
                 _ => Err(ToViperError::InvalidFold(self.expr)),
             },

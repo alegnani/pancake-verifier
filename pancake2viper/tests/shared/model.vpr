@@ -10,6 +10,14 @@ predicate seq_pred(heap: IArray, state: Ref) {
     acc(state.device4) && |state.device4| == 2 && state.device4[0] == false && state.device4[1] == false
 }
 
+predicate valid_device(heap: IArray, device_v: Ref) {
+    true
+}
+
+predicate some_pred(heap: IArray, device_v: Ref) {
+    true
+}
+
 field device: Int
 field device2: Int
 field device3: IArray
