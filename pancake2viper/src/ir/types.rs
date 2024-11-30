@@ -253,6 +253,10 @@ impl ir::Program {
     pub fn resolve_types(&self) -> Result<TypeContext, TranslationError> {
         let mut ctx = TypeContext::new(Rc::new(self.extern_fields.clone()));
         let mut prev_size = ctx.size();
+
+        for ffi in &self.extern_methods {
+            ctx.set_type(ffi.clone(), Type::Int);
+        }
         for field in &self.model.fields {
             ctx.set_type(field.to_string(), Type::Ref);
         }

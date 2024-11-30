@@ -152,6 +152,20 @@ pub fn parse_extern_field(s: &str) -> Decl {
     }
 }
 
+pub fn parse_extern_ffi(s: &str) -> String {
+    match AnnotParser::parse(Rule::ffi_method, s) {
+        Ok(mut pairs) => pairs
+            .next()
+            .unwrap()
+            .into_inner()
+            .next()
+            .unwrap()
+            .as_str()
+            .to_owned(),
+        Err(e) => panic!("Failed to parse extern ffi, got {:?}", e),
+    }
+}
+
 fn partition_annotation_types(
     annotations: Vec<Annotation>,
 ) -> (Vec<Annotation>, Vec<Annotation>, Vec<Annotation>) {

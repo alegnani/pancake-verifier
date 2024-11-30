@@ -140,6 +140,7 @@ impl App {
             shared.clone(),
             method_ctx,
             model.clone(),
+            program.extern_methods.clone(),
         );
         let gen_methods = shared.gen_boilerplate(&mut ctx, &model)?;
         let program = viper_handle.ast.program(&[], &[], &[], &[], &gen_methods);

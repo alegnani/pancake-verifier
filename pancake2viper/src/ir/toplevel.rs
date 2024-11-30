@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::{Decl, Expr, Stmt, Type};
 
@@ -78,4 +78,5 @@ pub struct Program {
     pub model: Model,
     pub extern_predicates: Vec<String>,
     pub extern_fields: HashMap<String, Type>,
+    pub extern_methods: HashSet<String>,
 }

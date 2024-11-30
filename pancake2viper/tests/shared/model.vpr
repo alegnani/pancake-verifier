@@ -18,6 +18,8 @@ predicate some_pred(heap: IArray, device_v: Ref) {
     true
 }
 
+method microkit_notify(heap: IArray, x1: Int, x2: Int, x3: Int, x4: Int)
+
 field device: Int
 field device2: Int
 field device3: IArray

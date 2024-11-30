@@ -47,4 +47,5 @@ pub struct Program {
     pub model_fields: Vec<String>,
     pub extern_predicates: Vec<String>,
     pub extern_fields: Vec<String>,
+    pub extern_methods: Vec<String>,
 }

@@ -145,6 +145,7 @@ pub struct ViperEncodeCtx<'a> {
     pub shared: Rc<SharedContext>,
     pub method: Rc<MethodContext>,
     pub model: Model,
+    pub extern_methods: HashSet<String>,
 }
 
 #[derive(Clone, Copy)]
@@ -189,6 +190,7 @@ impl<'a> ViperEncodeCtx<'a> {
         shared: Rc<SharedContext>,
         annot: Rc<MethodContext>,
         model: Model,
+        extern_methods: HashSet<String>,
     ) -> Self {
         let iarray = IArrayHelper::new(ast);
         Self {
@@ -209,6 +211,7 @@ impl<'a> ViperEncodeCtx<'a> {
             shared,
             method: annot,
             model,
+            extern_methods,
         }
     }
 
@@ -231,6 +234,7 @@ impl<'a> ViperEncodeCtx<'a> {
             shared: self.shared.clone(),
             method: self.method.clone(),
             model: self.model.clone(),
+            extern_methods: self.extern_methods.clone(),
         }
     }
 

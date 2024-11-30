@@ -1,6 +1,6 @@
 use crate::{
     annotation::{
-        parse_extern_field, parse_extern_predicate, parse_function, parse_method,
+        parse_extern_ffi, parse_extern_field, parse_extern_predicate, parse_function, parse_method,
         parse_model_field, parse_model_predicate, parse_predicate, parse_shared,
     },
     ir::{self, Model},
@@ -117,6 +117,11 @@ impl TryFrom<pancake::Program> for ir::Program {
                 (decl.name, decl.typ)
             })
             .collect();
+        let extern_methods = value
+            .extern_methods
+            .iter()
+            .map(|s| parse_extern_ffi(s))
+            .collect();
 
         Ok(ir::Program {
             functions,
@@ -126,6 +131,7 @@ impl TryFrom<pancake::Program> for ir::Program {
             shared,
             extern_predicates,
             extern_fields,
+            extern_methods,
             model,
         })
     }
