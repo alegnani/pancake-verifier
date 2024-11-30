@@ -146,6 +146,7 @@ pub struct ViperEncodeCtx<'a> {
     pub method: Rc<MethodContext>,
     pub model: Model,
     pub extern_methods: HashSet<String>,
+    pub shared_override: Option<String>,
 }
 
 #[derive(Clone, Copy)]
@@ -212,6 +213,7 @@ impl<'a> ViperEncodeCtx<'a> {
             method: annot,
             model,
             extern_methods,
+            shared_override: None,
         }
     }
 
@@ -235,6 +237,7 @@ impl<'a> ViperEncodeCtx<'a> {
             method: self.method.clone(),
             model: self.model.clone(),
             extern_methods: self.extern_methods.clone(),
+            shared_override: self.shared_override.clone(),
         }
     }
 

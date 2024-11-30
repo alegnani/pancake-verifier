@@ -82,7 +82,9 @@ impl Mangleable for ir::Expr {
 impl Mangleable for ir::Annotation {
     fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
         mangler.mangle_mode(self.typ.into());
-        self.expr.mangle(mangler)?;
+        if !matches!(self.typ, ir::AnnotationType::Use) {
+            self.expr.mangle(mangler)?;
+        }
         mangler.mangle_mode(TranslationMode::Normal);
         mangler.clear_annot_var();
         Ok(())

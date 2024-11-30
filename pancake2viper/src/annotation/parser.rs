@@ -380,6 +380,7 @@ impl FromPestPair for AnnotationType {
             Rule::fold => Self::Fold,
             Rule::unfold => Self::Unfold,
             Rule::trusted => Self::Trusted,
+            Rule::use_f => Self::Use,
             x => panic!("Failed to parse AnnotationType, got {:?}", x),
         }
     }

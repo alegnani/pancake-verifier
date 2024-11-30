@@ -195,6 +195,13 @@ impl<'a> TryToViper<'a> for ir::Annotation {
 
         use crate::ir::AnnotationType::*;
         match self.typ {
+            Use => {
+                if let ir::Expr::Var(name) = self.expr {
+                    ctx.shared_override = Some(name.clone());
+                    return Ok(ast.comment(&format!("use {}", name)));
+                }
+                Err(ToViperError::InvalidAnnotation)
+            }
             fold @ (Fold | Unfold) => match self.expr {
                 ir::Expr::FunctionCall(access) => {
                     let ast_node = |e| match fold {

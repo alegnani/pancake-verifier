@@ -1,0 +1,5 @@
+fun main() {
+	/@ use align @/ 
+	!st32 4, 1;
+	return 0;
+}

@@ -180,6 +180,7 @@ impl Display for AnnotationType {
                 Self::Fold => "fold",
                 Self::Unfold => "unfold",
                 Self::Trusted => "trusted",
+                Self::Use => "use",
             }
         )
     }
