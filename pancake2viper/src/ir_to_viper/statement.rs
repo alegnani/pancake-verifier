@@ -172,8 +172,6 @@ impl<'a> TryToViper<'a> for ir::Call {
 impl<'a> TryToViper<'a> for ir::ExtCall {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
-        println!("FNAME: {}", self.fname);
-        println!("extern: {:?}", ctx.extern_methods);
         let trimmed = self.fname.trim_start_matches("f_ffi");
         let name = if ctx.extern_methods.contains(trimmed) {
             trimmed
