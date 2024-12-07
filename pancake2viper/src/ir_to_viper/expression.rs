@@ -286,7 +286,8 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let mut args = self.args.to_viper(ctx)?;
+        let args = self.args.to_viper(ctx)?;
+        let mut base_args = ctx.get_default_args().1;
         Ok(match self.fname.as_str() {
             "f_alen" => {
                 let arr = args[0];
@@ -294,16 +295,17 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
             }
             "f_old" => ast.old(args[0]),
             pred if ctx.is_predicate(pred) => {
-                args.insert(0, ctx.state_var().1);
-                args.insert(0, ctx.heap_var().1);
-                ast.predicate_access_predicate(ast.predicate_access(&args, pred), ast.full_perm())
+                base_args.extend(args);
+                ast.predicate_access_predicate(
+                    ast.predicate_access(&base_args, pred),
+                    ast.full_perm(),
+                )
             }
             // Only used for model generation to remove "f_" prefix from predicate names
             pred if ctx.is_predicate(pred.trim_start_matches("f_")) => {
-                args.insert(0, ctx.state_var().1);
-                args.insert(0, ctx.heap_var().1);
+                base_args.extend(args);
                 ast.predicate_access_predicate(
-                    ast.predicate_access(&args, pred.trim_start_matches("f_")),
+                    ast.predicate_access(&base_args, pred.trim_start_matches("f_")),
                     ast.full_perm(),
                 )
             }
@@ -313,13 +315,13 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
             "f_bounded32" => ctx.utils.bounded_f(args[0], 32),
             "f_bounded64" => ctx.utils.bounded_f(args[0], 64),
             fname => {
-                args.insert(0, ctx.state_var().1);
-                args.insert(0, ctx.heap_var().1);
+                base_args.extend(args);
+
                 let ret_type = ctx
                     .typectx_get()
                     .get_function_type(fname)?
                     .to_viper_type(ctx);
-                ast.func_app(fname, &args, ret_type, ast.no_position())
+                ast.func_app(fname, &base_args, ret_type, ast.no_position())
             }
         })
     }
@@ -473,10 +475,10 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
         let in_foldings = in_foldings.to_viper(ctx)?;
         let out_unfoldings = out_unfoldings.to_viper(ctx)?;
         let out_foldings = out_foldings.to_viper(ctx)?;
+        let mut base_args = ctx.get_default_args().1;
+        base_args.extend(args);
 
-        args.insert(0, ctx.state_var().1);
-        args.insert(0, ctx.heap_var().1);
-        let call = ast.method_call(&self.fname, &args, &[ret.1]);
+        let call = ast.method_call(&self.fname, &base_args, &[ret.1]);
         ctx.declarations.push(ret.0);
         ctx.stack.extend(in_unfoldings);
         ctx.stack.extend(copy_stmts);

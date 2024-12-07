@@ -172,11 +172,17 @@ impl<'a> TryToViper<'a> for ir::Call {
 impl<'a> TryToViper<'a> for ir::ExtCall {
     type Output = viper::Stmt<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
+        let trimmed = self.fname.trim_start_matches("f_ffi");
+        let name = if ctx.extern_methods.contains(trimmed) {
+            trimmed
+        } else {
+            &self.fname
+        };
         let ast = ctx.ast;
-        let mut args = self.args.to_viper(ctx)?;
-        args.insert(0, ctx.state_var().1);
-        args.insert(0, ctx.heap_var().1);
-        Ok(ast.method_call(&self.fname, &args, &[]))
+        let args = self.args.to_viper(ctx)?;
+        let mut base_args = ctx.get_default_args().1;
+        base_args.extend(args);
+        Ok(ast.method_call(name, &base_args, &[]))
     }
 }
 
@@ -187,6 +193,13 @@ impl<'a> TryToViper<'a> for ir::Annotation {
 
         use crate::ir::AnnotationType::*;
         match self.typ {
+            Use => {
+                if let ir::Expr::Var(name) = self.expr {
+                    ctx.shared_override = Some(name.clone());
+                    return Ok(ast.comment(&format!("use {}", name)));
+                }
+                Err(ToViperError::InvalidAnnotation)
+            }
             fold @ (Fold | Unfold) => match self.expr {
                 ir::Expr::FunctionCall(access) => {
                     let ast_node = |e| match fold {
@@ -194,13 +207,7 @@ impl<'a> TryToViper<'a> for ir::Annotation {
                         Fold => ast.fold(e),
                         _ => unreachable!(),
                     };
-                    let mut args = access.args.to_viper(ctx)?;
-                    args.insert(0, ctx.state_var().1);
-                    args.insert(0, ctx.heap_var().1);
-                    Ok(ast_node(ast.predicate_access_predicate(
-                        ast.predicate_access(&args, &access.fname),
-                        ast.full_perm(),
-                    )))
+                    Ok(ast_node(access.to_viper(ctx)?))
                 }
                 _ => Err(ToViperError::InvalidFold(self.expr)),
             },

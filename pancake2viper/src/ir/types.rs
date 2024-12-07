@@ -243,11 +243,24 @@ impl TypeResolution for ir::AbstractMethod {
     }
 }
 
+impl TypeResolution for ir::Model {
+    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError> {
+        self.predicates.resolve_expr_type(ctx).map(|_| ())
+    }
+}
+
 impl ir::Program {
     pub fn resolve_types(&self) -> Result<TypeContext, TranslationError> {
         let mut ctx = TypeContext::new(Rc::new(self.extern_fields.clone()));
         let mut prev_size = ctx.size();
-        for pred in &self.state {
+
+        for ffi in &self.extern_methods {
+            ctx.set_type(ffi.clone(), Type::Int);
+        }
+        for field in &self.model.fields {
+            ctx.set_type(field.to_string(), Type::Ref);
+        }
+        for pred in &self.model.predicates {
             if let Expr::FunctionCall(call) = pred {
                 ctx.set_type(call.fname.clone(), Type::Bool);
             }
@@ -260,7 +273,7 @@ impl ir::Program {
             ignore_unknown(self.predicates.resolve_type(&mut ctx))?;
             ignore_unknown(self.methods.resolve_type(&mut ctx))?;
             ignore_unknown(self.functions.resolve_type(&mut ctx))?;
-            ignore_unknown(self.state.resolve_expr_type(&mut ctx).map(|_| ()))?;
+            ignore_unknown(self.model.resolve_type(&mut ctx))?;
             let new_size = ctx.size();
             if new_size == prev_size {
                 break;

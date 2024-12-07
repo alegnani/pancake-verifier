@@ -133,6 +133,7 @@ pub enum AnnotationType {
     Fold,
     Unfold,
     Trusted,
+    Use,
 }
 
 #[derive(Debug, Clone)]

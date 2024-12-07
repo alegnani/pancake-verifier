@@ -1,0 +1,12 @@
+/@ model field device_v @/
+/@ model predicate valid_device() @/
+/@ extern predicate some_pred @/
+
+fun main() {
+    /@ requires some_pred() @/
+    /@ unfold valid_device() @/
+    /@ unfold some_pred() @/
+    /@ fold some_pred() @/
+    /@ fold valid_device() @/
+    return 0;
+}

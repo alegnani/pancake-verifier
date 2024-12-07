@@ -6,10 +6,11 @@ integer = @{ ASCII_DIGIT ~ ("_" | ASCII_DIGIT)* }
 hex = @{ ASCII_HEX_DIGIT ~ ("_" | ASCII_HEX_DIGIT)* }
 ident = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_" )* }
 
-type = _{ int_t | bool_t | iarray_t | shape_t | set_t | seq_t | map_t }
+type = _{ int_t | bool_t | iarray_t | ref_t | shape_t | set_t | seq_t | map_t }
     int_t = { "Int" }
     bool_t = { "Bool" }
     iarray_t = { "IArray" }
+    ref_t = { "Ref" }
 	set_t = { "Set[" ~ type ~ "]" }
 	seq_t = { "Seq[" ~ type ~ "]" }
 	map_t = { "Map[" ~ type ~ "," ~ type ~ "]" }
@@ -88,7 +89,7 @@ expr = !{ prefix? ~ primary ~ postfix* ~ (infix ~ prefix? ~ primary ~ postfix*)*
 
 annotation_comment = _{"@"? ~ WHITESPACE* ~ annotation ~ WHITESPACE* ~ "@"? }
 annotation = { (annotation_keyword ~ expr) | trusted }
-    annotation_keyword = _{ pre | post | invariant | assertion | refutation | assumption | inhale | exhale | fold | unfold }
+    annotation_keyword = _{ pre | post | invariant | assertion | refutation | assumption | inhale | exhale | fold | unfold | use_f }
         pre = { "requires" }
         post = { "ensures" }
         invariant = { "invariant" }
@@ -100,6 +101,7 @@ annotation = { (annotation_keyword ~ expr) | trusted }
         fold = { "fold" }
         unfold = { "unfold" }
 		trusted = { "trusted" }
+		use_f = { "use" }
 
 predicate = { "/@" ~ "predicate" ~ ident ~ "(" ~ pred_args ~ ")" ~ pred_body ~ "@/" }
     pred_args = { (decl ~ ("," ~ decl)*) | "" }
@@ -115,10 +117,12 @@ method = { "/@" ~ "method" ~ ident ~ "(" ~ method_args ~ ")" ~ method_ret ~ prep
     method_args = { (decl ~ ("," ~ decl)*) | "" }
     method_ret = { (":" ~ "(" ~ decl ~ ("," ~ decl)* ~ ")") | "" }
 
-state = { "/@" ~ "state" ~ expr ~ "@/" }
+model_predicate = { "/@" ~ "model" ~ "predicate" ~ expr ~ "@/" }
+model_field = { "/@" ~ "model" ~ "field" ~ ident ~ "@/" }
 
 ext_predicate = { "/@" ~ "extern" ~ "predicate" ~ ident ~ "@/" }
 ext_field = { "/@" ~ "extern" ~ "field" ~ decl ~ "@/" }
+ffi_method = { "/@" ~ "ffi" ~ ident ~ "@/" }
 
 // Shared memory annotations
 

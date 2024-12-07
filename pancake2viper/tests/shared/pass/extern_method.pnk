@@ -1,0 +1,6 @@
+/@ ffi microkit_notify @/
+
+fun main() {
+	@microkit_notify(0,0,0,0);
+	return 0;
+}

@@ -1,6 +1,6 @@
 use crate::utils::{EncodeOptions, ToViperError, TryToViper, ViperEncodeCtx, ViperUtils};
 
-use super::{Expr, MemOpBytes, Shared, SharedPerm};
+use super::{Expr, MemOpBytes, Model, Shared, SharedPerm};
 use std::{collections::HashSet, fmt::Display};
 
 #[derive(Clone, Default)]
@@ -52,7 +52,7 @@ impl SharedInternal {
     pub fn gen_boilerplate<'a>(
         &self,
         ctx: &mut ViperEncodeCtx<'a>,
-        state: Vec<Expr>,
+        model: &Model,
     ) -> Result<Vec<viper::Method<'a>>, ToViperError> {
         let ast = ctx.ast;
         let addr = ast.new_var("addr", ast.int_type());
@@ -60,13 +60,15 @@ impl SharedInternal {
         let value = ast.new_var("value", ast.int_type());
         let mut methods = vec![];
         if self.typ.is_read() {
-            let mut pres = state.clone().to_viper(ctx)?;
+            let mut pres = model.predicates.clone().to_viper(ctx)?;
             let mut posts = pres.clone();
             pres.push(self.get_precondition(ctx, addr.1));
             posts.push(ctx.utils.bounded_f(retval.1, self.size.bits() as u64));
+            let mut args = ctx.get_default_args().0;
+            args.push(addr.0);
             methods.push(ast.method(
                 &format!("load_{}", self.name),
-                &[ctx.heap_var().0, ctx.state_var().0, addr.0],
+                &args,
                 &[retval.0],
                 &pres,
                 &posts,
@@ -74,13 +76,16 @@ impl SharedInternal {
             ));
         }
         if self.typ.is_write() {
-            let mut pres = state.clone().to_viper(ctx)?;
+            let mut pres = model.predicates.clone().to_viper(ctx)?;
             let posts = pres.clone();
             pres.push(self.get_precondition(ctx, addr.1));
             pres.push(ctx.utils.bounded_f(value.1, self.size.bits() as u64));
+            let mut args = ctx.get_default_args().0;
+            args.push(addr.0);
+            args.push(value.0);
             methods.push(ast.method(
                 &format!("store_{}", self.name),
-                &[ctx.heap_var().0, ctx.state_var().0, addr.0, value.0],
+                &args,
                 &[],
                 &pres,
                 &posts,
@@ -201,11 +206,17 @@ impl SharedContext {
         op2: viper::Expr<'a>,
     ) -> viper::Stmt<'a> {
         let ast = ctx.ast;
-        let heap = ctx.heap_var().1;
-        let state = ctx.state_var().1;
-        let (args, rets) = match optyp {
-            SharedOpType::Store => (vec![heap, state, addr, op2], vec![]),
-            SharedOpType::Load => (vec![heap, state, addr], vec![op2]),
+        let mut args = ctx.get_default_args().1;
+        let rets = match optyp {
+            SharedOpType::Store => {
+                args.push(addr);
+                args.push(op2);
+                vec![]
+            }
+            SharedOpType::Load => {
+                args.push(addr);
+                vec![op2]
+            }
         };
         let init = if ctx.options.allow_undefined_shared {
             ast.method_call(&format!("shared_{}{}", optyp, bits.bits()), &args, &rets)
@@ -231,13 +242,13 @@ impl SharedContext {
     pub fn gen_boilerplate<'a>(
         &self,
         ctx: &mut ViperEncodeCtx<'a>,
-        state: Vec<Expr>,
+        model: &Model,
     ) -> Result<Vec<viper::Method<'a>>, ToViperError> {
         Ok(self
             .mappings
             .iter()
             .flatten()
-            .flat_map(|s| s.gen_boilerplate(ctx, state.clone()))
+            .flat_map(|s| s.gen_boilerplate(ctx, &model))
             .flatten()
             .collect())
     }

@@ -10,10 +10,21 @@ predicate seq_pred(heap: IArray, state: Ref) {
     acc(state.device4) && |state.device4| == 2 && state.device4[0] == false && state.device4[1] == false
 }
 
+predicate valid_device(heap: IArray, device_v: Ref) {
+    true
+}
+
+predicate some_pred(heap: IArray, device_v: Ref) {
+    true
+}
+
+method microkit_notify(heap: IArray, x1: Int, x2: Int, x3: Int, x4: Int)
+
 field device: Int
 field device2: Int
 field device3: IArray
 field device4: Seq[Bool]
+field device5: Ref
 
 method store_base8(heap: IArray, state: Ref, address: Int, value: Int)
     requires address == 0
@@ -39,11 +50,11 @@ method load_base64(heap: IArray, state: Ref, address: Int) returns (retval: Int)
     requires address == 0
     ensures 0 <= retval < 4294967296 * 4294967296
 
-method store_align(heap: IArray, state: Ref, address: Int, value: Int)
+method store_align(heap: IArray, address: Int, value: Int)
     requires address == 4
     requires 0 <= value < 4294967296
 
-method load_align(heap: IArray, state: Ref, address: Int) returns (retval: Int)
+method load_align(heap: IArray, address: Int) returns (retval: Int)
     requires address == 4
     ensures 0 <= retval < 4294967296
 

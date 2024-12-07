@@ -1,7 +1,8 @@
 /@ extern predicate other_pred @/
 /@ extern field device2 : Int @/
 /@ extern field device3 : IArray @/
-/@ state valid_state() @/
+/@ model field state @/
+/@ model predicate valid_state() @/
 
 fun main() {
 	/@ requires unfolding valid_state() in unfolding other_pred() in state.device2 != -1 @/

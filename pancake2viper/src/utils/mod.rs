@@ -26,7 +26,6 @@ lazy_static::lazy_static! {
         ("alen", Type::Int),
         ("old", Type::Wildcard),
         ("result", Type::Wildcard),
-        ("state", Type::Ref),
         ("bounded", Type::Bool),
         ("bounded8", Type::Bool),
         ("bounded16", Type::Bool),

@@ -210,6 +210,8 @@ impl<'a> IArrayHelper<'a> {
         let read_perm = ast.fractional_perm(ast.one(), ast.two());
 
         let pres = [
+            // requires 0 <= length
+            ast.le_cmp(zero, length),
             // requires 0 <= src_idx <= alen(src)
             ast.le_cmp(zero, src_idx),
             ast.le_cmp(src_idx, len_src),
@@ -253,13 +255,52 @@ impl<'a> IArrayHelper<'a> {
             ast.forall(&[i_decl, j_decl], &[], ast.implies(guard_src_dst, dst_impl)),
         ];
 
+        let offset = ast.new_var("offset", ast.int_type());
+        let guard_inv = ast.and(
+            ast.le_cmp(src_idx, i),
+            ast.lt_cmp(i, ast.add(src_idx, offset.1)),
+        );
+        let guard_inv = ast.and(
+            guard_inv,
+            ast.eq_cmp(ast.sub(i, j), ast.sub(src_idx, dst_idx)),
+        );
+        let body = ast.seqn(
+            &[
+                ast.local_var_assign(offset.1, ast.zero()),
+                ast.while_stmt(
+                    ast.lt_cmp(offset.1, length),
+                    &[
+                        ast.and(
+                            ast.le_cmp(ast.zero(), offset.1),
+                            ast.le_cmp(offset.1, length),
+                        ),
+                        pres[4],
+                        pres[8],
+                        posts[2],
+                        ast.forall(&[i_decl, j_decl], &[], ast.implies(guard_inv, dst_impl)),
+                    ],
+                    ast.seqn(
+                        &[
+                            ast.local_var_assign(
+                                self.access(dst, ast.add(dst_idx, offset.1)),
+                                self.access(src, ast.add(src_idx, offset.1)),
+                            ),
+                            ast.local_var_assign(offset.1, ast.add(offset.1, ast.one())),
+                        ],
+                        &[],
+                    ),
+                ),
+            ],
+            &[offset.0.into()],
+        );
+
         let copy_slice = ast.method(
             "copy_slice",
             &[src_decl, src_idx_decl, dst_decl, dst_idx_decl, length_decl],
             &[],
             &pres,
             &posts,
-            None,
+            Some(body),
         );
 
         let create_impl = ast.eq_cmp(self.access(src, ast.add(src_idx, i)), self.access(dst, i));
@@ -296,7 +337,7 @@ impl<'a> IArrayHelper<'a> {
             "create_slice",
             &[src_decl, src_idx_decl, length_decl],
             &[dst_decl],
-            &pres[0..4],
+            &pres[0..5],
             &create_posts,
             Some(body),
         );

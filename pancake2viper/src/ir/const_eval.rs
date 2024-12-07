@@ -4,8 +4,8 @@ use crate::{
 };
 
 use super::{
-    AbstractMethod, BinOp, BinOpType, Expr, FnDec, Function, Predicate, Program, Shared, Shift,
-    Stmt, UnOp, UnOpType,
+    AbstractMethod, BinOp, BinOpType, Expr, FnDec, Function, Model, Predicate, Program, Shared,
+    Shift, Stmt, UnOp, UnOpType,
 };
 
 impl ConstEvalExpr for Expr {
@@ -294,6 +294,15 @@ impl ConstEval for Shared {
     }
 }
 
+impl ConstEval for Model {
+    fn const_eval(self, options: &EncodeOptions) -> Self {
+        Self {
+            fields: self.fields,
+            predicates: self.predicates.const_eval(options),
+        }
+    }
+}
+
 impl ConstEval for Program {
     fn const_eval(self, options: &EncodeOptions) -> Self {
         Self {
@@ -302,9 +311,10 @@ impl ConstEval for Program {
             predicates: self.predicates.const_eval(options),
             viper_functions: self.viper_functions.const_eval(options),
             shared: self.shared.const_eval(options),
-            state: self.state.const_eval(options),
+            model: self.model.const_eval(options),
             extern_predicates: self.extern_predicates,
             extern_fields: self.extern_fields,
+            extern_methods: self.extern_methods,
         }
     }
 }

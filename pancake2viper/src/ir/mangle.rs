@@ -82,7 +82,9 @@ impl Mangleable for ir::Expr {
 impl Mangleable for ir::Annotation {
     fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
         mangler.mangle_mode(self.typ.into());
-        self.expr.mangle(mangler)?;
+        if !matches!(self.typ, ir::AnnotationType::Use) {
+            self.expr.mangle(mangler)?;
+        }
         mangler.mangle_mode(TranslationMode::Normal);
         mangler.clear_annot_var();
         Ok(())
@@ -197,6 +199,12 @@ impl Mangleable for ir::AbstractMethod {
     }
 }
 
+impl Mangleable for ir::Model {
+    fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
+        self.predicates.mangle(mangler)
+    }
+}
+
 impl Mangleable for ir::Program {
     fn mangle(&mut self, mangler: &mut Mangler) -> Result<(), TranslationError> {
         self.viper_functions.mangle(mangler)?;
@@ -205,6 +213,6 @@ impl Mangleable for ir::Program {
         self.functions
             .iter_mut()
             .try_for_each(|e| e.mangle(&mut mangler.clone()))?;
-        self.state.mangle(mangler)
+        self.model.mangle(mangler)
     }
 }

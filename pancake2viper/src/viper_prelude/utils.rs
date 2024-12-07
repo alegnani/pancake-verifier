@@ -1,6 +1,9 @@
 use viper::{AstFactory, Expr, Function, LocalVarDecl};
 
-use crate::utils::{EncodeOptions, ViperUtils};
+use crate::{
+    ir::Model,
+    utils::{EncodeOptions, ViperUtils},
+};
 
 pub fn bound_bits_function(ast: AstFactory, bits: u64) -> Function {
     let x = ast.new_var("x", ast.int_type());
@@ -39,15 +42,20 @@ pub fn bound_function<'a>(
     )
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct Utils<'a> {
     ast: AstFactory<'a>,
     iarray_typ: viper::Type<'a>,
+    model: Model,
 }
 
 impl<'a> Utils<'a> {
-    pub fn new(ast: AstFactory<'a>, iarray_typ: viper::Type<'a>) -> Self {
-        Self { ast, iarray_typ }
+    pub fn new(ast: AstFactory<'a>, iarray_typ: viper::Type<'a>, model: Model) -> Self {
+        Self {
+            ast,
+            iarray_typ,
+            model,
+        }
     }
 
     pub fn bounded_f(&self, var: Expr, bits: u64) -> Expr<'a> {
@@ -63,7 +71,7 @@ impl<'a> Utils<'a> {
         self.ast.new_var("heap", self.iarray_typ)
     }
 
-    pub fn state(&self) -> (LocalVarDecl<'a>, Expr<'a>) {
-        self.ast.new_var("state", self.ast.ref_type())
+    pub fn get_model(&self) -> &Model {
+        &self.model
     }
 }
