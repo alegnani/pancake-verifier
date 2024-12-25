@@ -117,7 +117,7 @@ impl<'a> TryToViper<'a> for ir::BinOp {
             binop
         };
 
-        if ctx.options.expr_unrolling && !is_annot {
+        if !is_annot {
             let typ = if is_annot {
                 self.optype.to_type()
             } else {

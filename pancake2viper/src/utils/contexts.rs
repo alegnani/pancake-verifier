@@ -151,7 +151,6 @@ pub struct ViperEncodeCtx<'a> {
 
 #[derive(Clone, Copy)]
 pub struct EncodeOptions {
-    pub expr_unrolling: bool,
     pub assert_aligned_accesses: bool,
     pub word_size: u64,
     pub heap_size: u64,
@@ -167,7 +166,6 @@ pub struct EncodeOptions {
 impl Default for EncodeOptions {
     fn default() -> Self {
         Self {
-            expr_unrolling: true,
             assert_aligned_accesses: true,
             word_size: 64,
             heap_size: 16 * 1024,
