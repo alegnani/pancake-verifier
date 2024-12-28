@@ -164,16 +164,9 @@ pub struct ClapCliOptions {
     #[arg(
         global = true,
         long,
-        help = "Unroll expressions into Three-address code (experimental)"
+        help = "Skip checking that variables don't under- or overflow their size"
     )]
-    pub tac: bool,
-
-    #[arg(
-        global = true,
-        long,
-        help = "Check that variables don't under- or overflow their size"
-    )]
-    pub check_overflows: bool,
+    pub disable_overflow_check: bool,
 
     #[arg(
         global = true,
@@ -278,8 +271,7 @@ pub struct ClapCliOptions {
 pub struct CliOptions {
     pub cmd: Command,
     pub word_size: WordSize,
-    pub tac: bool,
-    pub check_overflows: bool,
+    pub disable_overflow_checks: bool,
     pub bounded_arithmetic: bool,
     pub disable_assert_alignment: bool,
     pub heap_size: u64,
@@ -303,8 +295,7 @@ impl From<ClapCliOptions> for CliOptions {
         Self {
             cmd: value.cmd.into(),
             word_size: value.word_size,
-            tac: value.tac,
-            check_overflows: value.check_overflows,
+            disable_overflow_checks: value.disable_overflow_check,
             bounded_arithmetic: value.bounded_arithmetic,
             disable_assert_alignment: value.disable_assert_alignment,
             heap_size: value.heap_size,
@@ -330,8 +321,7 @@ impl Default for CliOptions {
         Self {
             cmd: Command::Verify(Verify { input: "".into() }),
             word_size: WordSize::Bits64,
-            tac: true,
-            check_overflows: true,
+            disable_overflow_checks: false,
             bounded_arithmetic: false,
             disable_assert_alignment: false,
             heap_size: 16384,
@@ -355,11 +345,10 @@ impl Default for CliOptions {
 impl From<CliOptions> for EncodeOptions {
     fn from(value: CliOptions) -> Self {
         Self {
-            expr_unrolling: value.tac,
             assert_aligned_accesses: !value.disable_assert_alignment,
             word_size: value.word_size.into(),
             heap_size: value.heap_size,
-            check_overflows: value.check_overflows,
+            check_overflows: !value.disable_overflow_checks,
             bounded_arithmetic: value.bounded_arithmetic,
             debug_comments: value.debug_comments,
             include_prelude: !value.disable_prelude,
