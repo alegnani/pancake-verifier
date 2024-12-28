@@ -30,9 +30,7 @@
               rust
               icu
               openssl
-              hol
               gnumake
-              polyml
               jdk11
               z3
               rust-analyzer
