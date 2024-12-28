@@ -49,7 +49,8 @@ impl<'a> ToViperType<'a> for ir::Type {
         match self {
             ir::Type::Bool => ast.bool_type(),
             ir::Type::Int => ast.int_type(),
-            ir::Type::Array | ir::Type::Struct(_) => ctx.iarray.get_type(),
+            ir::Type::Array => ctx.iarray.get_type(),
+            ir::Type::Struct(_) => ast.seq_type(ast.int_type()),
             ir::Type::Ref => ast.ref_type(),
             ir::Type::Map(k, v) => ast.map_type(k.to_viper_type(ctx), v.to_viper_type(ctx)),
             ir::Type::Set(i) => ast.set_type(i.to_viper_type(ctx)),

@@ -8,7 +8,7 @@ use crate::utils::{
     ToViperType, TranslationMode, TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
 };
 
-use crate::ir::{self, BinOpType, Type};
+use crate::ir::{self, BinOpType, Expr, Type};
 
 impl ir::Expr {
     pub fn cond_to_viper<'a>(
@@ -173,53 +173,12 @@ impl<'a> TryToViper<'a> for ir::Struct {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let shapes = self
-            .elements
-            .iter()
-            .map(|e| e.to_shape(ctx.typectx_get_mut()))
+        let elems = self
+            .flatten()
+            .into_iter()
+            .map(|e| e.to_viper(ctx))
             .collect::<Result<Vec<_>, _>>()?;
-        let len: usize = shapes.iter().map(Shape::len).sum();
-        let fresh = Mangler::fresh_varname();
-        let (struct_decl, struct_var) = ast.new_var(&fresh, ctx.heap_type());
-        let mut assumptions = vec![
-            ast.inhale(
-                ast.eq_cmp(ctx.iarray.len_f(struct_var), ast.int_lit(len as i64)),
-                ast.no_position(),
-            ),
-            ast.inhale(
-                ctx.iarray.array_acc_expr(
-                    struct_var,
-                    ast.zero(),
-                    ctx.iarray.len_f(struct_var),
-                    ast.full_perm(),
-                ),
-                ast.no_position(),
-            ),
-        ];
-
-        let mut assignments = vec![];
-        let mut idx = 0;
-        for struct_element in self.flatten() {
-            let shape = struct_element.to_shape(ctx.typectx_get_mut())?;
-            let shape_len = shape.len();
-            let src_obj = struct_element.to_viper(ctx)?;
-            for offset in 0..shape_len {
-                let lhs = ctx
-                    .iarray
-                    .access(struct_var, ast.int_lit((idx + offset) as i64));
-                let rhs = match shape {
-                    Shape::Simple => src_obj,
-                    Shape::Nested(_) => ctx.iarray.access(src_obj, ast.int_lit(offset as i64)),
-                };
-                assignments.push(ast.field_assign(lhs, rhs))
-            }
-            idx += shape_len;
-        }
-
-        assumptions.extend(assignments);
-        ctx.declarations.push(struct_decl);
-        ctx.stack.push(ast.seqn(&assumptions, &[]));
-        Ok(struct_var)
+        Ok(ast.explicit_seq(&elems))
     }
 }
 
@@ -234,19 +193,13 @@ impl<'a> TryToViper<'a> for ir::Field {
             Shape::Simple => unreachable!(),
             Shape::Nested(elems) => {
                 if elems[self.field_idx].len() == 1 {
-                    ctx.iarray.access(obj, ast.int_lit(self.field_idx as i64))
+                    ast.seq_index(obj, ast.int_lit(self.field_idx as i64))
                 } else {
-                    let fresh = Mangler::fresh_varname();
-                    let (f_decl, f) = ast.new_var(&fresh, ctx.iarray.get_type());
-                    ctx.declarations.push(f_decl);
                     let (offset, size) = obj_shape.access(self.field_idx)?;
-                    ctx.stack.push(ctx.iarray.create_slice_m(
-                        obj,
+                    ast.seq_drop(
+                        ast.seq_take(obj, ast.int_lit((offset + size) as i64)),
                         ast.int_lit(offset as i64),
-                        ast.int_lit(size as i64),
-                        f,
-                    ));
-                    f
+                    )
                 }
             }
         })
@@ -257,9 +210,6 @@ impl<'a> ToViper<'a> for ir::Decl {
     type Output = viper::LocalVarDecl<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
-        // XXX: move
-        // ctx.set_type(self.name.clone(), self.typ.to_shape(ctx.typectx_get()));
-        // ctx.mangler.new_annot_var(self.name.clone());
         ast.local_var_decl(&self.name, self.typ.to_viper_type(ctx))
     }
 }
