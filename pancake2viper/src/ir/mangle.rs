@@ -60,7 +60,6 @@ impl Mangleable for ir::Expr {
                 access.idx.mangle(mangler)?
             }
             AccessPredicate(acc) => acc.field.mangle(mangler)?,
-            FieldAccessChain(access) => access.obj.mangle(mangler)?,
             UnfoldingIn(fold) => {
                 fold.expr.mangle(mangler)?;
                 fold.pred.mangle(mangler)?

@@ -289,12 +289,9 @@ fn parse_expr(pairs: Pairs<Rule>) -> Expr {
             })
         })
         .map_postfix(|lhs, op| match op.as_rule() {
-            Rule::field_acc => Expr::FieldAccessChain(FieldAccessChain {
+            Rule::field_acc => Expr::Field(Field {
                 obj: Box::new(lhs),
-                idxs: op
-                    .into_inner()
-                    .map(|i| i.as_str().parse().unwrap())
-                    .collect(),
+                field_idx: op.into_inner().next().unwrap().as_str().parse().unwrap(),
             }),
             Rule::viper_field_acc => Expr::ViperFieldAccess(ViperFieldAccess {
                 obj: Box::new(lhs),

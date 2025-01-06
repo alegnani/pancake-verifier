@@ -492,38 +492,6 @@ impl<'a> TryToViper<'a> for ir::AccessPredicate {
     }
 }
 
-impl<'a> TryToViper<'a> for ir::FieldAccessChain {
-    type Output = viper::Expr<'a>;
-
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
-        let ast = ctx.ast;
-        let obj_shape = self.obj.to_shape(ctx.typectx_get_mut())?;
-
-        let (final_shape, offset) =
-            self.idxs
-                .iter()
-                .fold((obj_shape, 0), |(shape, padding), &idx| match &shape {
-                    Shape::Simple => unreachable!(),
-                    Shape::Nested(elems) => {
-                        let inner_shape = elems[idx].clone();
-                        let offset = if inner_shape.is_simple() {
-                            idx
-                        } else {
-                            shape.access(idx).unwrap().0 // FIXME
-                        };
-                        (inner_shape, padding + offset)
-                    }
-                });
-        if !final_shape.is_simple() {
-            return Err(ToViperError::FieldAccessChainShape(final_shape));
-        }
-
-        let obj = self.obj.to_viper(ctx)?;
-        let offset_exp = ast.int_lit(offset as i64);
-        Ok(ctx.iarray.access(obj, offset_exp))
-    }
-}
-
 impl<'a> TryToViper<'a> for ir::UnfoldingIn {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
@@ -589,7 +557,6 @@ impl<'a> TryToViper<'a> for ir::Expr {
             Shift(shift) => shift.to_viper(ctx),
             Field(field) => field.to_viper(ctx),
             Struct(struc) => struc.to_viper(ctx),
-            FieldAccessChain(f) => f.to_viper(ctx),
             ArrayAccess(heap) => heap.to_viper(ctx),
             Quantified(quant) => quant.to_viper(ctx),
             AccessPredicate(acc) => acc.to_viper(ctx),

@@ -24,7 +24,6 @@ pub enum Expr {
     Quantified(Quantified),
     ArrayAccess(ArrayAccess),
     AccessPredicate(AccessPredicate),
-    FieldAccessChain(FieldAccessChain),
     UnfoldingIn(UnfoldingIn),
     Ternary(Ternary),
     AccessSlice(AccessSlice),

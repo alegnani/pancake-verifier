@@ -230,7 +230,6 @@ impl ExprSubstitution for Expr {
                 let b = fold.expr.substitute(old, new);
                 a || b
             }
-            Self::FieldAccessChain(acc) => acc.obj.substitute(old, new),
             Self::ViperFieldAccess(acc) => acc.obj.substitute(old, new),
             Self::BaseAddr
             | Self::BoolLit(_)
