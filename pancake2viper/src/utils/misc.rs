@@ -7,6 +7,8 @@ use viper::{
     Verifier, Viper,
 };
 
+use super::ViperUtils;
+
 pub struct ViperHandle {
     pub viper: &'static Viper,
     pub ver_ctx: &'static VerificationContext<'static>,
@@ -80,14 +82,11 @@ impl ViperHandle {
     }
 }
 
-pub trait ViperUtils<'a> {
-    fn new_var(&self, name: &str, typ: Type) -> (LocalVarDecl<'a>, Expr<'a>);
-    fn zero(&self) -> Expr<'a>;
-    fn one(&self) -> Expr<'a>;
-    fn two(&self) -> Expr<'a>;
-}
-
 impl<'a> ViperUtils<'a> for AstFactory<'a> {
+    fn seq_slice(&self, seq: Expr<'a>, lower: Expr<'a>, upper: Expr<'a>) -> Expr<'a> {
+        self.seq_drop(self.seq_take(seq, upper), lower)
+    }
+
     fn new_var(&self, name: &str, typ: Type) -> (LocalVarDecl<'a>, Expr<'a>) {
         (self.local_var_decl(name, typ), self.local_var(name, typ))
     }
