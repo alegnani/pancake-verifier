@@ -1,8 +1,7 @@
-/@ predicate net_queue(queue: IArray) {
-    alen(queue) == 4 && acc(queue[0..4]) &&
-    queue[0] >= 0 && queue[0] < queue[2] && queue[1] >= 0 && queue[1] < queue[2] &&
-    queue[2] > 0 && queue[2] < 1024 &&
-    ((queue[3] == 0) || (queue[3] == 1))
+/@ predicate net_queue(queue: {1, 1, 1, 1}) {
+    queue.0 >= 0 && queue.0 < queue.2 && queue.1 >= 0 && queue.1 < queue.2 &&
+    queue.2 > 0 && queue.2 < 1024 &&
+    ((queue.3 == 0) || (queue.3 == 1))
 }
 @/
 

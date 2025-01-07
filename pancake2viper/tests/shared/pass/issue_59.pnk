@@ -20,10 +20,9 @@
 
 /@ predicate net_queue(queue: {1,1,1}, capacity: Int) {
     ((capacity == 512) || (capacity == 1024)) &&
-    alen(queue) == 3 && acc(queue[0..3]) &&
     queue.0 >= 0 && queue.0 < capacity &&
     queue.1 >= 0 && queue.1 < capacity &&
-    ((queue[2] == 0) || (queue.2 == 1))
+    ((queue.2 == 0) || (queue.2 == 1))
 }
 @/
 

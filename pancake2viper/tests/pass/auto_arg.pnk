@@ -1,5 +1,4 @@
 fun main(2 x) {
-    /@ requires acc(x[0..2], read) @/
     /@ requires 0 <= x.0 && x.0 <= 10000 @/
     return x.0;
 }

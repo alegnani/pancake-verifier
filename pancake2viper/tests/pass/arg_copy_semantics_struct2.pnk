@@ -1,6 +1,4 @@
-/@ predicate my_array(array: IArray) {
-  alen(array) == 2 && acc(array[0..2])
-}
+/@ predicate my_array(array: {1, 1}) {}
 @/
 
 fun main() {
