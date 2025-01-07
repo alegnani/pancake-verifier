@@ -44,7 +44,7 @@ impl<'a> ToViperType<'a> for Shape {
     fn to_viper_type(&self, ctx: &ViperEncodeCtx<'a>) -> viper::Type<'a> {
         match self {
             Self::Simple => ctx.ast.int_type(),
-            Self::Nested(_) => ctx.iarray.get_type(),
+            Self::Nested(_) => ctx.ast.seq_type(ctx.ast.int_type()),
         }
     }
 }

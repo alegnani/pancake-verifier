@@ -34,8 +34,18 @@ impl Arg {
         match &self.typ {
             ir::Type::Struct(_) => {
                 let length = ast.int_lit(self.typ.len() as i64);
-                let length_pre = ast.eq_cmp(ctx.iarray.len_f(arg_var), length);
-                Some(length_pre)
+                let length_pre = ast.eq_cmp(ast.seq_length(arg_var), length);
+                let i = ast.new_var("i", ast.int_type());
+                let bound_pre = ast.forall(
+                    &[i.0],
+                    &[],
+                    ast.implies(
+                        ast.and(ast.le_cmp(ast.zero(), i.1), ast.lt_cmp(i.1, length)),
+                        ctx.utils
+                            .bounded_f(ast.seq_index(arg_var, i.1), ctx.options.word_size),
+                    ),
+                );
+                Some(ast.and(length_pre, bound_pre))
             }
             ir::Type::Int => Some(ctx.utils.bounded_f(arg_var, ctx.options.word_size)),
             _ => None,
@@ -61,44 +71,31 @@ impl<'a> ToViperType<'a> for ir::Type {
 }
 
 impl FnDec {
-    pub fn postcondition<'a>(&self, ctx: &ViperEncodeCtx<'a>) -> Vec<Expr<'a>> {
+    pub fn postcondition<'a>(&self, ctx: &ViperEncodeCtx<'a>) -> Expr<'a> {
         let ast = ctx.ast;
         match ctx.get_type(&self.retvar).unwrap() {
             Type::Int => {
                 let retval = ast.local_var(&self.retvar, ast.int_type());
-                vec![ctx.utils.bounded_f(retval, ctx.options.word_size)]
+                ctx.utils.bounded_f(retval, ctx.options.word_size)
             }
             struc @ Type::Struct(_) => {
                 // Length of the returned `IArray`
                 let retval = ast.local_var(&self.retvar, struc.to_viper_type(ctx));
-                let len = ast.int_lit(struc.len() as i64);
-                let len_post = ast.eq_cmp(ctx.iarray.len_f(retval), len);
-                // Access to returned struct
-                let perm = ctx
-                    .iarray
-                    .array_acc_expr(retval, ast.zero(), len, ast.full_perm());
-
+                let length = ast.int_lit(struc.len() as i64);
+                let length_post = ast.eq_cmp(ast.seq_length(retval), length);
                 // Bound of all elements
                 let i = ast.new_var("i", ast.int_type());
-                let guard = ast.and(
-                    ast.le_cmp(ast.zero(), i.1),
-                    ast.lt_cmp(i.1, ctx.iarray.len_f(retval)),
-                );
                 let bounded = ast.forall(
                     &[i.0],
                     &[],
                     ast.implies(
-                        guard,
+                        ast.and(ast.le_cmp(ast.zero(), i.1), ast.lt_cmp(i.1, length)),
                         ctx.utils
-                            .bounded_f(ctx.iarray.access(retval, i.1), ctx.options.word_size),
+                            .bounded_f(ast.seq_index(retval, i.1), ctx.options.word_size),
                     ),
                 );
 
-                if ctx.options.return_post {
-                    vec![len_post, perm, bounded]
-                } else {
-                    vec![len_post]
-                }
+                ast.and(length_post, bounded)
             }
             _ => unreachable!(),
         }

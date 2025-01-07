@@ -8,7 +8,7 @@ use crate::utils::{
     ToViperType, TranslationMode, TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
 };
 
-use crate::ir::{self, BinOpType, Expr, Type};
+use crate::ir::{self, BinOpType, Type};
 
 impl ir::Expr {
     pub fn cond_to_viper<'a>(
@@ -277,50 +277,6 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
     }
 }
 
-fn auto_unfold_fold(
-    ctx: &ViperEncodeCtx<'_>,
-    annots: &[ir::Expr],
-    arg_mapping: &[(ir::Expr, ir::Expr)],
-    copy_mapping: &Vec<(ir::Expr, ir::Expr)>,
-    reverse: bool,
-) -> (Vec<ir::Stmt>, Vec<ir::Stmt>) {
-    let mut first = vec![];
-    let mut second = vec![];
-    let (op1, op2) = if reverse {
-        (ir::AnnotationType::Fold, ir::AnnotationType::Unfold)
-    } else {
-        (ir::AnnotationType::Unfold, ir::AnnotationType::Fold)
-    };
-    for annot in annots {
-        if let Some(pred) = get_predicate(ctx, annot) {
-            let mut annot = annot.clone();
-            let mut sub_count = 0;
-
-            for (old, new) in arg_mapping.iter() {
-                if annot.substitute(old, new) {
-                    sub_count += 1;
-                }
-            }
-            if pred.args.len() == sub_count {
-                first.push(ir::Stmt::Annotation(ir::Annotation {
-                    typ: op1,
-                    expr: annot.clone(),
-                }));
-
-                for (old, new) in copy_mapping {
-                    annot.substitute(old, new);
-                }
-
-                second.push(ir::Stmt::Annotation(ir::Annotation {
-                    typ: op2,
-                    expr: annot.clone(),
-                }));
-            }
-        }
-    }
-    (first, second)
-}
-
 impl<'a> TryToViper<'a> for ir::MethodCall {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
@@ -332,122 +288,16 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
         ctx.consume_stack = false;
 
         // Transpiled arguments
-        let mut args = vec![];
-        // Statements for copying the compound shapes
-        let mut copy_stmts = vec![];
-        let mut copy_mapping = vec![];
-        let arg_mapping: HashMap<_, _> = self
-            .args
-            .iter()
-            .cloned()
-            .zip(ctx.method.get_args(&self.fname).iter().cloned())
-            .collect();
-
-        // Copy compound shapes in order to preserve copy-semantics of function calls
-        for arg in self.args.clone() {
-            let copied_arg = match arg.to_shape(ctx.typectx_get_mut())? {
-                Shape::Simple => arg.to_viper(ctx)?,
-                Shape::Nested(_) => {
-                    let fresh_name = Mangler::fresh_varname();
-                    let fresh = ast.new_var(
-                        &fresh_name,
-                        arg.to_shape(ctx.typectx_get_mut())?.to_viper_type(ctx),
-                    );
-                    let arg_len = arg.to_shape(ctx.typectx_get_mut())?.len();
-                    let viper_arg = arg.clone().to_viper(ctx)?;
-                    let copy_arg = ctx.iarray.create_slice_m(
-                        viper_arg,
-                        ast.zero(),
-                        ast.int_lit(arg_len as i64),
-                        fresh.1,
-                    );
-                    ctx.declarations.push(fresh.0);
-                    copy_stmts.push(copy_arg);
-                    let typ_ctx = ctx.typectx_get_mut();
-                    let typ = typ_ctx.get_type_no_mangle(&arg_mapping.get(&arg).unwrap().name)?;
-                    typ_ctx.set_type(fresh_name.clone(), typ);
-                    copy_mapping.push((arg, ir::Expr::Var(fresh_name)));
-                    fresh.1
-                }
-            };
-            args.push(copied_arg);
-        }
-
-        // arg_mapping: arg -> var
-        // copy_mapping: var -> copied
-        // rev_arg_mappings: arg -> copied
-        // rev_copy_mapping: copied -> var
-
-        let arg_mapping = arg_mapping
-            .into_iter()
-            .map(|(e, a)| (a.into(), e))
-            .collect::<Vec<_>>();
-
-        // Unfold/fold predicates using the copied arguments
-        let (in_unfoldings, in_foldings) = auto_unfold_fold(
-            ctx,
-            ctx.method.get_pre(&self.fname),
-            &arg_mapping,
-            &copy_mapping,
-            false,
-        );
-        //println!("Arg mapping: {:?}", arg_mapping);
-        //println!("Copy mapping: {:?}", copy_mapping);
-        //
-        //let rev_arg_mapping = arg_mapping
-        //    .iter()
-        //    .filter_map(|(old, inter)| {
-        //        copy_mapping.iter().find_map(|(inter2, new)| {
-        //            if *inter == *inter2 {
-        //                Some((old.clone(), new.clone()))
-        //            } else {
-        //                None
-        //            }
-        //        })
-        //    })
-        //    .collect::<Vec<_>>();
-        //let rev_copy_mapping = copy_mapping.into_iter().map(|t| (t.1, t.0)).collect();
-        //
-        //println!("Rev Arg mapping: {:?}", rev_arg_mapping);
-        //println!("Rev Copy mapping: {:?}", rev_copy_mapping);
-
-        let (out_foldings, out_unfoldings) = auto_unfold_fold(
-            ctx,
-            ctx.method.get_post(&self.fname),
-            //&rev_arg_mapping,
-            //&rev_copy_mapping,
-            &arg_mapping,
-            &copy_mapping,
-            true,
-        );
-
-        let in_unfoldings = in_unfoldings.to_viper(ctx)?;
-        let in_foldings = in_foldings.to_viper(ctx)?;
-        let out_unfoldings = out_unfoldings.to_viper(ctx)?;
-        let out_foldings = out_foldings.to_viper(ctx)?;
+        let args = self.args.to_viper(ctx)?;
         let mut base_args = ctx.get_default_args().1;
         base_args.extend(args);
 
         let call = ast.method_call(&self.fname, &base_args, &[ret.1]);
         ctx.declarations.push(ret.0);
-        ctx.stack.extend(in_unfoldings);
-        ctx.stack.extend(copy_stmts);
-        ctx.stack.extend(in_foldings);
         ctx.stack.push(call);
-        ctx.stack.extend(out_unfoldings);
-        ctx.stack.extend(out_foldings);
         ctx.consume_stack = true;
 
-        // TODO: push post folds/unfolds
         Ok(ret.1)
-    }
-}
-
-fn get_predicate<'a>(ctx: &ViperEncodeCtx<'_>, expr: &'a ir::Expr) -> Option<&'a ir::FunctionCall> {
-    match expr {
-        ir::Expr::FunctionCall(fcall) if ctx.is_predicate(&fcall.fname) => Some(fcall),
-        ir::Expr::AccessPredicate(acc) => get_predicate(ctx, &acc.field),
-        _ => None,
     }
 }
 

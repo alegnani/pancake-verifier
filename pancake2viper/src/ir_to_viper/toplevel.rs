@@ -31,10 +31,8 @@ impl<'a> TryToViper<'a> for FnDec {
         // add access permissions to arguments if structs
         pres.extend(self.args.iter().filter_map(|a| a.precondition(ctx)));
 
-        // Add postcondition:
-        // - length if returning struct
-        // - bound if returning word
-        posts.extend(self.postcondition(ctx));
+        // Add postcondition (bounds of integers)
+        posts.push(self.postcondition(ctx));
 
         let args_local_decls = self.args.to_viper(ctx);
 
