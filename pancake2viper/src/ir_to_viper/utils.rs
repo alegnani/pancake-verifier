@@ -24,9 +24,9 @@ impl<'a, T: ToViper<'a>> ToViper<'a> for Vec<T> {
 impl Arg {
     /// Generates preconditions for an argument
     ///
-    /// If an `Arg` is not of shape `1` it is encoded as an `IArray`.
-    /// We can automatically infer the length of the `IArray` given we know its shape.
-    /// We also assert that all the elements of the IArray or the single Int are bounded
+    /// If an `Arg` is not of shape `1` it is encoded as a `Seq[Int]`.
+    /// We can automatically infer the length of the sequence given we know its shape.
+    /// We also assert that all the elements of the sequence or the single Int are bounded
     pub fn precondition<'a>(&self, ctx: &ViperEncodeCtx<'a>) -> Option<Expr<'a>> {
         let ast = ctx.ast;
         let arg_var = ctx.ast.new_var(&self.name, self.typ.to_viper_type(ctx)).1;
