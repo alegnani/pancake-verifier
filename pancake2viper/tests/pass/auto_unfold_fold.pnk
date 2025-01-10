@@ -1,11 +1,11 @@
-/@ predicate net_queue(queue: {1, 1, 1, 1}) {
+/@ predicate net_queue(queue: 4) {
     queue.0 >= 0 && queue.0 < queue.2 && queue.1 >= 0 && queue.1 < queue.2 &&
     queue.2 > 0 && queue.2 < 1024 &&
     ((queue.3 == 0) || (queue.3 == 1))
 }
 @/
 
-fun main({1,1,1,1} queue) {
+fun main(4 queue) {
     /@ requires net_queue(queue) @/
     /@ ensures net_queue(queue) @/
 
@@ -15,12 +15,10 @@ fun main({1,1,1,1} queue) {
     return 0;
 }
 
-fun another_func({1,1,1,1} queue) {
+fun another_func(4 queue) {
     /@ requires net_queue(queue) @/
     /@ ensures net_queue(queue) @/
-    /@ ensures unfolding net_queue(queue) in 
-        forall i: Int:: i >= 0 && i < alen(queue) ==> 
-        queue[i] == old(unfolding net_queue(queue) in queue[i]) @/
+    /@ ensures queue == old(queue) @/
 
     /@ unfold net_queue(queue) @/
     var x = queue.2 - queue.0;
