@@ -25,6 +25,7 @@ impl<'a> TryToViper<'a> for FnDec {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
 
+        // add access permissions to arguments if structs
         let mut pres = self
             .args
             .iter()
@@ -39,9 +40,6 @@ impl<'a> TryToViper<'a> for FnDec {
             .collect::<Result<Vec<_>, _>>()?;
         pres.extend(pred_pres);
         let mut posts = pres.clone();
-
-        // add access permissions to arguments if structs
-        pres.extend(self.args.iter().filter_map(|a| a.precondition(false, ctx)));
 
         // Add postcondition (bounds of integers)
         posts.push(self.postcondition(ctx));
