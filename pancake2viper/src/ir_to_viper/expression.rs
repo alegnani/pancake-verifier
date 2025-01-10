@@ -171,9 +171,12 @@ impl<'a> TryToViper<'a> for ir::Struct {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
+        let type_ctx = ctx.type_ctx().clone();
         let elems = self
             .flatten()
             .into_iter()
+            .flat_map(|e| e.flatten(&type_ctx))
+            .flatten()
             .map(|e| e.to_viper(ctx))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(ast.explicit_seq(&elems))

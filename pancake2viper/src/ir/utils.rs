@@ -4,7 +4,7 @@ use viper::AstFactory;
 
 use crate::{
     ir,
-    utils::{ExprSubstitution, Shape, ToType, ViperUtils},
+    utils::{ExprSubstitution, Shape, ToType, TranslationError, TryToShape, ViperUtils},
 };
 
 use super::{
@@ -13,6 +13,29 @@ use super::{
     statement::MemOpBytes,
     Arg, BinOp, BinOpType, Decl, Model, Program, SharedPerm, ShiftType, Type, UnOpType,
 };
+
+impl Expr {
+    pub fn flatten(&self, ctx: &crate::utils::TypeContext) -> Result<Vec<Expr>, TranslationError> {
+        match self.to_shape(ctx)? {
+            Shape::Simple => Ok(vec![self.clone()]),
+            Shape::Nested(shape) => Ok(match self {
+                Expr::Struct(struc) => struc.flatten(),
+                _ => shape
+                    .iter()
+                    .enumerate()
+                    .flat_map(|(field_idx, _s)| {
+                        Expr::Field(ir::Field {
+                            field_idx,
+                            obj: Box::new(self.clone()),
+                        })
+                        .flatten(ctx)
+                    })
+                    .flatten()
+                    .collect(),
+            }),
+        }
+    }
+}
 
 impl Struct {
     pub fn new(elements: Vec<Expr>) -> Self {
