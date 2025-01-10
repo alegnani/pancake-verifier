@@ -29,7 +29,7 @@ impl<'a> TryToViper<'a> for FnDec {
         let mut pres = self
             .args
             .iter()
-            .filter_map(|a| a.precondition(true, ctx))
+            .filter_map(|a| a.precondition(false, ctx))
             .collect::<Vec<_>>();
         let pred_pres = ctx
             .model
