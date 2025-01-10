@@ -1,4 +1,4 @@
-/@ predicate my_array(array: {1, 1})
+/@ predicate my_array(array: {1, 1}) {true}
 @/
 
 fun main() {
@@ -13,6 +13,7 @@ fun tuple_equal({1,1} buffer) {
     /@ requires my_array(buffer) @/
     /@ ensures my_array(buffer) @/
     /@ ensures (retval == 1) || (retval == 0) @/
+
     /@ unfold my_array(buffer) @/
     var ret = (buffer.0 == buffer.1);
     /@ fold my_array(buffer) @/
