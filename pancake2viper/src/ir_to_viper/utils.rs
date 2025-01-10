@@ -27,7 +27,11 @@ impl Arg {
     /// If an `Arg` is not of shape `1` it is encoded as a `Seq[Int]`.
     /// We can automatically infer the length of the sequence given we know its shape.
     /// We also assert that all the elements of the sequence or the single Int are bounded
-    pub fn precondition<'a>(&self, ctx: &ViperEncodeCtx<'a>) -> Option<Expr<'a>> {
+    pub fn precondition<'a>(
+        &self,
+        is_predicate: bool,
+        ctx: &ViperEncodeCtx<'a>,
+    ) -> Option<Expr<'a>> {
         let ast = ctx.ast;
         let arg_var = ctx.ast.new_var(&self.name, self.typ.to_viper_type(ctx)).1;
 
@@ -47,7 +51,13 @@ impl Arg {
                 );
                 Some(ast.and(length_pre, bound_pre))
             }
-            ir::Type::Int => Some(ctx.utils.bounded_f(arg_var, ctx.options.word_size)),
+            ir::Type::Int => {
+                if is_predicate {
+                    None
+                } else {
+                    Some(ctx.utils.bounded_f(arg_var, ctx.options.word_size))
+                }
+            }
             _ => None,
         }
     }

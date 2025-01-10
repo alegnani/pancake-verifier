@@ -25,11 +25,23 @@ impl<'a> TryToViper<'a> for FnDec {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
 
-        let mut pres = ctx.model.predicates.clone().to_viper(ctx)?;
+        let mut pres = self
+            .args
+            .iter()
+            .filter_map(|a| a.precondition(true, ctx))
+            .collect::<Vec<_>>();
+        let pred_pres = ctx
+            .model
+            .predicates
+            .clone()
+            .into_iter()
+            .map(|p| p.to_viper(ctx))
+            .collect::<Result<Vec<_>, _>>()?;
+        pres.extend(pred_pres);
         let mut posts = pres.clone();
 
         // add access permissions to arguments if structs
-        pres.extend(self.args.iter().filter_map(|a| a.precondition(ctx)));
+        pres.extend(self.args.iter().filter_map(|a| a.precondition(false, ctx)));
 
         // Add postcondition (bounds of integers)
         posts.push(self.postcondition(ctx));
@@ -74,11 +86,29 @@ impl<'a> TryToViper<'a> for FnDec {
     }
 }
 
+fn extend_body<'a>(
+    args: &[Arg],
+    body: Option<viper::Expr<'a>>,
+    ctx: &mut ViperEncodeCtx<'a>,
+) -> Option<viper::Expr<'a>> {
+    let ast = ctx.ast;
+    let pres = args
+        .iter()
+        .filter_map(|a| a.precondition(true, ctx))
+        .reduce(|acc, e| ast.and(acc, e));
+    match (body, pres) {
+        (Some(b), Some(p)) => Some(ast.and(p, b)),
+        (Some(b), None) => Some(b),
+        _ => None,
+    }
+}
+
 impl<'a> TryToViper<'a> for Predicate {
     type Output = viper::Predicate<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let body = self.body.map(|e| e.to_viper(ctx)).transpose()?;
+        let body = extend_body(&self.args, body, ctx);
         let args = self.args.to_viper(ctx);
         let mut base_args = ctx.get_default_args().0;
         base_args.extend(args);
@@ -95,7 +125,12 @@ impl<'a> TryToViper<'a> for Function {
         ctx.typectx_get_mut()
             .set_type("result".into(), self.typ.clone());
 
-        let pres = self.pres.to_viper(ctx)?;
+        let mut pres = self
+            .args
+            .iter()
+            .filter_map(|a| a.precondition(true, ctx))
+            .collect::<Vec<_>>();
+        pres.extend(self.pres.to_viper(ctx)?);
         let posts = self.posts.to_viper(ctx)?;
         let body = self.body.map(|b| b.to_viper(ctx)).transpose()?;
 
@@ -119,12 +154,16 @@ impl<'a> TryToViper<'a> for AbstractMethod {
     type Output = viper::Method<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let args = self.args.to_viper(ctx);
-        let rettyps = self.rettyps.to_viper(ctx);
-
-        let pres = self.pres.to_viper(ctx)?;
+        let mut pres = self
+            .args
+            .iter()
+            .filter_map(|a| a.precondition(true, ctx))
+            .collect::<Vec<_>>();
+        pres.extend(self.pres.to_viper(ctx)?);
         let posts = self.posts.to_viper(ctx)?;
 
+        let rettyps = self.rettyps.to_viper(ctx);
+        let args = self.args.to_viper(ctx);
         let mut base_args = ctx.get_default_args().0;
         base_args.extend(args);
 
