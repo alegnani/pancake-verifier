@@ -14,7 +14,7 @@ type = _{ int_t | bool_t | iarray_t | ref_t | shape_t | set_t | seq_t | map_t }
 	set_t = { "Set[" ~ type ~ "]" }
 	seq_t = { "Seq[" ~ type ~ "]" }
 	map_t = { "Map[" ~ type ~ "," ~ type ~ "]" }
-    shape_t = { ("{" ~ shape_t ~ ("," ~ shape_t)* ~ "}") | "1" }
+    shape_t = { ("{" ~ shape_t ~ ("," ~ shape_t)* ~ "}") | integer }
 decl = { ident ~ ":" ~ type }
 
 int_lit = { hex_lit | decimal_lit }
