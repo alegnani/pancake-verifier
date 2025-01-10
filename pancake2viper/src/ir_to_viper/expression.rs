@@ -1,11 +1,9 @@
-use std::collections::HashMap;
-
 use viper::BinOpBv;
 use viper::BvSize::BV64;
 
 use crate::utils::{
-    ExprSubstitution, ExprTypeResolution, Mangler, Shape, ToType, ToViper, ToViperError,
-    ToViperType, TranslationMode, TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
+    ExprTypeResolution, Mangler, Shape, ToType, ToViper, ToViperError, ToViperType,
+    TranslationMode, TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
 };
 
 use crate::ir::{self, BinOpType, Type};
