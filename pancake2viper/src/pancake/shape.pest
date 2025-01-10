@@ -1,0 +1,6 @@
+top = { term | shape }
+shape = { ("{" | "<") ~ item ~ ("," ~ item)* ~ ("}" | ">") }
+item = _{ term | shape }
+term = { integer }
+integer = @{ ASCII_DIGIT ~ ("_" | ASCII_DIGIT)* }
+WHITESPACE = _{ " " | "\\t" | "\t" | "\\r" | "\\n" | NEWLINE }

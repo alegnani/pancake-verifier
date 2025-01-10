@@ -448,9 +448,7 @@ impl FromPestPair for Type {
             Rule::seq_t => Self::Seq(Box::new(Type::from_pest(pair.into_inner().next().unwrap()))),
             Rule::set_t => Self::Set(Box::new(Type::from_pest(pair.into_inner().next().unwrap()))),
             Rule::shape_t => {
-                let shape =
-                    Shape::parse(pair.as_str(), crate::pancake::ShapeDelimiter::CurlyBraces)
-                        .expect("Failed to parse shape");
+                let shape = Shape::parse(pair.as_str()).expect("Failed to parse shape");
                 match shape {
                     Shape::Simple => Self::Int,
                     Shape::Nested(inner) => Type::Struct(inner),
