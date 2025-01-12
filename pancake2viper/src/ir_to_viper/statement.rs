@@ -1,8 +1,8 @@
 use crate::{
     ir,
     utils::{
-        ExprTypeResolution, Mangler, ToViperError, ToViperType, TranslationMode, TryToShape,
-        TryToViper, ViperEncodeCtx, ViperUtils,
+        Mangler, ToViperError, ToViperType, TranslationMode, TryToShape, TryToViper,
+        ViperEncodeCtx, ViperUtils,
     },
 };
 
@@ -78,7 +78,6 @@ impl<'a> TryToViper<'a> for ir::While {
         ctx.set_mode(TranslationMode::WhileCond);
         let cond = self.cond.force_to_bool(ctx)?;
         ctx.set_mode(TranslationMode::Normal);
-
         let mut body_ctx = ctx.child();
         body_ctx.enter_new_loop();
         let body = self.body.to_viper(&mut body_ctx)?;
@@ -218,7 +217,7 @@ impl<'a> TryToViper<'a> for ir::Annotation {
                 let no_pos = ast.no_position();
 
                 ctx.set_mode(self.typ.into());
-                let body = self.expr.to_viper(ctx)?;
+                let body = self.expr.force_to_bool(ctx)?;
                 ctx.set_mode(TranslationMode::Normal);
                 ctx.mangler.clear_annot_var();
                 match x {
