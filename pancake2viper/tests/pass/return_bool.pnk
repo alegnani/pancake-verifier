@@ -1,0 +1,5 @@
+fun net_require_signal(1 signal)
+{
+	/@ ensures retval == !signal @/
+    return !signal;
+}
