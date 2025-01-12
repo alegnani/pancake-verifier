@@ -99,9 +99,10 @@ impl TypeContext {
 
     pub fn get_function_type(&self, fname: &str) -> Result<Type, TranslationError> {
         self.type_map
-            .get(fname)
-            .cloned()
+            .get(fname.strip_prefix("f_").unwrap())
+            .or_else(|| self.type_map.get(fname))
             .ok_or(TranslationError::UnknownReturnType(fname.to_owned()))
+            .cloned()
     }
 
     pub fn set_type(&mut self, var: String, typ: Type) {
