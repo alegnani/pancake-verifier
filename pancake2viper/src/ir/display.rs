@@ -83,9 +83,6 @@ impl Display for Expr {
                 "acc({}[{}{}{}], {})",
                 acc.field, acc.lower, acc.typ, acc.upper, acc.perm
             ),
-            Self::FieldAccessChain(acc) => {
-                write! {f, "{}.{}", acc.obj, acc.idxs.iter().map(usize::to_string).collect::<Vec<_>>().join(".")}
-            }
             Self::UnfoldingIn(fold) => write!(f, "(unfolding {} in {})", fold.pred, fold.expr),
             Self::Ternary(t) => write!(f, "(({}) ? {} : {})", t.cond, t.left, t.right),
             Self::ViperFieldAccess(acc) => write!(f, "{}.{}", acc.obj, acc.field),

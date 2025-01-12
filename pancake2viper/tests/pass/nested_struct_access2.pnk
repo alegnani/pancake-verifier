@@ -1,0 +1,6 @@
+fun main() {
+    var queue = <1, <2, 3>, 4>;
+    var ret = <queue, <0, 3> >;
+    /@ assert ret.0.1.1 == ret.1.1 @/
+    return ret;
+}

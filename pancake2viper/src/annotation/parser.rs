@@ -258,6 +258,7 @@ fn parse_toplevel_common(s: &str, rule: Rule) -> (String, Vec<Decl>, Pairs<Rule>
 fn parse_expr(pairs: Pairs<Rule>) -> Expr {
     PRATT_PARSER
         .map_primary(|primary| match primary.as_rule() {
+            Rule::struc => Expr::Struct(Struct::from_pest(primary)),
             Rule::int_lit => Expr::Const(i64::from_pest(primary)),
             Rule::quantified => Expr::Quantified(Quantified::from_pest(primary)),
             Rule::expr => parse_expr(primary.into_inner()),
@@ -289,12 +290,9 @@ fn parse_expr(pairs: Pairs<Rule>) -> Expr {
             })
         })
         .map_postfix(|lhs, op| match op.as_rule() {
-            Rule::field_acc => Expr::FieldAccessChain(FieldAccessChain {
+            Rule::field_acc => Expr::Field(Field {
                 obj: Box::new(lhs),
-                idxs: op
-                    .into_inner()
-                    .map(|i| i.as_str().parse().unwrap())
-                    .collect(),
+                field_idx: op.into_inner().next().unwrap().as_str().parse().unwrap(),
             }),
             Rule::viper_field_acc => Expr::ViperFieldAccess(ViperFieldAccess {
                 obj: Box::new(lhs),
@@ -328,6 +326,16 @@ fn parse_expr(pairs: Pairs<Rule>) -> Expr {
 // Translates from parsing tree to AST
 pub trait FromPestPair {
     fn from_pest(pair: Pair<'_, Rule>) -> Self;
+}
+
+impl FromPestPair for Struct {
+    fn from_pest(pair: Pair<'_, Rule>) -> Self {
+        let elements = pair
+            .into_inner()
+            .map(|p| parse_expr(Pairs::single(p)))
+            .collect::<Vec<_>>();
+        Self { elements }
+    }
 }
 
 impl FromPestPair for i64 {
@@ -440,9 +448,7 @@ impl FromPestPair for Type {
             Rule::seq_t => Self::Seq(Box::new(Type::from_pest(pair.into_inner().next().unwrap()))),
             Rule::set_t => Self::Set(Box::new(Type::from_pest(pair.into_inner().next().unwrap()))),
             Rule::shape_t => {
-                let shape =
-                    Shape::parse(pair.as_str(), crate::pancake::ShapeDelimiter::CurlyBraces)
-                        .expect("Failed to parse shape");
+                let shape = Shape::parse(pair.as_str()).expect("Failed to parse shape");
                 match shape {
                     Shape::Simple => Self::Int,
                     Shape::Nested(inner) => Type::Struct(inner),

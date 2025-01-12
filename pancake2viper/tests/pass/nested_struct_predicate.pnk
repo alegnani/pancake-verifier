@@ -1,5 +1,5 @@
-/@ predicate foo(s: {1,1,1,1}) {
-    alen(s) == 4 && acc(s[0..4]) && s.0 == s.3
+/@ predicate foo(s: 4) {
+    s.0 == s.3
 }
 @/
 

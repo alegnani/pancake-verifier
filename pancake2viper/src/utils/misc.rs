@@ -1,11 +1,11 @@
-use std::{str::FromStr, time::Instant};
+use std::time::Instant;
 
-use anyhow::anyhow;
-use regex::Regex;
 use viper::{
     smt_manager::SmtManager, AstFactory, AstUtils, Expr, LocalVarDecl, Type, VerificationContext,
     Verifier, Viper,
 };
+
+use super::ViperUtils;
 
 pub struct ViperHandle {
     pub viper: &'static Viper,
@@ -80,14 +80,11 @@ impl ViperHandle {
     }
 }
 
-pub trait ViperUtils<'a> {
-    fn new_var(&self, name: &str, typ: Type) -> (LocalVarDecl<'a>, Expr<'a>);
-    fn zero(&self) -> Expr<'a>;
-    fn one(&self) -> Expr<'a>;
-    fn two(&self) -> Expr<'a>;
-}
-
 impl<'a> ViperUtils<'a> for AstFactory<'a> {
+    fn seq_slice(&self, seq: Expr<'a>, lower: Expr<'a>, upper: Expr<'a>) -> Expr<'a> {
+        self.seq_drop(self.seq_take(seq, upper), lower)
+    }
+
     fn new_var(&self, name: &str, typ: Type) -> (LocalVarDecl<'a>, Expr<'a>) {
         (self.local_var_decl(name, typ), self.local_var(name, typ))
     }
@@ -105,42 +102,42 @@ impl<'a> ViperUtils<'a> for AstFactory<'a> {
     }
 }
 
-pub struct Position {
-    begin: (i32, i32),
-    end: (i32, i32),
-}
-
-impl FromStr for Position {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let re = Regex::new(r"\((\d+):(\d+) (\d+):(\d+)\)")?;
-        if let Some(caps) = re.captures(s) {
-            let v = caps
-                .extract::<4>()
-                .1
-                .iter()
-                .map(|n| n.parse::<i32>())
-                .collect::<Result<Vec<_>, _>>()?;
-            return Ok(Self {
-                begin: (v[0], v[1]),
-                end: (v[2], v[3]),
-            });
-        }
-        Err(anyhow!("Failed to parse Position, got {}", s))
-    }
-}
-
-pub struct AstWrapper<T> {
-    inner: T,
-    position: Position,
-}
-
-impl<T> AstWrapper<T> {
-    pub fn new(inner: T, pos: &str) -> anyhow::Result<Self> {
-        Ok(Self {
-            inner,
-            position: Position::from_str(pos)?,
-        })
-    }
-}
+//pub struct Position {
+//    begin: (i32, i32),
+//    end: (i32, i32),
+//}
+//
+//impl FromStr for Position {
+//    type Err = anyhow::Error;
+//
+//    fn from_str(s: &str) -> Result<Self, Self::Err> {
+//        let re = Regex::new(r"\((\d+):(\d+) (\d+):(\d+)\)")?;
+//        if let Some(caps) = re.captures(s) {
+//            let v = caps
+//                .extract::<4>()
+//                .1
+//                .iter()
+//                .map(|n| n.parse::<i32>())
+//                .collect::<Result<Vec<_>, _>>()?;
+//            return Ok(Self {
+//                begin: (v[0], v[1]),
+//                end: (v[2], v[3]),
+//            });
+//        }
+//        Err(anyhow!("Failed to parse Position, got {}", s))
+//    }
+//}
+//
+//pub struct AstWrapper<T> {
+//    inner: T,
+//    position: Position,
+//}
+//
+//impl<T> AstWrapper<T> {
+//    pub fn new(inner: T, pos: &str) -> anyhow::Result<Self> {
+//        Ok(Self {
+//            inner,
+//            position: Position::from_str(pos)?,
+//        })
+//    }
+//}

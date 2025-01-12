@@ -3,9 +3,7 @@ use viper::{BinOpBv, BvSize::BV64, UnOpBv};
 use crate::ir;
 
 use crate::ir::shared::SharedOpType::{Load, Store};
-use crate::utils::{
-    Mangler, Shape, ToType, ToViperError, TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
-};
+use crate::utils::{Shape, ToViperError, TryToShape, TryToViper, ViperEncodeCtx, ViperUtils};
 
 impl<'a> TryToViper<'a> for ir::Load {
     type Output = viper::Expr<'a>;
@@ -28,15 +26,14 @@ impl<'a> TryToViper<'a> for ir::Load {
         Ok(if self.shape.is_simple() {
             iarray.access(ctx.heap_var().1, word_addr)
         } else {
-            let fresh_str = Mangler::fresh_varname();
-            let (fresh_decl, fresh) = ast.new_var(&fresh_str, iarray.get_type());
-            let length = ast.int_lit(self.shape.len() as i64);
-            ctx.set_type(fresh_str, self.shape.to_type());
+            let length = self.shape.len() as i64;
 
-            let slice = iarray.create_slice_m(ctx.heap_var().1, word_addr, length, fresh);
-            ctx.declarations.push(fresh_decl);
-            ctx.stack.push(slice);
-            fresh
+            let elems = (0..length)
+                .map(|offset| {
+                    iarray.access(ctx.heap_var().1, ast.add(word_addr, ast.int_lit(offset)))
+                })
+                .collect::<Vec<_>>();
+            ast.explicit_seq(&elems)
         })
     }
 }
@@ -101,13 +98,18 @@ impl<'a> TryToViper<'a> for ir::Store {
         let store = if rhs_shape.is_simple() {
             ast.field_assign(iarray.access(ctx.heap_var().1, word_addr), rhs)
         } else {
-            iarray.copy_slice_m(
-                rhs,
-                ast.zero(),
-                ctx.heap_var().1,
-                word_addr,
-                ast.int_lit(rhs_shape.len() as i64),
-            )
+            let length = rhs_shape.len() as i64;
+
+            let elems = (0..length)
+                .map(|offset| {
+                    let src = ast.seq_index(rhs, ast.int_lit(offset));
+                    let dst = ctx
+                        .iarray
+                        .access(ctx.heap_var().1, ast.add(addr_expr, ast.int_lit(offset)));
+                    ast.local_var_assign(dst, src)
+                })
+                .collect::<Vec<_>>();
+            ast.seqn(&elems, &[])
         };
 
         Ok(ast.seqn(&[assertion, store], &[]))

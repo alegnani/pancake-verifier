@@ -60,10 +60,6 @@ impl ConstEvalExpr for Expr {
                 field: Box::new(a.field.const_eval(options)),
                 perm: a.perm,
             }),
-            FieldAccessChain(f) => FieldAccessChain(ir::FieldAccessChain {
-                obj: Box::new(f.obj.const_eval(options)),
-                idxs: f.idxs,
-            }),
             UnfoldingIn(u) => UnfoldingIn(ir::UnfoldingIn {
                 pred: Box::new(u.pred.const_eval(options)),
                 expr: Box::new(u.expr.const_eval(options)),

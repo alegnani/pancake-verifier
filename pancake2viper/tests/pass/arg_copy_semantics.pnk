@@ -1,5 +1,4 @@
 fun main(2 x) {
-    /@ requires acc(x[0..2]) @/
     /@ requires x.0 == 42 @/
     /@ ensures retval == 42 @/
     do_stuff(x);
@@ -7,8 +6,6 @@ fun main(2 x) {
 }
 
 fun do_stuff(2 x) {
-    /@ requires acc(x[0..2]) @/
-    /@ ensures acc(x[0..2]) @/
     x = < 0, 0 >;
     return 0;
 }

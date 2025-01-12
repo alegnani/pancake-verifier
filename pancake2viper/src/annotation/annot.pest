@@ -14,7 +14,7 @@ type = _{ int_t | bool_t | iarray_t | ref_t | shape_t | set_t | seq_t | map_t }
 	set_t = { "Set[" ~ type ~ "]" }
 	seq_t = { "Seq[" ~ type ~ "]" }
 	map_t = { "Map[" ~ type ~ "," ~ type ~ "]" }
-    shape_t = { ("{" ~ shape_t ~ ("," ~ shape_t)* ~ "}") | "1" }
+    shape_t = { ("{" ~ shape_t ~ ("," ~ shape_t)* ~ "}") | integer }
 decl = { ident ~ ":" ~ type }
 
 int_lit = { hex_lit | decimal_lit }
@@ -54,7 +54,7 @@ expr = !{ prefix? ~ primary ~ postfix* ~ (infix ~ prefix? ~ primary ~ postfix*)*
     
     postfix = _{ field_acc | viper_field_acc | arr_acc | ternary | shift }
 		viper_field_acc = @{ "." ~ ident }	
-        field_acc = @{ ("." ~ field_idx)+ }
+        field_acc = @{ "." ~ field_idx }
             field_idx = !{ integer }
         arr_acc = @{ "[" ~ expr ~ "]" }
         ternary = { "?" ~ expr ~ ":" ~ expr }
@@ -64,8 +64,9 @@ expr = !{ prefix? ~ primary ~ postfix* ~ (infix ~ prefix? ~ primary ~ postfix*)*
                 ashr = { ">>" }
                 lshl = { "<<" }
 
-    primary = _{ "(" ~ expr ~ ")" | unfolding | int_lit | quantified | acc_pred | acc_slice | old | f_call | field_acc | bool_lit | ident | biw | base }
+    primary = _{ "(" ~ expr ~ ")" | unfolding | int_lit | quantified | acc_pred | acc_slice | old | f_call | struc | field_acc | bool_lit | ident | biw | base }
 
+		struc = { "<" ~ expr ~ ("," ~ expr)* ~ ">" }
         quantified = { (forall | exists) ~ decl ~ ("," ~ decl)* ~ "::" ~ triggers ~ expr }
             forall = { "forall" }
             exists = { "exists" }

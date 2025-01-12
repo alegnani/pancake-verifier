@@ -136,10 +136,3 @@ impl TryFrom<pancake::Program> for ir::Program {
         })
     }
 }
-
-fn parse_collection<F, T>(f: F, input: &[&str]) -> Vec<T>
-where
-    F: Fn(&str) -> T,
-{
-    input.iter().map(|s| f(s)).collect()
-}

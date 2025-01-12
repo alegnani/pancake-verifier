@@ -10,7 +10,7 @@ use std::collections::HashMap;
 pub use contexts::*;
 pub use errors::*;
 pub use mangler::{Mangler, VariableType};
-pub use misc::{ViperHandle, ViperUtils};
+pub use misc::ViperHandle;
 pub use shape::Shape;
 pub use traits::*;
 

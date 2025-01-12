@@ -248,7 +248,7 @@ impl SharedContext {
             .mappings
             .iter()
             .flatten()
-            .flat_map(|s| s.gen_boilerplate(ctx, &model))
+            .flat_map(|s| s.gen_boilerplate(ctx, model))
             .flatten()
             .collect())
     }

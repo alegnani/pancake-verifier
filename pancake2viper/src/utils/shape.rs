@@ -44,7 +44,7 @@ impl<'a> ToViperType<'a> for Shape {
     fn to_viper_type(&self, ctx: &ViperEncodeCtx<'a>) -> viper::Type<'a> {
         match self {
             Self::Simple => ctx.ast.int_type(),
-            Self::Nested(_) => ctx.iarray.get_type(),
+            Self::Nested(_) => ctx.ast.seq_type(ctx.ast.int_type()),
         }
     }
 }
@@ -75,7 +75,7 @@ mod tests {
     #[test]
     fn parse_simple() {
         let s = "1";
-        let shape = Shape::parse(s, crate::pancake::ShapeDelimiter::AngleBrackets).unwrap();
+        let shape = Shape::parse(s).unwrap();
         assert_eq!(shape, Shape::Simple);
         assert_eq!(shape.len(), 1);
     }
@@ -83,7 +83,7 @@ mod tests {
     #[test]
     fn parse_nested1() {
         let s = "<1>";
-        let shape = Shape::parse(s, crate::pancake::ShapeDelimiter::AngleBrackets).unwrap();
+        let shape = Shape::parse(s).unwrap();
         assert_eq!(shape, Nested(vec![Simple]));
         assert_eq!(shape.len(), 1);
     }
@@ -91,7 +91,7 @@ mod tests {
     #[test]
     fn parse_nested2() {
         let s = "<1,<1,1>>";
-        let shape = Shape::parse(s, crate::pancake::ShapeDelimiter::AngleBrackets).unwrap();
+        let shape = Shape::parse(s).unwrap();
         assert_eq!(shape, Nested(vec![Simple, Nested(vec![Simple, Simple])]));
         assert_eq!(shape.len(), 3);
     }
@@ -99,7 +99,7 @@ mod tests {
     #[test]
     fn parse_nested3() {
         let s = "<1,<1,1,<1>>,<1,1>,1>";
-        let shape = Shape::parse(s, crate::pancake::ShapeDelimiter::AngleBrackets).unwrap();
+        let shape = Shape::parse(s).unwrap();
         assert_eq!(
             shape,
             Nested(vec![

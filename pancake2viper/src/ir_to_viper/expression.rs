@@ -1,11 +1,9 @@
-use std::collections::HashMap;
-
 use viper::BinOpBv;
 use viper::BvSize::BV64;
 
 use crate::utils::{
-    ExprSubstitution, ExprTypeResolution, Mangler, Shape, ToType, ToViper, ToViperError,
-    ToViperType, TranslationMode, TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
+    ExprTypeResolution, Mangler, Shape, ToType, ToViper, ToViperError, ToViperType,
+    TranslationMode, TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
 };
 
 use crate::ir::{self, BinOpType, Type};
@@ -173,53 +171,15 @@ impl<'a> TryToViper<'a> for ir::Struct {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let shapes = self
-            .elements
-            .iter()
-            .map(|e| e.to_shape(ctx.typectx_get_mut()))
+        let type_ctx = ctx.type_ctx().clone();
+        let elems = self
+            .flatten()
+            .into_iter()
+            .flat_map(|e| e.flatten(&type_ctx))
+            .flatten()
+            .map(|e| e.to_viper(ctx))
             .collect::<Result<Vec<_>, _>>()?;
-        let len: usize = shapes.iter().map(Shape::len).sum();
-        let fresh = Mangler::fresh_varname();
-        let (struct_decl, struct_var) = ast.new_var(&fresh, ctx.heap_type());
-        let mut assumptions = vec![
-            ast.inhale(
-                ast.eq_cmp(ctx.iarray.len_f(struct_var), ast.int_lit(len as i64)),
-                ast.no_position(),
-            ),
-            ast.inhale(
-                ctx.iarray.array_acc_expr(
-                    struct_var,
-                    ast.zero(),
-                    ctx.iarray.len_f(struct_var),
-                    ast.full_perm(),
-                ),
-                ast.no_position(),
-            ),
-        ];
-
-        let mut assignments = vec![];
-        let mut idx = 0;
-        for struct_element in self.flatten() {
-            let shape = struct_element.to_shape(ctx.typectx_get_mut())?;
-            let shape_len = shape.len();
-            let src_obj = struct_element.to_viper(ctx)?;
-            for offset in 0..shape_len {
-                let lhs = ctx
-                    .iarray
-                    .access(struct_var, ast.int_lit((idx + offset) as i64));
-                let rhs = match shape {
-                    Shape::Simple => src_obj,
-                    Shape::Nested(_) => ctx.iarray.access(src_obj, ast.int_lit(offset as i64)),
-                };
-                assignments.push(ast.field_assign(lhs, rhs))
-            }
-            idx += shape_len;
-        }
-
-        assumptions.extend(assignments);
-        ctx.declarations.push(struct_decl);
-        ctx.stack.push(ast.seqn(&assumptions, &[]));
-        Ok(struct_var)
+        Ok(ast.explicit_seq(&elems))
     }
 }
 
@@ -234,19 +194,13 @@ impl<'a> TryToViper<'a> for ir::Field {
             Shape::Simple => unreachable!(),
             Shape::Nested(elems) => {
                 if elems[self.field_idx].len() == 1 {
-                    ctx.iarray.access(obj, ast.int_lit(self.field_idx as i64))
+                    ast.seq_index(obj, ast.int_lit(self.field_idx as i64))
                 } else {
-                    let fresh = Mangler::fresh_varname();
-                    let (f_decl, f) = ast.new_var(&fresh, ctx.iarray.get_type());
-                    ctx.declarations.push(f_decl);
                     let (offset, size) = obj_shape.access(self.field_idx)?;
-                    ctx.stack.push(ctx.iarray.create_slice_m(
-                        obj,
+                    ast.seq_drop(
+                        ast.seq_take(obj, ast.int_lit((offset + size) as i64)),
                         ast.int_lit(offset as i64),
-                        ast.int_lit(size as i64),
-                        f,
-                    ));
-                    f
+                    )
                 }
             }
         })
@@ -257,9 +211,6 @@ impl<'a> ToViper<'a> for ir::Decl {
     type Output = viper::LocalVarDecl<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Self::Output {
         let ast = ctx.ast;
-        // XXX: move
-        // ctx.set_type(self.name.clone(), self.typ.to_shape(ctx.typectx_get()));
-        // ctx.mangler.new_annot_var(self.name.clone());
         ast.local_var_decl(&self.name, self.typ.to_viper_type(ctx))
     }
 }
@@ -327,50 +278,6 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
     }
 }
 
-fn auto_unfold_fold(
-    ctx: &ViperEncodeCtx<'_>,
-    annots: &[ir::Expr],
-    arg_mapping: &[(ir::Expr, ir::Expr)],
-    copy_mapping: &Vec<(ir::Expr, ir::Expr)>,
-    reverse: bool,
-) -> (Vec<ir::Stmt>, Vec<ir::Stmt>) {
-    let mut first = vec![];
-    let mut second = vec![];
-    let (op1, op2) = if reverse {
-        (ir::AnnotationType::Fold, ir::AnnotationType::Unfold)
-    } else {
-        (ir::AnnotationType::Unfold, ir::AnnotationType::Fold)
-    };
-    for annot in annots {
-        if let Some(pred) = get_predicate(ctx, annot) {
-            let mut annot = annot.clone();
-            let mut sub_count = 0;
-
-            for (old, new) in arg_mapping.iter() {
-                if annot.substitute(old, new) {
-                    sub_count += 1;
-                }
-            }
-            if pred.args.len() == sub_count {
-                first.push(ir::Stmt::Annotation(ir::Annotation {
-                    typ: op1,
-                    expr: annot.clone(),
-                }));
-
-                for (old, new) in copy_mapping {
-                    annot.substitute(old, new);
-                }
-
-                second.push(ir::Stmt::Annotation(ir::Annotation {
-                    typ: op2,
-                    expr: annot.clone(),
-                }));
-            }
-        }
-    }
-    (first, second)
-}
-
 impl<'a> TryToViper<'a> for ir::MethodCall {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
@@ -382,122 +289,16 @@ impl<'a> TryToViper<'a> for ir::MethodCall {
         ctx.consume_stack = false;
 
         // Transpiled arguments
-        let mut args = vec![];
-        // Statements for copying the compound shapes
-        let mut copy_stmts = vec![];
-        let mut copy_mapping = vec![];
-        let arg_mapping: HashMap<_, _> = self
-            .args
-            .iter()
-            .cloned()
-            .zip(ctx.method.get_args(&self.fname).iter().cloned())
-            .collect();
-
-        // Copy compound shapes in order to preserve copy-semantics of function calls
-        for arg in self.args.clone() {
-            let copied_arg = match arg.to_shape(ctx.typectx_get_mut())? {
-                Shape::Simple => arg.to_viper(ctx)?,
-                Shape::Nested(_) => {
-                    let fresh_name = Mangler::fresh_varname();
-                    let fresh = ast.new_var(
-                        &fresh_name,
-                        arg.to_shape(ctx.typectx_get_mut())?.to_viper_type(ctx),
-                    );
-                    let arg_len = arg.to_shape(ctx.typectx_get_mut())?.len();
-                    let viper_arg = arg.clone().to_viper(ctx)?;
-                    let copy_arg = ctx.iarray.create_slice_m(
-                        viper_arg,
-                        ast.zero(),
-                        ast.int_lit(arg_len as i64),
-                        fresh.1,
-                    );
-                    ctx.declarations.push(fresh.0);
-                    copy_stmts.push(copy_arg);
-                    let typ_ctx = ctx.typectx_get_mut();
-                    let typ = typ_ctx.get_type_no_mangle(&arg_mapping.get(&arg).unwrap().name)?;
-                    typ_ctx.set_type(fresh_name.clone(), typ);
-                    copy_mapping.push((arg, ir::Expr::Var(fresh_name)));
-                    fresh.1
-                }
-            };
-            args.push(copied_arg);
-        }
-
-        // arg_mapping: arg -> var
-        // copy_mapping: var -> copied
-        // rev_arg_mappings: arg -> copied
-        // rev_copy_mapping: copied -> var
-
-        let arg_mapping = arg_mapping
-            .into_iter()
-            .map(|(e, a)| (a.into(), e))
-            .collect::<Vec<_>>();
-
-        // Unfold/fold predicates using the copied arguments
-        let (in_unfoldings, in_foldings) = auto_unfold_fold(
-            ctx,
-            ctx.method.get_pre(&self.fname),
-            &arg_mapping,
-            &copy_mapping,
-            false,
-        );
-        //println!("Arg mapping: {:?}", arg_mapping);
-        //println!("Copy mapping: {:?}", copy_mapping);
-        //
-        //let rev_arg_mapping = arg_mapping
-        //    .iter()
-        //    .filter_map(|(old, inter)| {
-        //        copy_mapping.iter().find_map(|(inter2, new)| {
-        //            if *inter == *inter2 {
-        //                Some((old.clone(), new.clone()))
-        //            } else {
-        //                None
-        //            }
-        //        })
-        //    })
-        //    .collect::<Vec<_>>();
-        //let rev_copy_mapping = copy_mapping.into_iter().map(|t| (t.1, t.0)).collect();
-        //
-        //println!("Rev Arg mapping: {:?}", rev_arg_mapping);
-        //println!("Rev Copy mapping: {:?}", rev_copy_mapping);
-
-        let (out_foldings, out_unfoldings) = auto_unfold_fold(
-            ctx,
-            ctx.method.get_post(&self.fname),
-            //&rev_arg_mapping,
-            //&rev_copy_mapping,
-            &arg_mapping,
-            &copy_mapping,
-            true,
-        );
-
-        let in_unfoldings = in_unfoldings.to_viper(ctx)?;
-        let in_foldings = in_foldings.to_viper(ctx)?;
-        let out_unfoldings = out_unfoldings.to_viper(ctx)?;
-        let out_foldings = out_foldings.to_viper(ctx)?;
+        let args = self.args.to_viper(ctx)?;
         let mut base_args = ctx.get_default_args().1;
         base_args.extend(args);
 
         let call = ast.method_call(&self.fname, &base_args, &[ret.1]);
         ctx.declarations.push(ret.0);
-        ctx.stack.extend(in_unfoldings);
-        ctx.stack.extend(copy_stmts);
-        ctx.stack.extend(in_foldings);
         ctx.stack.push(call);
-        ctx.stack.extend(out_unfoldings);
-        ctx.stack.extend(out_foldings);
         ctx.consume_stack = true;
 
-        // TODO: push post folds/unfolds
         Ok(ret.1)
-    }
-}
-
-fn get_predicate<'a>(ctx: &ViperEncodeCtx<'_>, expr: &'a ir::Expr) -> Option<&'a ir::FunctionCall> {
-    match expr {
-        ir::Expr::FunctionCall(fcall) if ctx.is_predicate(&fcall.fname) => Some(fcall),
-        ir::Expr::AccessPredicate(acc) => get_predicate(ctx, &acc.field),
-        _ => None,
     }
 }
 
@@ -539,38 +340,6 @@ impl<'a> TryToViper<'a> for ir::AccessPredicate {
             ir::Expr::FunctionCall(fcall) if ctx.is_predicate(&fcall.fname) => fcall.to_viper(ctx),
             field => Ok(ast.field_access_predicate(field.to_viper(ctx)?, perm)),
         }
-    }
-}
-
-impl<'a> TryToViper<'a> for ir::FieldAccessChain {
-    type Output = viper::Expr<'a>;
-
-    fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
-        let ast = ctx.ast;
-        let obj_shape = self.obj.to_shape(ctx.typectx_get_mut())?;
-
-        let (final_shape, offset) =
-            self.idxs
-                .iter()
-                .fold((obj_shape, 0), |(shape, padding), &idx| match &shape {
-                    Shape::Simple => unreachable!(),
-                    Shape::Nested(elems) => {
-                        let inner_shape = elems[idx].clone();
-                        let offset = if inner_shape.is_simple() {
-                            idx
-                        } else {
-                            shape.access(idx).unwrap().0 // FIXME
-                        };
-                        (inner_shape, padding + offset)
-                    }
-                });
-        if !final_shape.is_simple() {
-            return Err(ToViperError::FieldAccessChainShape(final_shape));
-        }
-
-        let obj = self.obj.to_viper(ctx)?;
-        let offset_exp = ast.int_lit(offset as i64);
-        Ok(ctx.iarray.access(obj, offset_exp))
     }
 }
 
@@ -639,7 +408,6 @@ impl<'a> TryToViper<'a> for ir::Expr {
             Shift(shift) => shift.to_viper(ctx),
             Field(field) => field.to_viper(ctx),
             Struct(struc) => struc.to_viper(ctx),
-            FieldAccessChain(f) => f.to_viper(ctx),
             ArrayAccess(heap) => heap.to_viper(ctx),
             Quantified(quant) => quant.to_viper(ctx),
             AccessPredicate(acc) => acc.to_viper(ctx),

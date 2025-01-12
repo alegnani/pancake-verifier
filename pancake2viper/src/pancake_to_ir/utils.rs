@@ -50,7 +50,7 @@ fn stmt_annotation_helper(
         }
         Stmt::Annotation(Annotation {
             typ: AnnotationType::Trusted,
-            expr,
+            expr: _,
         }) => {
             trusted = true;
             *body = Stmt::Skip;

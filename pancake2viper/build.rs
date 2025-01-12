@@ -16,6 +16,8 @@ macro_rules! gen_tests {
             Command::new("echo")
                 .arg(format!("{}", path))
                 .spawn()
+                .unwrap()
+                .wait()
                 .unwrap();
             if file.is_file() && file_ext == "pnk" {
                 writeln!($test_file, $fmt, file_stem, path).unwrap();

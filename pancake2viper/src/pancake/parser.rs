@@ -1,4 +1,6 @@
 use anyhow::anyhow;
+use pest::Parser as _;
+use pest_derive::Parser;
 use regex::Regex;
 use sexpr_parser::{Parser, SexprFactory};
 use std::{
@@ -80,14 +82,14 @@ impl Expr {
             }
             [Symbol(memload), Symbol(shape), List(exp)] if memload == "MemLoad" => {
                 Ok(Self::Load(Load {
-                    shape: Shape::parse(shape, ShapeDelimiter::AngleBrackets)?,
+                    shape: Shape::parse(shape)?,
                     address: Box::new(Self::parse(exp)?),
                     assert: true,
                 }))
             }
             [Symbol(memload), Int(shape), List(exp)] if memload == "MemLoad" => {
                 Ok(Self::Load(Load {
-                    shape: Shape::parse(&shape.to_string(), ShapeDelimiter::AngleBrackets)?,
+                    shape: Shape::parse(&shape.to_string())?,
                     address: Box::new(Self::parse(exp)?),
                     assert: true,
                 }))
@@ -319,7 +321,7 @@ impl Stmt {
     fn parse_seq(s: &[&SExpr]) -> anyhow::Result<Self> {
         if let [List(pos), pstmt] = s {
             match &pos[..] {
-                [Symbol(annot), SString(loc), SString(position)]
+                [Symbol(annot), SString(loc), SString(_position)]
                     if annot == "annot" && loc == "location" =>
                 {
                     // TODO: return wrapper
@@ -356,7 +358,7 @@ impl Arg {
             List(args) => match &args[..] {
                 [Symbol(name), Symbol(colon), Symbol(shape)] if colon == ":" => Ok(Self {
                     name: name.clone(),
-                    shape: Shape::parse(shape, ShapeDelimiter::AngleBrackets)?,
+                    shape: Shape::parse(shape)?,
                 }),
                 [Symbol(name), Symbol(colon), Int(_)] if colon == ":" => Ok(Self {
                     name: name.clone(),
@@ -389,51 +391,41 @@ impl FnDec {
     }
 }
 
-pub enum ShapeDelimiter {
-    AngleBrackets,
-    CurlyBraces,
-}
+#[derive(Parser)]
+#[grammar = "src/pancake/shape.pest"]
+struct ShapeParser;
 
 impl Shape {
-    pub fn parse(s: &str, delimiter: ShapeDelimiter) -> anyhow::Result<Self> {
-        if s == "1" {
-            return Ok(Shape::Simple);
-        }
-        let (open, close) = match delimiter {
-            ShapeDelimiter::AngleBrackets => ('<', '>'),
-            ShapeDelimiter::CurlyBraces => ('{', '}'),
-        };
-        let mut stack = vec![];
-        for c in s.chars() {
-            match c {
-                x if x == open => stack.push(vec![]),
-                '1' => stack
-                    .last_mut()
-                    .ok_or(anyhow!("Unexpected symbol '1'"))?
-                    .push(Shape::Simple),
-                ',' => (),
-                x if x == close => {
-                    let item = stack
-                        .pop()
-                        .ok_or(anyhow!("Unexpected symbol '{}'", close))?;
-                    let shape = Shape::Nested(item);
-                    if let Some(last) = stack.last_mut() {
-                        last.push(shape);
-                    } else {
-                        stack.push(vec![shape]);
-                    }
-                }
-                x => return Err(anyhow!("Unexpected symbol '{}'", x)),
-            }
-        }
-        if stack.len() == 1 {
-            let item = stack.pop().unwrap();
-            match &item[..] {
-                [shape] => Ok(shape.clone()),
-                _ => Ok(Shape::Nested(item)),
-            }
+    fn parse_term(pair: pest::iterators::Pair<'_, Rule>) -> anyhow::Result<Self> {
+        let n = pair.as_str().parse::<u64>()?;
+        Ok(if n == 1 {
+            Self::Simple
         } else {
-            Err(anyhow!("Mismatched brackets"))
+            Self::Nested((0..n).map(|_| Self::Simple).collect())
+        })
+    }
+
+    pub fn parse(s: &str) -> anyhow::Result<Self> {
+        let top = ShapeParser::parse(Rule::top, s)?
+            .next()
+            .unwrap()
+            .into_inner()
+            .next()
+            .unwrap();
+        match top.as_rule() {
+            Rule::term => Self::parse_term(top),
+            Rule::shape => {
+                let inner = top
+                    .into_inner()
+                    .map(|pair| match pair.as_rule() {
+                        Rule::term => Self::parse_term(pair),
+                        Rule::shape => Self::parse(pair.as_str()),
+                        x => panic!("Failed to parse Shape, got {:?}", x),
+                    })
+                    .collect::<Result<Vec<_>, _>>();
+                Ok(Shape::Nested(inner?))
+            }
+            x => panic!("Failed to parse Shape, got {:?}", x),
         }
     }
 }

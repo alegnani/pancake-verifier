@@ -87,6 +87,7 @@ pub trait ProgramToViper<'a> {
 
 pub trait ViperUtils<'a> {
     fn new_var(&self, name: &str, typ: viper::Type) -> (LocalVarDecl<'a>, Expr<'a>);
+    fn seq_slice(&self, seq: Expr<'a>, lower: Expr<'a>, upper: Expr<'a>) -> Expr<'a>;
     fn zero(&self) -> Expr<'a>;
     fn one(&self) -> Expr<'a>;
     fn two(&self) -> Expr<'a>;
