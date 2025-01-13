@@ -109,7 +109,7 @@ impl ToType for BinOpType {
     fn to_type(&self, is_annot: bool) -> super::Type {
         use BinOpType::*;
         match self {
-            ViperEqual | ViperNotEqual => Type::Bool,
+            ViperEqual | ViperNotEqual | Iff | Imp => Type::Bool,
             Gt | Gte | Lt | Lte | BoolAnd | BoolOr | PancakeEqual | PancakeNotEqual => {
                 if is_annot {
                     Type::Bool
@@ -117,7 +117,7 @@ impl ToType for BinOpType {
                     Type::Int
                 }
             }
-            _ => Type::Int,
+            Add | Sub | Mul | Div | Modulo | BitOr | BitAnd | BitXor => Type::Int,
         }
     }
 }
