@@ -32,6 +32,11 @@ pub trait ExprTypeResolution {
     ) -> Result<Type, TranslationError>;
 }
 
+pub trait ForceToBool<'a> {
+    type Output;
+    fn force_to_bool(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError>;
+}
+
 pub trait TryToViper<'a> {
     type Output;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError>;

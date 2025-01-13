@@ -1,7 +1,7 @@
 use crate::{
     ir,
     utils::{
-        Mangler, ToViperError, ToViperType, TranslationMode, TryToShape, TryToViper,
+        ForceToBool, Mangler, ToViperError, ToViperType, TranslationMode, TryToShape, TryToViper,
         ViperEncodeCtx, ViperUtils,
     },
 };

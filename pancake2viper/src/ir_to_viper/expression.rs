@@ -2,17 +2,16 @@ use viper::BinOpBv;
 use viper::BvSize::BV64;
 
 use crate::utils::{
-    ExprTypeResolution, Mangler, Shape, ToType, ToViper, ToViperError, ToViperType,
+    ExprTypeResolution, ForceToBool, Mangler, Shape, ToType, ToViper, ToViperError, ToViperType,
     TranslationMode, TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
 };
 
 use crate::ir::{self, BinOpType, Type};
 
-impl ir::Expr {
-    pub fn force_to_bool<'a>(
-        self,
-        ctx: &mut ViperEncodeCtx<'a>,
-    ) -> Result<viper::Expr<'a>, ToViperError> {
+impl<'a> ForceToBool<'a> for ir::Expr {
+    type Output = viper::Expr<'a>;
+
+    fn force_to_bool(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let is_annot = ctx.get_mode().is_annot();
         let typ = self.resolve_expr_type(is_annot, ctx.typectx_get_mut())?;
@@ -23,7 +22,9 @@ impl ir::Expr {
             x => panic!("Can't cast {:?} to `Bool`", x),
         })
     }
+}
 
+impl ir::Expr {
     // TODO: this could well be a function pointer. If we stick to only using
     // valid function addresses (no unholy pointer arithmetic) we can encode
     // this as a switch statement checking the expression against all possible
@@ -33,6 +34,14 @@ impl ir::Expr {
             Self::Label(label) => label.to_owned(),
             _ => panic!("Probably using f-pointer"),
         }
+    }
+}
+
+impl<'a> ForceToBool<'a> for Vec<ir::Expr> {
+    type Output = Vec<viper::Expr<'a>>;
+
+    fn force_to_bool(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
+        self.into_iter().map(|e| e.force_to_bool(ctx)).collect()
     }
 }
 
