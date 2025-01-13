@@ -5,7 +5,7 @@ use shared::SharedContext;
 use viper::AstFactory;
 
 use crate::utils::{
-    EncodeOptions, MethodContext, ProgramToViper, ToViper, ToViperError, ToViperType,
+    EncodeOptions, ForceToBool, MethodContext, ProgramToViper, ToViper, ToViperError, ToViperType,
     TranslationMode, TryToViper, TypeContext, ViperEncodeCtx,
 };
 use crate::viper_prelude::create_viper_prelude;
@@ -57,7 +57,7 @@ impl<'a> TryToViper<'a> for FnDec {
         );
 
         ctx.set_mode(TranslationMode::PrePost);
-        pres.extend(self.pres.to_viper(ctx)?);
+        pres.extend(self.pres.force_to_bool(ctx)?);
 
         // add precondition about heap size: `requires alen(heap) == HEAP_SIZE`
         pres.insert(
@@ -67,7 +67,7 @@ impl<'a> TryToViper<'a> for FnDec {
                 ast.int_lit(ctx.options.heap_size as i64),
             ),
         );
-        posts.extend(self.posts.to_viper(ctx)?);
+        posts.extend(self.posts.force_to_bool(ctx)?);
         ctx.set_mode(TranslationMode::Normal);
 
         let mut base_args_local_decls = ctx.get_default_args().0;
@@ -105,7 +105,7 @@ impl<'a> TryToViper<'a> for Predicate {
     type Output = viper::Predicate<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let body = self.body.map(|e| e.to_viper(ctx)).transpose()?;
+        let body = self.body.map(|e| e.force_to_bool(ctx)).transpose()?;
         let body = extend_body(&self.args, body, ctx);
         let args = self.args.to_viper(ctx);
         let mut base_args = ctx.get_default_args().0;
@@ -128,9 +128,15 @@ impl<'a> TryToViper<'a> for Function {
             .iter()
             .filter_map(|a| a.precondition(true, ctx))
             .collect::<Vec<_>>();
-        pres.extend(self.pres.to_viper(ctx)?);
-        let posts = self.posts.to_viper(ctx)?;
-        let body = self.body.map(|b| b.to_viper(ctx)).transpose()?;
+        pres.extend(self.pres.force_to_bool(ctx)?);
+        let posts = self.posts.force_to_bool(ctx)?;
+        let body = self
+            .body
+            .map(|b| match self.typ {
+                Type::Bool => b.force_to_bool(ctx),
+                _ => b.to_viper(ctx),
+            })
+            .transpose()?;
 
         let args = self.args.to_viper(ctx);
         let mut base_args = ctx.get_default_args().0;
@@ -157,8 +163,8 @@ impl<'a> TryToViper<'a> for AbstractMethod {
             .iter()
             .filter_map(|a| a.precondition(true, ctx))
             .collect::<Vec<_>>();
-        pres.extend(self.pres.to_viper(ctx)?);
-        let posts = self.posts.to_viper(ctx)?;
+        pres.extend(self.pres.force_to_bool(ctx)?);
+        let posts = self.posts.force_to_bool(ctx)?;
 
         let rettyps = self.rettyps.to_viper(ctx);
         let args = self.args.to_viper(ctx);

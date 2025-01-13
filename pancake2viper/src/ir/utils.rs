@@ -106,21 +106,33 @@ impl Type {
 }
 
 impl ToType for BinOpType {
-    fn to_type(&self) -> super::Type {
+    fn to_type(&self, is_annot: bool) -> super::Type {
         use BinOpType::*;
         match self {
-            Gt | Gte | Lt | Lte | BoolAnd | BoolOr | ViperEqual | ViperNotEqual => Type::Bool,
-            PancakeEqual | PancakeNotEqual => Type::Bool, // FIXME: enforce `===` vs `==`
-            _ => Type::Int,
+            ViperEqual | ViperNotEqual | Iff | Imp => Type::Bool,
+            Gt | Gte | Lt | Lte | BoolAnd | BoolOr | PancakeEqual | PancakeNotEqual => {
+                if is_annot {
+                    Type::Bool
+                } else {
+                    Type::Int
+                }
+            }
+            Add | Sub | Mul | Div | Modulo | BitOr | BitAnd | BitXor => Type::Int,
         }
     }
 }
 
 impl ToType for UnOpType {
-    fn to_type(&self) -> super::Type {
+    fn to_type(&self, is_annot: bool) -> super::Type {
         match self {
             UnOpType::Minus => Type::Int,
-            UnOpType::Neg => Type::Bool,
+            UnOpType::Neg => {
+                if is_annot {
+                    Type::Bool
+                } else {
+                    Type::Int
+                }
+            }
         }
     }
 }
@@ -162,6 +174,10 @@ impl BinOpType {
 
     pub fn is_bitwise(&self) -> bool {
         matches!(self, Self::BitAnd | Self::BitOr | Self::BitXor)
+    }
+
+    pub fn is_bool(&self) -> bool {
+        !(self.is_bitwise() || self.is_bitwise())
     }
 
     pub fn eval(&self, lhs: i64, rhs: i64) -> i64 {

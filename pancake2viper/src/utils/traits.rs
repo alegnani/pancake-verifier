@@ -21,11 +21,20 @@ pub trait Mangleable {
 }
 
 pub trait TypeResolution {
-    fn resolve_type(&self, ctx: &mut TypeContext) -> Result<(), TranslationError>;
+    fn resolve_type(&self, is_annot: bool, ctx: &mut TypeContext) -> Result<(), TranslationError>;
 }
 
 pub trait ExprTypeResolution {
-    fn resolve_expr_type(&self, ctx: &mut TypeContext) -> Result<Type, TranslationError>;
+    fn resolve_expr_type(
+        &self,
+        is_annot: bool,
+        ctx: &mut TypeContext,
+    ) -> Result<Type, TranslationError>;
+}
+
+pub trait ForceToBool<'a> {
+    type Output;
+    fn force_to_bool(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError>;
 }
 
 pub trait TryToViper<'a> {
@@ -61,7 +70,7 @@ pub trait TryToType {
 }
 
 pub trait ToType {
-    fn to_type(&self) -> ir::Type;
+    fn to_type(&self, is_annot: bool) -> ir::Type;
 }
 
 pub trait ConstEvalExpr {

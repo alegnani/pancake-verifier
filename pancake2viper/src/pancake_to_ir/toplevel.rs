@@ -16,7 +16,7 @@ impl TryToIR for pancake::Arg {
     fn to_ir(self) -> Result<Self::Output, TranslationError> {
         Ok(Self::Output {
             name: self.name,
-            typ: self.shape.to_type(),
+            typ: self.shape.to_type(false),
         })
     }
 }

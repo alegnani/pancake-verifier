@@ -1,7 +1,7 @@
 use crate::{
     ir,
     utils::{
-        Mangler, ToViperError, ToViperType, TranslationMode, TryToShape, TryToViper,
+        ForceToBool, Mangler, ToViperError, ToViperType, TranslationMode, TryToShape, TryToViper,
         ViperEncodeCtx, ViperUtils,
     },
 };
@@ -55,7 +55,7 @@ impl<'a> TryToViper<'a> for ir::If {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
 
-        let cond = self.cond.cond_to_viper(ctx)?;
+        let cond = self.cond.force_to_bool(ctx)?;
         let mut then_ctx = ctx.child();
         let then_body = self.if_branch.to_viper(&mut then_ctx)?;
         let mut else_ctx = then_ctx.child();
@@ -75,7 +75,9 @@ impl<'a> TryToViper<'a> for ir::While {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
 
-        let cond = self.cond.cond_to_viper(ctx)?;
+        ctx.set_mode(TranslationMode::WhileCond);
+        let cond = self.cond.force_to_bool(ctx)?;
+        ctx.set_mode(TranslationMode::Normal);
         let mut body_ctx = ctx.child();
         body_ctx.enter_new_loop();
         let body = self.body.to_viper(&mut body_ctx)?;
@@ -215,7 +217,7 @@ impl<'a> TryToViper<'a> for ir::Annotation {
                 let no_pos = ast.no_position();
 
                 ctx.set_mode(self.typ.into());
-                let body = self.expr.to_viper(ctx)?;
+                let body = self.expr.force_to_bool(ctx)?;
                 ctx.set_mode(TranslationMode::Normal);
                 ctx.mangler.clear_annot_var();
                 match x {

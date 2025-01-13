@@ -2,29 +2,29 @@ use viper::BinOpBv;
 use viper::BvSize::BV64;
 
 use crate::utils::{
-    ExprTypeResolution, Mangler, Shape, ToType, ToViper, ToViperError, ToViperType,
+    ExprTypeResolution, ForceToBool, Mangler, Shape, ToType, ToViper, ToViperError, ToViperType,
     TranslationMode, TryToShape, TryToViper, ViperEncodeCtx, ViperUtils,
 };
 
 use crate::ir::{self, BinOpType, Type};
 
-impl ir::Expr {
-    pub fn cond_to_viper<'a>(
-        self,
-        ctx: &mut ViperEncodeCtx<'a>,
-    ) -> Result<viper::Expr<'a>, ToViperError> {
-        let ast = ctx.ast;
-        if !self.to_shape(ctx.typectx_get_mut())?.is_simple() {
-            return Err(ToViperError::ConditionShape(
-                self.to_shape(ctx.typectx_get_mut())?,
-            ));
-        }
-        ctx.set_mode(TranslationMode::WhileCond);
-        let cond = self.to_viper(ctx)?;
-        ctx.set_mode(TranslationMode::Normal);
-        Ok(ast.ne_cmp(cond, ast.zero()))
-    }
+impl<'a> ForceToBool<'a> for ir::Expr {
+    type Output = viper::Expr<'a>;
 
+    fn force_to_bool(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
+        let ast = ctx.ast;
+        let is_annot = ctx.get_mode().is_annot();
+        let typ = self.resolve_expr_type(is_annot, ctx.typectx_get_mut())?;
+        let value = self.to_viper(ctx)?;
+        Ok(match typ {
+            Type::Int => ast.ne_cmp(value, ast.zero()),
+            Type::Bool => value,
+            x => panic!("Can't cast {:?} to `Bool`", x),
+        })
+    }
+}
+
+impl ir::Expr {
     // TODO: this could well be a function pointer. If we stick to only using
     // valid function addresses (no unholy pointer arithmetic) we can encode
     // this as a switch statement checking the expression against all possible
@@ -37,15 +37,22 @@ impl ir::Expr {
     }
 }
 
+impl<'a> ForceToBool<'a> for Vec<ir::Expr> {
+    type Output = Vec<viper::Expr<'a>>;
+
+    fn force_to_bool(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
+        self.into_iter().map(|e| e.force_to_bool(ctx)).collect()
+    }
+}
+
 impl<'a> TryToViper<'a> for ir::UnOp {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
-        let right = self.right.to_viper(ctx)?;
         use ir::UnOpType::*;
         Ok(match self.optype {
-            Minus => ast.minus(right),
-            Neg => ast.not(right),
+            Minus => ast.minus(self.right.to_viper(ctx)?),
+            Neg => ast.not(self.right.force_to_bool(ctx)?),
         })
     }
 }
@@ -67,10 +74,8 @@ fn translate_op<'a>(
         Iff => ast.eq_cmp(left, right),
         BoolAnd => ast.and(left, right),
         BoolOr => ast.or(left, right),
-        ViperNotEqual => ast.ne_cmp(left, right),
-        ViperEqual => ast.eq_cmp(left, right),
-        PancakeNotEqual => ast.ne_cmp(left, right),
-        PancakeEqual => ast.eq_cmp(left, right),
+        ViperNotEqual | PancakeNotEqual => ast.ne_cmp(left, right),
+        ViperEqual | PancakeEqual => ast.eq_cmp(left, right),
         Lt => ast.lt_cmp(left, right),
         Lte => ast.le_cmp(left, right),
         Gt => ast.gt_cmp(left, right),
@@ -94,14 +99,24 @@ impl<'a> TryToViper<'a> for ir::BinOp {
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let ast = ctx.ast;
         let is_annot = ctx.get_mode().is_annot();
-        let binop = translate_op(
-            ast,
-            self.optype,
-            self.left.to_viper(ctx)?,
-            self.right.to_viper(ctx)?,
-        );
+        let type_ctx = ctx.typectx_get_mut();
+        let left_type = self.left.resolve_expr_type(is_annot, type_ctx)?;
+        let right_type = self.right.resolve_expr_type(is_annot, type_ctx)?;
+
+        use BinOpType::*;
+        let (left, right) = match self.optype {
+            BoolOr | BoolAnd => (
+                self.left.force_to_bool(ctx)?,
+                self.right.force_to_bool(ctx)?,
+            ),
+            PancakeEqual | PancakeNotEqual if left_type != right_type => (
+                self.left.force_to_bool(ctx)?,
+                self.right.force_to_bool(ctx)?,
+            ),
+            _ => (self.left.to_viper(ctx)?, self.right.to_viper(ctx)?),
+        };
+        let binop = translate_op(ast, self.optype, left, right);
         let binop = if !is_annot {
-            use BinOpType::*;
             match self.optype {
                 Add | Sub | Mul if ctx.options.bounded_arithmetic => {
                     ast.module(binop, ctx.word_values())
@@ -116,11 +131,7 @@ impl<'a> TryToViper<'a> for ir::BinOp {
         };
 
         if !is_annot {
-            let typ = if is_annot {
-                self.optype.to_type()
-            } else {
-                Type::Int
-            };
+            let typ = self.optype.to_type(is_annot);
             let fresh = Mangler::fresh_varname();
             let fresh_var = ast.new_var(&fresh, typ.to_viper_type(ctx));
             ctx.set_type(fresh, typ);
@@ -306,7 +317,9 @@ impl<'a> TryToViper<'a> for ir::ArrayAccess {
     type Output = viper::Expr<'a>;
     fn to_viper(self, ctx: &mut ViperEncodeCtx<'a>) -> Result<Self::Output, ToViperError> {
         let idx = self.idx.to_viper(ctx)?;
-        let typ = self.obj.resolve_expr_type(ctx.typectx_get_mut())?;
+        let typ = self
+            .obj
+            .resolve_expr_type(ctx.get_mode().is_annot(), ctx.typectx_get_mut())?;
         let obj = self.obj.to_viper(ctx)?;
         Ok(match typ {
             Type::Seq(_) => ctx.ast.seq_index(obj, idx),
