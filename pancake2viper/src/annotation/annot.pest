@@ -88,8 +88,7 @@ expr = !{ prefix? ~ primary ~ postfix* ~ (infix ~ prefix? ~ primary ~ postfix*)*
         biw = { "@biw" }
         base = { "@base" }
 
-annotation_comment = _{"@"? ~ WHITESPACE* ~ annotation ~ WHITESPACE* ~ "@"? }
-annotation = { (annotation_keyword ~ expr) | trusted }
+annotation = { WHITESPACE* ~ ((annotation_keyword ~ expr) | trusted) ~ EOI }
     annotation_keyword = _{ pre | post | invariant | assertion | refutation | assumption | inhale | exhale | fold | unfold | use_f }
         pre = { "requires" }
         post = { "ensures" }
@@ -104,30 +103,30 @@ annotation = { (annotation_keyword ~ expr) | trusted }
 		trusted = { "trusted" }
 		use_f = { "use" }
 
-predicate = { "/@" ~ "predicate" ~ ident ~ "(" ~ pred_args ~ ")" ~ pred_body ~ "@/" }
+predicate = { "/@" ~ "predicate" ~ ident ~ "(" ~ pred_args ~ ")" ~ pred_body ~ "@/" ~ EOI }
     pred_args = { (decl ~ ("," ~ decl)*) | "" }
     pred_body = { ("{" ~ expr ~ "}") | "" }
 
 preposts = { annotation* }
 
-function = { "/@" ~ "function" ~ ident ~ "(" ~ func_args ~ ")" ~ ":" ~ type ~ preposts ~ func_body ~ "@/" }
+function = { "/@" ~ "function" ~ ident ~ "(" ~ func_args ~ ")" ~ ":" ~ type ~ preposts ~ func_body ~ "@/" ~ EOI }
     func_args = { (decl ~ ("," ~ decl)*) | "" }
     func_body = { ("{" ~ expr ~ "}") | "" }
 
-method = { "/@" ~ "method" ~ ident ~ "(" ~ method_args ~ ")" ~ method_ret ~ preposts ~ "@/" }
+method = { "/@" ~ "method" ~ ident ~ "(" ~ method_args ~ ")" ~ method_ret ~ preposts ~ "@/" ~ EOI }
     method_args = { (decl ~ ("," ~ decl)*) | "" }
     method_ret = { (":" ~ "(" ~ decl ~ ("," ~ decl)* ~ ")") | "" }
 
-model_predicate = { "/@" ~ "model" ~ "predicate" ~ expr ~ "@/" }
-model_field = { "/@" ~ "model" ~ "field" ~ ident ~ "@/" }
+model_predicate = { "/@" ~ "model" ~ "predicate" ~ expr ~ "@/" ~ EOI }
+model_field = { "/@" ~ "model" ~ "field" ~ ident ~ "@/" ~ EOI }
 
-ext_predicate = { "/@" ~ "extern" ~ "predicate" ~ ident ~ "@/" }
-ext_field = { "/@" ~ "extern" ~ "field" ~ decl ~ "@/" }
-ffi_method = { "/@" ~ "ffi" ~ ident ~ "@/" }
+ext_predicate = { "/@" ~ "extern" ~ "predicate" ~ ident ~ "@/" ~ EOI }
+ext_field = { "/@" ~ "extern" ~ "field" ~ decl ~ "@/" ~ EOI }
+ffi_method = { "/@" ~ "ffi" ~ ident ~ "@/" ~ EOI }
 
 // Shared memory annotations
 
-shared_prototype = @{ "/@" ~ WHITESPACE* ~ "shared" ~ WHITESPACE+ ~ shared_type ~ WHITESPACE+ ~ "u" ~ shared_bits ~ WHITESPACE+ ~ shared_name ~ "[" ~ WHITESPACE* ~ shared_mem ~ WHITESPACE* ~ "]" ~ WHITESPACE* ~ "@/" }
+shared_prototype = @{ "/@" ~ WHITESPACE* ~ "shared" ~ WHITESPACE+ ~ shared_type ~ WHITESPACE+ ~ "u" ~ shared_bits ~ WHITESPACE+ ~ shared_name ~ "[" ~ WHITESPACE* ~ shared_mem ~ WHITESPACE* ~ "]" ~ WHITESPACE* ~ "@/" ~ WHITESPACE* ~ EOI }
 	shared_type = !{ "rw" | "wr" | "r" | "w" }
     shared_bits = !{ decimal_lit }
     shared_name = !{ ident }

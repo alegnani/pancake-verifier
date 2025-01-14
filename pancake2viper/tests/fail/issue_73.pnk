@@ -1,0 +1,6 @@
+fun heap_0_test () {
+  /@ requires acc(heap[0], read) @/
+  /@ ensures acc(heap[0], read) @/
+  /@ ensures heap[0] == old(heap)[((false /\ true) ? 0 : 0)] @/
+  return 12;
+}

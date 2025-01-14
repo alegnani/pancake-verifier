@@ -33,7 +33,7 @@ lazy_static::lazy_static! {
 }
 
 pub fn parse_annot(annot: &str) -> Annotation {
-    match AnnotParser::parse(Rule::annotation_comment, annot) {
+    match AnnotParser::parse(Rule::annotation, annot) {
         Ok(mut pairs) => {
             let mut pair = pairs.next().unwrap().into_inner();
             let typ = AnnotationType::from_pest(pair.next().unwrap());
@@ -43,7 +43,7 @@ pub fn parse_annot(annot: &str) -> Annotation {
             };
             Annotation { typ, expr }
         }
-        Err(e) => panic!("{:?}", e),
+        Err(e) => panic!("{}", e),
     }
 }
 
@@ -91,7 +91,7 @@ pub fn parse_shared(shared: &str) -> Shared {
                 stride,
             }
         }
-        Err(e) => panic!("{:?}", e),
+        Err(e) => panic!("{}", e),
     }
 }
 
@@ -113,7 +113,7 @@ pub fn parse_predicate(pred: &str) -> Predicate {
 pub fn parse_model_predicate(s: &str) -> Expr {
     match AnnotParser::parse(Rule::model_predicate, s) {
         Ok(mut pairs) => parse_expr(pairs.next().unwrap().into_inner()),
-        Err(e) => panic!("Failed to parse model predicate, got {:?}", e),
+        Err(e) => panic!("{}", e),
     }
 }
 
@@ -127,7 +127,7 @@ pub fn parse_model_field(s: &str) -> String {
             .unwrap()
             .as_str()
             .to_owned(),
-        Err(e) => panic!("Failed to parse model field, got {:?}", e),
+        Err(e) => panic!("{}", e),
     }
 }
 
@@ -141,14 +141,14 @@ pub fn parse_extern_predicate(s: &str) -> String {
             .unwrap()
             .as_str()
             .to_owned(),
-        Err(e) => panic!("Failed to parse extern predicate, got {:?}", e),
+        Err(e) => panic!("{}", e),
     }
 }
 
 pub fn parse_extern_field(s: &str) -> Decl {
     match AnnotParser::parse(Rule::ext_field, s) {
         Ok(mut pairs) => Decl::from_pest(pairs.next().unwrap().into_inner().next().unwrap()),
-        Err(e) => panic!("Failed to parse extern field, got {:?}", e),
+        Err(e) => panic!("{}", e),
     }
 }
 
@@ -162,7 +162,7 @@ pub fn parse_extern_ffi(s: &str) -> String {
             .unwrap()
             .as_str()
             .to_owned(),
-        Err(e) => panic!("Failed to parse extern ffi, got {:?}", e),
+        Err(e) => panic!("{}", e),
     }
 }
 
@@ -251,7 +251,7 @@ fn parse_toplevel_common(s: &str, rule: Rule) -> (String, Vec<Decl>, Pairs<Rule>
                 .collect();
             (name, args, pair)
         }
-        Err(e) => panic!("{:?}", e),
+        Err(e) => panic!("{}", e),
     }
 }
 
