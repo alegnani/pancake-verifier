@@ -36,7 +36,6 @@ lazy_static::lazy_static! {
 }
 
 pub fn parse_annot(annot: &str, is_stmt: bool) -> ParseResult<Annotation> {
-    println!("Parsing annot {:?}", annot);
     let rule = if is_stmt {
         Rule::annotation_stmt
     } else {

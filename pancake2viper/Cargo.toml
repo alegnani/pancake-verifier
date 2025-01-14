@@ -9,8 +9,8 @@ anyhow = "1.0.86"
 clap = { version = "4.5.18", features = ["derive"] }
 clap-stdin = "0.5.1"
 lazy_static = "1.5.0"
-pest = "2.7.11"
-pest_derive = "2.7.11"
+pest = "2.7.15"
+pest_derive = "2.7.15"
 regex = "1.10.6"
 sexpr_parser = "0.3.0"
 strum = { version = "0.26.3", features = ["derive"] }
