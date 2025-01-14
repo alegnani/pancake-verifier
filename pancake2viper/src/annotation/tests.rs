@@ -4,43 +4,43 @@ use super::{parse_function, parser::parse_annot};
 
 #[test]
 fn t() {
-    let a = parse_annot("requires 1 == 0");
-    println!("A {:?}", a);
+    let a = parse_annot("requires 1 == 0", true).unwrap();
+    println!("{:?}", a);
 }
 
 #[test]
 fn quantifier() {
-    let a = parse_annot("ensures forall i: Int :: i == 0");
+    let a = parse_annot("ensures forall i: Int :: i == 0", true).unwrap();
     println!("{:?}", a);
 }
 
 #[test]
 fn trigger() {
-    let a = parse_annot("ensures forall i: Int :: {slot(i)} slot(i) <= 0");
+    let a = parse_annot("ensures forall i: Int :: {slot(i)} slot(i) <= 0", true).unwrap();
     println!("{:?}", a);
 }
 
 #[test]
 fn fapp1() {
-    let a = parse_annot("ensures f()");
+    let a = parse_annot("ensures f()", true).unwrap();
     println!("{:?}", a);
 }
 
 #[test]
 fn fapp2() {
-    let a = parse_annot("ensures f(1, g())");
+    let a = parse_annot("ensures f(1, g())", true).unwrap();
     println!("{:?}", a);
 }
 
 #[test]
 fn parenthesis1() {
-    let a = parse_annot("invariant (accu == (i - 1) * i / 2)");
+    let a = parse_annot("invariant (accu == (i - 1) * i / 2)", true).unwrap();
     println!("{:?}", a);
 }
 
 #[test]
 fn precedence() {
-    let a = parse_annot("invariant 1 + 1 * 2)");
+    let a = parse_annot("invariant 1 + 1 * 2", true).unwrap();
     println!("{:?}", a);
     match a.expr {
         Expr::BinOp(BinOp {
@@ -69,13 +69,13 @@ fn functions() {
     requires forall i: Int :: base <= i && i < base + len ==> acc(heap[i], read)
     { 1 }
     @/";
-    println!("{:?}", parse_function(f));
+    println!("{:?}", parse_function(f).unwrap());
 }
 
 #[test]
 fn ternary() {
     let t = "assert x == y ? f(x) : f(h) + 1";
-    println!("{:?}", parse_annot(t));
+    println!("{:?}", parse_annot(t, true).unwrap());
 }
 
 #[test]
@@ -83,7 +83,7 @@ fn seq_type() {
     let f = "/@ function sum(arg: Seq[Set[Int]]): Int 
     { 1 }
     @/";
-    println!("{:?}", parse_function(f));
+    println!("{:?}", parse_function(f).unwrap());
 }
 
 #[test]
@@ -91,5 +91,5 @@ fn map_type() {
     let f = "/@ function sum(arg: Seq[Map[Int, Bool]]): Int 
     { 1 }
     @/";
-    println!("{:?}", parse_function(f));
+    println!("{:?}", parse_function(f).unwrap());
 }

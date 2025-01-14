@@ -88,7 +88,8 @@ expr = !{ prefix? ~ primary ~ postfix* ~ (infix ~ prefix? ~ primary ~ postfix*)*
         biw = { "@biw" }
         base = { "@base" }
 
-annotation = { WHITESPACE* ~ ((annotation_keyword ~ expr) | trusted) ~ EOI }
+annotation_stmt = _{ annotation ~ EOI }
+annotation = { WHITESPACE* ~ ((annotation_keyword ~ expr) | trusted) }
     annotation_keyword = _{ pre | post | invariant | assertion | refutation | assumption | inhale | exhale | fold | unfold | use_f }
         pre = { "requires" }
         post = { "ensures" }
