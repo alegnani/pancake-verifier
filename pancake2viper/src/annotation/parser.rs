@@ -523,8 +523,11 @@ impl FromPestPair for Permission {
             Rule::perm_read => Self::Read,
             Rule::perm_wildcard => Self::Wildcard,
             Rule::perm_frac => {
-                let inner = pair.into_inner();
-                todo!("Frac not implemented: {:?}", inner)
+                let mut inner = pair.into_inner();
+                Self::Fractional(
+                    inner.next().unwrap().as_str().parse().unwrap(),
+                    inner.next().unwrap().as_str().parse().unwrap(),
+                )
             }
             x => panic!("Failed to parse Permission, got {:?}", x),
         }
