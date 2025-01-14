@@ -93,3 +93,16 @@ fn map_type() {
     @/";
     println!("{:?}", parse_function(f).unwrap());
 }
+
+#[test]
+fn pratt_error() {
+    let a = parse_annot(" fold valid_device() ", true).unwrap();
+    println!("{:?}", a);
+}
+
+#[test]
+fn pratt_errort2() {
+    let annot = " assert unfolding valid_state() in unfolding seq_pred() in (state.device4[0] == state.device4[1]) ";
+    let a = parse_annot(annot, true).unwrap();
+    println!("{:?}", a);
+}
