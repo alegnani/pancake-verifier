@@ -25,7 +25,7 @@ lazy_static::lazy_static! {
             .op(Op::infix(Rule::bit_xor, Left))
             .op(Op::infix(Rule::bit_and, Left))
             .op(Op::infix(Rule::pancake_eq, Left) | Op::infix(Rule::pancake_neq, Left) | Op::infix(Rule::viper_eq, Left) | Op::infix(Rule::viper_neq, Left))
-            .op(Op::infix(Rule::gt, Left) | Op::infix(Rule::gte, Left) | Op::infix(Rule::lt, Left) | Op::infix(Rule::lte, Left))
+            .op(Op::infix(Rule::gt, Left) | Op::infix(Rule::gte, Left) | Op::infix(Rule::lt, Left) | Op::infix(Rule::lte, Left) | Op::infix(Rule::signed_gt, Left) | Op::infix(Rule::signed_gte, Left) | Op::infix(Rule::signed_lt, Left) | Op::infix(Rule::signed_lte, Left))
             .op(Op::postfix(Rule::shift))
             .op(Op::infix(Rule::add, Left) | Op::infix(Rule::sub, Left))
             .op(Op::infix(Rule::mul, Left) | Op::infix(Rule::div, Left) | Op::infix(Rule::modulo, Left))
@@ -429,6 +429,10 @@ impl FromPestPair for BinOpType {
             Rule::gte => Self::Gte,
             Rule::lt => Self::Lt,
             Rule::lte => Self::Lte,
+            Rule::signed_gt => Self::SignedGt,
+            Rule::signed_gte => Self::SignedGte,
+            Rule::signed_lt => Self::SignedLt,
+            Rule::signed_lte => Self::SignedLte,
             Rule::bool_and => Self::BoolAnd,
             Rule::bool_or => Self::BoolOr,
             Rule::bit_and => Self::BitAnd,

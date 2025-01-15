@@ -53,6 +53,8 @@ pub enum OpType {
     Equal,
     Less,
     NotLess,
+    Lower,
+    NotLower,
     And,
     Or,
     Xor,

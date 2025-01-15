@@ -76,10 +76,10 @@ fn translate_op<'a>(
         BoolOr => ast.or(left, right),
         ViperNotEqual | PancakeNotEqual => ast.ne_cmp(left, right),
         ViperEqual | PancakeEqual => ast.eq_cmp(left, right),
-        Lt => ast.lt_cmp(left, right),
-        Lte => ast.le_cmp(left, right),
-        Gt => ast.gt_cmp(left, right),
-        Gte => ast.ge_cmp(left, right),
+        Lt | SignedLt => ast.lt_cmp(left, right), // FIXME: correctly handle signed vs unsigned
+        Lte | SignedLte => ast.le_cmp(left, right),
+        Gt | SignedGt => ast.gt_cmp(left, right),
+        Gte | SignedGte => ast.ge_cmp(left, right),
         x @ (BitAnd | BitOr | BitXor) => {
             let lbv = ast.int_to_backend_bv(BV64, left);
             let rbv = ast.int_to_backend_bv(BV64, right);
