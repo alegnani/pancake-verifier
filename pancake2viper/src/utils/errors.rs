@@ -1,10 +1,8 @@
-use thiserror::Error;
-
 use crate::{ir, pancake};
 
 use super::shape::Shape;
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum ToViperError {
     #[error("Conversion to Shape failed")]
     ShapeError(#[from] ShapeError),
@@ -22,7 +20,7 @@ pub enum ToViperError {
     InvalidAnnotation,
 }
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum ShapeError {
     #[error("Invalid field access: {0:?} is of wrong shape (probably `1`)")]
     IRSimpleShapeFieldAccess(ir::Expr),
@@ -32,7 +30,7 @@ pub enum ShapeError {
     OutOfBoundsFieldAccess(usize, Shape),
 }
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum TranslationError {
     #[error("Mangling error")]
     MangleError(#[from] MangleError),
@@ -46,9 +44,11 @@ pub enum TranslationError {
     InvalidLabel(pancake::Expr),
     #[error("Viper field not found {0}")]
     UnknownField(String),
+    #[error("Parsing error\n{0}")]
+    ParsingError(String),
 }
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum MangleError {
     #[error("'{0}' is a reserved keyword and can't be used as an identifier")]
     ReservedKeyword(String),

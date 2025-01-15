@@ -187,7 +187,6 @@ impl<'a> ProgramToViper<'a> for Program {
         // Create method context for automatic unfolding/folding of function predicates
         let method_ctx = Rc::new(MethodContext::new(&self.functions));
         let model = self.model.clone();
-        let fields = Rc::new(self.extern_fields);
         let extern_methods = self.extern_methods.clone();
 
         let mut predicate_names = self

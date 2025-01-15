@@ -1,3 +1,5 @@
+use pest::error::Error;
+use pest::error::ErrorVariant::CustomError;
 use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::PrattParser;
 use pest::Parser;
@@ -8,6 +10,8 @@ use crate::utils::Shape;
 #[derive(pest_derive::Parser)]
 #[grammar = "annotation/annot.pest"]
 struct AnnotParser;
+
+type ParseResult<T> = Result<T, Box<Error<Rule>>>;
 
 lazy_static::lazy_static! {
     static ref PRATT_PARSER: PrattParser<Rule> = {
@@ -21,7 +25,7 @@ lazy_static::lazy_static! {
             .op(Op::infix(Rule::bit_xor, Left))
             .op(Op::infix(Rule::bit_and, Left))
             .op(Op::infix(Rule::pancake_eq, Left) | Op::infix(Rule::pancake_neq, Left) | Op::infix(Rule::viper_eq, Left) | Op::infix(Rule::viper_neq, Left))
-            .op(Op::infix(Rule::gt, Left) | Op::infix(Rule::gte, Left) | Op::infix(Rule::lt, Left) | Op::infix(Rule::lte, Left))
+            .op(Op::infix(Rule::gt, Left) | Op::infix(Rule::gte, Left) | Op::infix(Rule::lt, Left) | Op::infix(Rule::lte, Left) | Op::infix(Rule::signed_gt, Left) | Op::infix(Rule::signed_gte, Left) | Op::infix(Rule::signed_lt, Left) | Op::infix(Rule::signed_lte, Left))
             .op(Op::postfix(Rule::shift))
             .op(Op::infix(Rule::add, Left) | Op::infix(Rule::sub, Left))
             .op(Op::infix(Rule::mul, Left) | Op::infix(Rule::div, Left) | Op::infix(Rule::modulo, Left))
@@ -32,24 +36,26 @@ lazy_static::lazy_static! {
     };
 }
 
-pub fn parse_annot(annot: &str) -> Annotation {
-    match AnnotParser::parse(Rule::annotation_comment, annot) {
-        Ok(mut pairs) => {
-            let mut pair = pairs.next().unwrap().into_inner();
-            let typ = AnnotationType::from_pest(pair.next().unwrap());
-            let expr = match typ {
-                AnnotationType::Trusted => Expr::Const(1),
-                _ => parse_expr(Pairs::single(pair.next().unwrap())),
-            };
-            Annotation { typ, expr }
-        }
-        Err(e) => panic!("{:?}", e),
-    }
+pub fn parse_annot(annot: &str, is_stmt: bool) -> ParseResult<Annotation> {
+    let rule = if is_stmt {
+        Rule::annotation_stmt
+    } else {
+        Rule::annotation
+    };
+    Ok(AnnotParser::parse(rule, annot).map(|mut pairs| {
+        let mut pair = pairs.next().unwrap().into_inner();
+        let typ = AnnotationType::from_pest(pair.next().unwrap());
+        let expr = match typ {
+            AnnotationType::Trusted => Expr::Const(1),
+            _ => parse_expr(Pairs::single(pair.next().unwrap())),
+        };
+        Annotation { typ, expr }
+    })?)
 }
 
-pub fn parse_shared(shared: &str) -> Shared {
-    match AnnotParser::parse(Rule::shared_prototype, shared) {
-        Ok(mut pairs) => {
+pub fn parse_shared(shared: &str) -> ParseResult<Shared> {
+    Ok(
+        AnnotParser::parse(Rule::shared_prototype, shared).map(|mut pairs| {
             let mut pair = pairs.next().unwrap().into_inner();
             let typ = SharedPerm::from_pest(pair.next().unwrap());
             let bits = pair
@@ -80,7 +86,7 @@ pub fn parse_shared(shared: &str) -> Shared {
                     let stride = parse_expr(Pairs::single(inner.next().unwrap()));
                     (lower, upper, stride)
                 }
-                x => panic!("Could not parse shared, got {:?}", x),
+                _ => unreachable!(),
             };
             Shared {
                 name,
@@ -90,80 +96,72 @@ pub fn parse_shared(shared: &str) -> Shared {
                 upper,
                 stride,
             }
-        }
-        Err(e) => panic!("{:?}", e),
-    }
+        })?,
+    )
 }
 
-pub fn parse_predicate(pred: &str) -> Predicate {
-    let (name, args, mut pair) = parse_toplevel_common(pred, Rule::predicate);
+pub fn parse_predicate(pred: &str) -> ParseResult<Predicate> {
+    let (name, args, mut pair) = parse_toplevel_common(pred, Rule::predicate)?;
     let body = pair.next().unwrap().into_inner();
     let body = if body.len() == 0 {
         None
     } else {
         Some(parse_expr(body))
     };
-    Predicate {
+    Ok(Predicate {
         name,
         args: args.into_iter().map(Arg::from).collect(),
         body,
-    }
+    })
 }
 
-pub fn parse_model_predicate(s: &str) -> Expr {
-    match AnnotParser::parse(Rule::model_predicate, s) {
-        Ok(mut pairs) => parse_expr(pairs.next().unwrap().into_inner()),
-        Err(e) => panic!("Failed to parse model predicate, got {:?}", e),
-    }
+pub fn parse_model_predicate(s: &str) -> ParseResult<Expr> {
+    Ok(AnnotParser::parse(Rule::model_predicate, s)
+        .map(|mut pairs| parse_expr(pairs.next().unwrap().into_inner()))?)
 }
 
-pub fn parse_model_field(s: &str) -> String {
-    match AnnotParser::parse(Rule::model_field, s) {
-        Ok(mut pairs) => pairs
+pub fn parse_model_field(s: &str) -> ParseResult<String> {
+    Ok(AnnotParser::parse(Rule::model_field, s).map(|mut pairs| {
+        pairs
             .next()
             .unwrap()
             .into_inner()
             .next()
             .unwrap()
             .as_str()
-            .to_owned(),
-        Err(e) => panic!("Failed to parse model field, got {:?}", e),
-    }
+            .to_owned()
+    })?)
 }
 
-pub fn parse_extern_predicate(s: &str) -> String {
-    match AnnotParser::parse(Rule::ext_predicate, s) {
-        Ok(mut pairs) => pairs
+pub fn parse_extern_predicate(s: &str) -> ParseResult<String> {
+    Ok(AnnotParser::parse(Rule::ext_predicate, s).map(|mut pairs| {
+        pairs
             .next()
             .unwrap()
             .into_inner()
             .next()
             .unwrap()
             .as_str()
-            .to_owned(),
-        Err(e) => panic!("Failed to parse extern predicate, got {:?}", e),
-    }
+            .to_owned()
+    })?)
 }
 
-pub fn parse_extern_field(s: &str) -> Decl {
-    match AnnotParser::parse(Rule::ext_field, s) {
-        Ok(mut pairs) => Decl::from_pest(pairs.next().unwrap().into_inner().next().unwrap()),
-        Err(e) => panic!("Failed to parse extern field, got {:?}", e),
-    }
+pub fn parse_extern_field(s: &str) -> ParseResult<Decl> {
+    Ok(AnnotParser::parse(Rule::ext_field, s)
+        .map(|mut pairs| Decl::from_pest(pairs.next().unwrap().into_inner().next().unwrap()))?)
 }
 
-pub fn parse_extern_ffi(s: &str) -> String {
-    match AnnotParser::parse(Rule::ffi_method, s) {
-        Ok(mut pairs) => pairs
+pub fn parse_extern_ffi(s: &str) -> ParseResult<String> {
+    Ok(AnnotParser::parse(Rule::ffi_method, s).map(|mut pairs| {
+        pairs
             .next()
             .unwrap()
             .into_inner()
             .next()
             .unwrap()
             .as_str()
-            .to_owned(),
-        Err(e) => panic!("Failed to parse extern ffi, got {:?}", e),
-    }
+            .to_owned()
+    })?)
 }
 
 fn partition_annotation_types(
@@ -178,20 +176,38 @@ fn partition_annotation_types(
     (pres, posts, others)
 }
 
-pub fn parse_function(func: &str) -> Function {
-    let (name, args, mut pair) = parse_toplevel_common(func, Rule::function);
-    let typ = Type::from_pest(pair.next().unwrap());
-
-    let preposts = pair
+fn parse_preposts(pairs: &mut Pairs<'_, Rule>) -> ParseResult<Vec<Annotation>> {
+    pairs
         .next()
         .unwrap()
         .into_inner()
-        .map(|e| parse_annot(e.as_str())) // XXX: this is stupid
-        .collect();
+        .map(|e| {
+            let annot = parse_annot(e.as_str(), false)?;
+            if !matches!(
+                annot.typ,
+                AnnotationType::Precondition | AnnotationType::Postcondition,
+            ) {
+                return Err(Box::new(Error::new_from_span(
+                    CustomError {
+                        message: "Only `requires` or `ensures` are allowed in this position"
+                            .to_string(),
+                    },
+                    e.as_span(),
+                )));
+            }
+            Ok(annot)
+        })
+        .collect()
+}
+
+pub fn parse_function(func: &str) -> ParseResult<Function> {
+    let (name, args, mut pair) = parse_toplevel_common(func, Rule::function)?;
+    let typ = Type::from_pest(pair.next().unwrap());
+
+    let preposts = parse_preposts(&mut pair)?;
     let (pres, posts, others) = partition_annotation_types(preposts);
-    if !others.is_empty() {
-        panic!("Invalid annotation in Function pre-/post-condition");
-    }
+    assert!(others.is_empty());
+
     let pres = pres.into_iter().map(|a| a.expr).collect();
     let posts = posts.into_iter().map(|a| a.expr).collect();
 
@@ -201,58 +217,49 @@ pub fn parse_function(func: &str) -> Function {
     } else {
         Some(parse_expr(body))
     };
-    Function {
+    Ok(Function {
         name,
         args: args.into_iter().map(Arg::from).collect(),
         typ,
         pres,
         posts,
         body,
-    }
+    })
 }
 
-pub fn parse_method(met: &str) -> AbstractMethod {
-    let (name, args, mut pair) = parse_toplevel_common(met, Rule::method);
+pub fn parse_method(met: &str) -> ParseResult<AbstractMethod> {
+    let (name, args, mut pair) = parse_toplevel_common(met, Rule::method)?;
     let rettyps = pair.next().unwrap().into_inner();
     let rettyps = rettyps.into_iter().map(|d| Decl::from_pest(d)).collect();
-    let preposts = pair
-        .next()
-        .unwrap()
-        .into_inner()
-        .map(|e| parse_annot(e.as_str()))
-        .collect();
 
+    let preposts = parse_preposts(&mut pair)?;
     let (pres, posts, others) = partition_annotation_types(preposts);
-    if !others.is_empty() {
-        panic!("Invalid annotation in Function pre-/post-condition");
-    }
+    assert!(others.is_empty());
+
     let pres = pres.into_iter().map(|a| a.expr).collect();
     let posts = posts.into_iter().map(|a| a.expr).collect();
 
-    AbstractMethod {
+    Ok(AbstractMethod {
         name,
         args: args.into_iter().map(Arg::from).collect(),
         rettyps,
         pres,
         posts,
-    }
+    })
 }
 
-fn parse_toplevel_common(s: &str, rule: Rule) -> (String, Vec<Decl>, Pairs<Rule>) {
-    match AnnotParser::parse(rule, s) {
-        Ok(mut pairs) => {
-            let mut pair = pairs.next().unwrap().into_inner();
-            let name = pair.next().unwrap().as_str().to_owned();
-            let args = pair
-                .next()
-                .unwrap()
-                .into_inner()
-                .map(Decl::from_pest)
-                .collect();
-            (name, args, pair)
-        }
-        Err(e) => panic!("{:?}", e),
-    }
+fn parse_toplevel_common(s: &str, rule: Rule) -> ParseResult<(String, Vec<Decl>, Pairs<Rule>)> {
+    Ok(AnnotParser::parse(rule, s).map(|mut pairs| {
+        let mut pair = pairs.next().unwrap().into_inner();
+        let name = pair.next().unwrap().as_str().to_owned();
+        let args = pair
+            .next()
+            .unwrap()
+            .into_inner()
+            .map(Decl::from_pest)
+            .collect();
+        (name, args, pair)
+    })?)
 }
 
 fn parse_expr(pairs: Pairs<Rule>) -> Expr {
@@ -274,7 +281,7 @@ fn parse_expr(pairs: Pairs<Rule>) -> Expr {
             Rule::biw => Expr::BytesInWord,
             Rule::true_lit => Expr::BoolLit(true),
             Rule::false_lit => Expr::BoolLit(false),
-            x => panic!("Unexpected annotation parsing rule: {:?}", x),
+            _ => unreachable!(),
         })
         .map_prefix(|op, rhs| {
             Expr::UnOp(UnOp {
@@ -318,7 +325,7 @@ fn parse_expr(pairs: Pairs<Rule>) -> Expr {
                     amount: pairs.next().unwrap().as_str().parse().unwrap(),
                 })
             }
-            _ => panic!("Failed to parse postfix, got `{:?}`", op.into_inner()),
+            _ => unreachable!(),
         })
         .parse(pairs)
 }
@@ -347,7 +354,7 @@ impl FromPestPair for i64 {
                 i64::from_str_radix(inner.as_str().replace("_", "").trim_start_matches("0x"), 16)
                     .unwrap()
             }
-            x => panic!("Failed to parse integer literal, got {:?}", x),
+            _ => unreachable!(),
         }
     }
 }
@@ -358,7 +365,7 @@ impl FromPestPair for SharedPerm {
             "rw" | "wr" => Self::ReadWrite,
             "r" => Self::ReadOnly,
             "w" => Self::WriteOnly,
-            x => panic!("Failed to parse SharedPerm, got {:?}", x),
+            _ => unreachable!(),
         }
     }
 }
@@ -369,7 +376,7 @@ impl FromPestPair for ShiftType {
             Rule::lshl => Self::Lsl,
             Rule::ashr => Self::Asr,
             Rule::lshr => Self::Lsr,
-            x => panic!("Failed to parse ShiftType, got {:?}", x),
+            _ => unreachable!(),
         }
     }
 }
@@ -389,7 +396,7 @@ impl FromPestPair for AnnotationType {
             Rule::unfold => Self::Unfold,
             Rule::trusted => Self::Trusted,
             Rule::use_f => Self::Use,
-            x => panic!("Failed to parse AnnotationType, got {:?}", x),
+            _ => unreachable!(),
         }
     }
 }
@@ -399,7 +406,7 @@ impl FromPestPair for UnOpType {
         match pair.as_rule() {
             Rule::neg => Self::Neg,
             Rule::minus => Self::Minus,
-            x => panic!("Failed to parse UnOperator, got {:?}", x),
+            _ => unreachable!(),
         }
     }
 }
@@ -422,12 +429,16 @@ impl FromPestPair for BinOpType {
             Rule::gte => Self::Gte,
             Rule::lt => Self::Lt,
             Rule::lte => Self::Lte,
+            Rule::signed_gt => Self::SignedGt,
+            Rule::signed_gte => Self::SignedGte,
+            Rule::signed_lt => Self::SignedLt,
+            Rule::signed_lte => Self::SignedLte,
             Rule::bool_and => Self::BoolAnd,
             Rule::bool_or => Self::BoolOr,
             Rule::bit_and => Self::BitAnd,
             Rule::bit_or => Self::BitOr,
             Rule::bit_xor => Self::BitXor,
-            x => panic!("Failed to parse BinOperator, got {:?}", x),
+            _ => unreachable!(),
         }
     }
 }
@@ -448,13 +459,13 @@ impl FromPestPair for Type {
             Rule::seq_t => Self::Seq(Box::new(Type::from_pest(pair.into_inner().next().unwrap()))),
             Rule::set_t => Self::Set(Box::new(Type::from_pest(pair.into_inner().next().unwrap()))),
             Rule::shape_t => {
-                let shape = Shape::parse(pair.as_str()).expect("Failed to parse shape");
+                let shape = Shape::parse(pair.as_str()).unwrap();
                 match shape {
                     Shape::Simple => Self::Int,
                     Shape::Nested(inner) => Type::Struct(inner),
                 }
             }
-            x => panic!("Failed to parse Type, got {:?}", x),
+            _ => unreachable!(),
         }
     }
 }
@@ -467,12 +478,12 @@ impl FromPestPair for Decl {
                 let ident = inner.next().unwrap();
                 let name = match ident.as_rule() {
                     Rule::ident => ident.as_str().to_owned(),
-                    x => panic!("Failed to parse Decl, got {:?}", x),
+                    _ => unreachable!(),
                 };
                 let typ = Type::from_pest(inner.next().unwrap());
                 Self { name, typ }
             }
-            x => panic!("Failed to parse Decl, got {:?}", x),
+            _ => unreachable!(),
         }
     }
 }
@@ -482,7 +493,7 @@ impl FromPestPair for Quantifier {
         match pair.as_rule() {
             Rule::forall => Self::Forall,
             Rule::exists => Self::Exists,
-            x => panic!("Failed to parse Quantifier, got {:?}", x),
+            _ => unreachable!(),
         }
     }
 }
@@ -529,7 +540,7 @@ impl FromPestPair for Permission {
                     inner.next().unwrap().as_str().parse().unwrap(),
                 )
             }
-            x => panic!("Failed to parse Permission, got {:?}", x),
+            _ => unreachable!(),
         }
     }
 }
@@ -551,7 +562,7 @@ impl FromPestPair for SliceType {
         match pair.as_rule() {
             Rule::slice_inc => Self::Inclusive,
             Rule::slice_exc => Self::Exclusive,
-            x => panic!("Failed to parse SliceType, got {:?}", x),
+            _ => unreachable!(),
         }
     }
 }

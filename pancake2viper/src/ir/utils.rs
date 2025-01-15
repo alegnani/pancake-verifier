@@ -110,7 +110,8 @@ impl ToType for BinOpType {
         use BinOpType::*;
         match self {
             ViperEqual | ViperNotEqual | Iff | Imp => Type::Bool,
-            Gt | Gte | Lt | Lte | BoolAnd | BoolOr | PancakeEqual | PancakeNotEqual => {
+            Gt | Gte | Lt | Lte | SignedGt | SignedGte | SignedLt | SignedLte | BoolAnd
+            | BoolOr | PancakeEqual | PancakeNotEqual => {
                 if is_annot {
                     Type::Bool
                 } else {

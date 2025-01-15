@@ -4,9 +4,11 @@ use crate::{
     utils::{TranslationError, TryToIR},
 };
 
-impl From<pancake::Annotation> for ir::Annotation {
-    fn from(value: pancake::Annotation) -> Self {
-        parse_annot(&value.line)
+impl TryToIR for pancake::Annotation {
+    type Output = ir::Annotation;
+
+    fn to_ir(self) -> Result<Self::Output, TranslationError> {
+        parse_annot(&self.line, true).map_err(|err| TranslationError::ParsingError(err.to_string()))
     }
 }
 
@@ -216,7 +218,7 @@ impl TryToIR for pancake::Stmt {
         use pancake::Stmt::*;
         Ok(match self {
             Skip => Self::Output::Skip,
-            Annotation(annot) => Self::Output::Annotation(parse_annot(&annot.line)), // FIXME
+            Annotation(annot) => Self::Output::Annotation(annot.to_ir()?),
             Declaration(decl) => Self::Output::Definition(decl.to_ir()?),
             Assign(ass) => Self::Output::Assign(ass.to_ir()?),
             Store(store) => Self::Output::Store(store.to_ir()?),

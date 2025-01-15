@@ -50,7 +50,7 @@ impl TryToIR for pancake::Predicate {
     type Output = ir::Predicate;
 
     fn to_ir(self) -> Result<Self::Output, TranslationError> {
-        Ok(parse_predicate(&self.text))
+        parse_predicate(&self.text).map_err(|err| TranslationError::ParsingError(err.to_string()))
     }
 }
 
@@ -58,7 +58,7 @@ impl TryToIR for pancake::Function {
     type Output = ir::Function;
 
     fn to_ir(self) -> Result<Self::Output, TranslationError> {
-        Ok(parse_function(&self.text))
+        parse_function(&self.text).map_err(|err| TranslationError::ParsingError(err.to_string()))
     }
 }
 
@@ -66,7 +66,7 @@ impl TryToIR for pancake::Method {
     type Output = ir::AbstractMethod;
 
     fn to_ir(self) -> Result<Self::Output, TranslationError> {
-        Ok(parse_method(&self.text))
+        parse_method(&self.text).map_err(|err| TranslationError::ParsingError(err.to_string()))
     }
 }
 
@@ -74,7 +74,7 @@ impl TryToIR for pancake::Shared {
     type Output = ir::Shared;
 
     fn to_ir(self) -> Result<Self::Output, TranslationError> {
-        Ok(parse_shared(&self.text))
+        parse_shared(&self.text).map_err(|err| TranslationError::ParsingError(err.to_string()))
     }
 }
 
@@ -91,13 +91,18 @@ impl TryFrom<pancake::Program> for ir::Program {
         let model_predicates = value
             .model_predicates
             .iter()
-            .map(|s| parse_model_predicate(s))
-            .collect();
+            .map(|s| {
+                parse_model_predicate(s)
+                    .map_err(|err| TranslationError::ParsingError(err.to_string()))
+            })
+            .collect::<Result<_, _>>()?;
         let model_fields = value
             .model_fields
             .iter()
-            .map(|s| parse_model_field(s))
-            .collect();
+            .map(|s| {
+                parse_model_field(s).map_err(|err| TranslationError::ParsingError(err.to_string()))
+            })
+            .collect::<Result<_, _>>()?;
 
         let model = Model {
             predicates: model_predicates,
@@ -107,21 +112,27 @@ impl TryFrom<pancake::Program> for ir::Program {
         let extern_predicates = value
             .extern_predicates
             .iter()
-            .map(|s| parse_extern_predicate(s))
-            .collect();
+            .map(|s| {
+                parse_extern_predicate(s)
+                    .map_err(|err| TranslationError::ParsingError(err.to_string()))
+            })
+            .collect::<Result<_, _>>()?;
         let extern_fields = value
             .extern_fields
             .iter()
             .map(|s| {
-                let decl = parse_extern_field(s);
-                (decl.name, decl.typ)
+                parse_extern_field(s)
+                    .map(|decl| (decl.name, decl.typ))
+                    .map_err(|err| TranslationError::ParsingError(err.to_string()))
             })
-            .collect();
+            .collect::<Result<_, _>>()?;
         let extern_methods = value
             .extern_methods
             .iter()
-            .map(|s| parse_extern_ffi(s))
-            .collect();
+            .map(|s| {
+                parse_extern_ffi(s).map_err(|err| TranslationError::ParsingError(err.to_string()))
+            })
+            .collect::<Result<_, _>>()?;
 
         Ok(ir::Program {
             functions,
