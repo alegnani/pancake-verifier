@@ -121,9 +121,8 @@ impl<'a> TryToViper<'a> for ir::BinOp {
                 Add | Sub | Mul if ctx.options.bounded_arithmetic => {
                     ast.module(binop, ctx.word_values())
                 }
-                Lt | Lte | Gt | Gte | PancakeEqual | PancakeNotEqual => {
-                    ast.cond_exp(binop, ast.one(), ast.zero())
-                }
+                Lt | Lte | Gt | Gte | SignedLt | SignedLte | SignedGt | SignedGte
+                | PancakeEqual | PancakeNotEqual => ast.cond_exp(binop, ast.one(), ast.zero()),
                 _ => binop,
             }
         } else {
