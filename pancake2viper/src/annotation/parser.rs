@@ -1,4 +1,5 @@
 use pest::error::Error;
+use pest::error::ErrorVariant::CustomError;
 use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::PrattParser;
 use pest::Parser;
@@ -175,20 +176,38 @@ fn partition_annotation_types(
     (pres, posts, others)
 }
 
+fn parse_preposts(pairs: &mut Pairs<'_, Rule>) -> ParseResult<Vec<Annotation>> {
+    pairs
+        .next()
+        .unwrap()
+        .into_inner()
+        .map(|e| {
+            let annot = parse_annot(e.as_str(), false)?;
+            if !matches!(
+                annot.typ,
+                AnnotationType::Precondition | AnnotationType::Postcondition,
+            ) {
+                return Err(Box::new(Error::new_from_span(
+                    CustomError {
+                        message: "Only `requires` or `ensures` are allowed in this position"
+                            .to_string(),
+                    },
+                    e.as_span(),
+                )));
+            }
+            Ok(annot)
+        })
+        .collect()
+}
+
 pub fn parse_function(func: &str) -> ParseResult<Function> {
     let (name, args, mut pair) = parse_toplevel_common(func, Rule::function)?;
     let typ = Type::from_pest(pair.next().unwrap());
 
-    let preposts = pair
-        .next()
-        .unwrap()
-        .into_inner()
-        .map(|e| parse_annot(e.as_str(), false))
-        .collect::<Result<Vec<_>, _>>()?;
+    let preposts = parse_preposts(&mut pair)?;
     let (pres, posts, others) = partition_annotation_types(preposts);
-    if !others.is_empty() {
-        panic!("Invalid annotation in Function pre-/post-condition");
-    }
+    assert!(others.is_empty());
+
     let pres = pres.into_iter().map(|a| a.expr).collect();
     let posts = posts.into_iter().map(|a| a.expr).collect();
 
@@ -212,17 +231,11 @@ pub fn parse_method(met: &str) -> ParseResult<AbstractMethod> {
     let (name, args, mut pair) = parse_toplevel_common(met, Rule::method)?;
     let rettyps = pair.next().unwrap().into_inner();
     let rettyps = rettyps.into_iter().map(|d| Decl::from_pest(d)).collect();
-    let preposts = pair
-        .next()
-        .unwrap()
-        .into_inner()
-        .map(|e| parse_annot(e.as_str(), false))
-        .collect::<ParseResult<Vec<_>>>()?;
 
+    let preposts = parse_preposts(&mut pair)?;
     let (pres, posts, others) = partition_annotation_types(preposts);
-    if !others.is_empty() {
-        panic!("Invalid annotation in Function pre-/post-condition");
-    }
+    assert!(others.is_empty());
+
     let pres = pres.into_iter().map(|a| a.expr).collect();
     let posts = posts.into_iter().map(|a| a.expr).collect();
 
