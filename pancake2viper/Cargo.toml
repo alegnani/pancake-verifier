@@ -17,3 +17,4 @@ strum = { version = "0.26.3", features = ["derive"] }
 thiserror = "1.0.64"
 tracing = "0.1.40"
 viper = { path = "../prusti/viper" }
+tempfile = "3.15.0"
