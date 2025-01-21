@@ -159,7 +159,6 @@ pub struct EncodeOptions {
     pub bounded_arithmetic: bool,
     pub debug_comments: bool,
     pub include_prelude: bool,
-    pub return_post: bool,
     pub allow_undefined_shared: bool,
     pub ignore_warnings: bool,
 }
@@ -174,7 +173,6 @@ impl Default for EncodeOptions {
             bounded_arithmetic: false,
             debug_comments: false,
             include_prelude: true,
-            return_post: true,
             allow_undefined_shared: false,
             ignore_warnings: false,
         }

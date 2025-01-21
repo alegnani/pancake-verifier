@@ -949,6 +949,7 @@ dependencies = [
  "regex",
  "sexpr_parser",
  "strum",
+ "tempfile",
  "thiserror 1.0.69",
  "tracing",
  "viper",

@@ -14,6 +14,7 @@ use crate::{
 };
 use anyhow::{anyhow, Result};
 use regex::Regex;
+use tempfile::NamedTempFile;
 use viper::Program;
 
 macro_rules! run_step {
@@ -92,8 +93,7 @@ impl App {
     fn verify_code_model(&self, transpiled: String, include: &str) -> Result<()> {
         // When using a model we just add the model to the transpiled program and pass
         // it to Viper via CLI
-        let mut file = File::create("tmp.vpr")
-            .map_err(|e| anyhow!(format!("Error: Could not create temporary file:\n{}", e)))?;
+        let mut file = NamedTempFile::new()?;
         file.write_all(transpiled.as_bytes())
             .map_err(|e| anyhow!(format!("Error: Could not write to temporary file:\n{}", e)))?;
         let path = Path::new(&self.options.viper_path).join("viperserver.jar");
@@ -108,10 +108,13 @@ impl App {
                 "--logLevel=OFF",
                 "--exhaleMode=1",
                 &include,
-                "tmp.vpr",
+                file.path()
+                    .to_str()
+                    .expect("Failed to get path to temporary file"),
             ])
             .spawn()?
             .wait_with_output()?;
+        file.close()?;
         if !verify.status.success() {
             Err(anyhow!("Verification failure"))
         } else {

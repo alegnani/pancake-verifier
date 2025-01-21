@@ -236,7 +236,7 @@ impl TryToIR for pancake::Stmt {
             Call(call) => Self::Output::Call(call.to_ir()?),
             TailCall(call) => Self::Output::Seq(call.to_ir()?),
             ExtCall(call) => Self::Output::ExtCall(call.to_ir()?),
-            Raise(_) | Tick => panic!("Raise and Tick are not implemented in Pancake"),
+            Raise(_) | Tick => todo!("Raise and Tick are not implemented in Pancake"),
         })
     }
 }
