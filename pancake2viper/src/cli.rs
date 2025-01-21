@@ -164,21 +164,21 @@ pub struct ClapCliOptions {
     #[arg(
         global = true,
         long,
-        help = "Skip checking that variables don't under- or overflow their size"
+        help = "Skip checking that variables don't under- or overflow their size."
     )]
     pub disable_overflow_check: bool,
 
     #[arg(
         global = true,
         long,
-        help = "Model arithmetic operations as bounded (implicit under- or overflows)"
+        help = "Model arithmetic operations as bounded (implicit under- or overflows). This always performs arithmetic operations modulo the word size. Is likely to lead to non-termination"
     )]
     pub bounded_arithmetic: bool,
 
     #[arg(
         global = true,
         long,
-        help = "Removes assertions for alignment of memory operations"
+        help = "Removes assertions checking that memory accesses are aligned"
     )]
     pub disable_assert_alignment: bool,
 
@@ -186,7 +186,7 @@ pub struct ClapCliOptions {
         global = true,
         long,
         default_value_t = 16384,
-        help = "Maximum valid offset from @base in bytes"
+        help = "Maximum valid offset from @base in bytes, aka. the maximum size of Pancake's static heap"
     )]
     pub heap_size: u64,
 
@@ -224,24 +224,21 @@ pub struct ClapCliOptions {
     )]
     pub disable_prelude: bool,
 
-    #[arg(
-        global = true,
-        long,
-        help = "Does not add the postconditions for composite shape returns"
-    )]
-    pub disable_return_post: bool,
-
     #[arg(global = true, short, long, help = "Shared memory model file")]
     pub model: Option<FileOrStdin<String>>,
 
     #[arg(
         global = true,
         long,
-        help = "Allows accessing shared memory that has not been previously bound to method in the shared memory model"
+        help = "Allows accessing shared memory that has not been previously bound to a method in the shared memory model"
     )]
     pub allow_undefined_shared: bool,
 
-    #[arg(global = true, long, help = "Ignore warnings")]
+    #[arg(
+        global = true,
+        long,
+        help = "Ignore warnings related to the shared memory model"
+    )]
     pub ignore_warnings: bool,
 
     #[arg(
@@ -259,7 +256,7 @@ pub struct ClapCliOptions {
     #[arg(
         global = true,
         long,
-        help = "Trust and skip verification of model methods"
+        help = "Trust and skip verification of the model's methods"
     )]
     pub trust_model: bool,
 
@@ -280,7 +277,6 @@ pub struct CliOptions {
     pub z3_exe: String,
     pub debug_comments: bool,
     pub disable_prelude: bool,
-    pub disable_return_post: bool,
     pub model: Option<String>,
     pub allow_undefined_shared: bool,
     pub ignore_warnings: bool,
@@ -304,7 +300,6 @@ impl From<ClapCliOptions> for CliOptions {
             z3_exe: value.z3_exe,
             debug_comments: value.debug_comments,
             disable_prelude: value.disable_prelude,
-            disable_return_post: value.disable_return_post,
             model: value.model.map(|f| f.contents().unwrap()),
             allow_undefined_shared: value.allow_undefined_shared,
             ignore_warnings: value.ignore_warnings,
@@ -330,7 +325,6 @@ impl Default for CliOptions {
             z3_exe: get_z3_path(),
             debug_comments: false,
             disable_prelude: false,
-            disable_return_post: true,
             model: None,
             allow_undefined_shared: false,
             ignore_warnings: false,
@@ -352,7 +346,6 @@ impl From<CliOptions> for EncodeOptions {
             bounded_arithmetic: value.bounded_arithmetic,
             debug_comments: value.debug_comments,
             include_prelude: !value.disable_prelude,
-            return_post: !value.disable_return_post,
             allow_undefined_shared: value.allow_undefined_shared,
             ignore_warnings: value.ignore_warnings,
         }
@@ -361,7 +354,7 @@ impl From<CliOptions> for EncodeOptions {
 
 pub fn get_viper_path() -> String {
     env::var("VIPER_HOME").expect(
-        "Path to Viper installation is not provided, try setting it via $VIPER_HOME or --viper",
+        "Path to viperserver.jar is not provided, try setting it via $VIPER_HOME or --viper",
     )
 }
 
