@@ -420,12 +420,12 @@ impl Shape {
                     .map(|pair| match pair.as_rule() {
                         Rule::term => Self::parse_term(pair),
                         Rule::shape => Self::parse(pair.as_str()),
-                        x => panic!("Failed to parse Shape, got {:?}", x),
+                        _ => unreachable!(),
                     })
                     .collect::<Result<Vec<_>, _>>();
                 Ok(Shape::Nested(inner?))
             }
-            x => panic!("Failed to parse Shape, got {:?}", x),
+            _ => unreachable!(),
         }
     }
 }

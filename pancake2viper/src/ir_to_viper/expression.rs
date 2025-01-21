@@ -32,7 +32,7 @@ impl ir::Expr {
     pub fn label_to_viper(&self) -> String {
         match self {
             Self::Label(label) => label.to_owned(),
-            _ => panic!("Probably using f-pointer"),
+            _ => todo!("Probably calling a function pointer. These are not yet implemented."),
         }
     }
 }
