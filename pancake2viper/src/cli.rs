@@ -262,6 +262,9 @@ pub struct ClapCliOptions {
 
     #[arg(global = true, long, short = 'I', help = "Include Viper files")]
     pub include: Option<Vec<String>>,
+
+    #[arg(global = true, long, help = "Generate a counter example")]
+    pub counter_example: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -284,6 +287,7 @@ pub struct CliOptions {
     pub incremental: bool,
     pub trust_model: bool,
     pub include: Vec<String>,
+    pub counter_example: bool,
 }
 
 impl From<ClapCliOptions> for CliOptions {
@@ -307,6 +311,7 @@ impl From<ClapCliOptions> for CliOptions {
             incremental: value.incremental,
             trust_model: value.trust_model,
             include: value.include.unwrap_or_default(),
+            counter_example: value.counter_example,
         }
     }
 }
@@ -332,6 +337,7 @@ impl Default for CliOptions {
             incremental: false,
             trust_model: false,
             include: vec![],
+            counter_example: false,
         }
     }
 }
