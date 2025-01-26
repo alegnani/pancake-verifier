@@ -153,7 +153,7 @@ fun main() {
 Pancake compound shapes, like `<1, 2, <3, 4> >`, can be reasoned about in annotations.
 This can be done by comparing single elements via the dot syntax (`foo.0 == bar.1.2`) or via structural equality (`foo == bar.1`).
 Shapes can be return values or arguments of a Pancake function or the argument of Viper predicates or functions.
-When used as an argument in Viper predicates or functions use the shape instead of the type.
+When used as an argument in Viper predicates or functions use the shape as the type.
 ```c
 /@ predicate shape_pred(shape: {1, 2}) {
     shape.0 > 42 && shape.1 == < 1, 2 >
@@ -166,7 +166,81 @@ Reasoning about shared memory is done by providing a separate Viper file here in
 The model consists of Viper fields that hold state and Viper methods that specify the effect of shared memory operations.
 This includes the preconditions that must hold before a shared memory read/write, the postconditions (including the value read from the shared memory location) and how this operation affects the device state.
 
-####
+#### Shared read/writes
+
+In order to use `!stX/!ldX` operations we need to define how certain memory regions behave.
+This is done by providing a a Viper method in the model with the following signature:
+```c
+// define the behaviour of a shared memory load
+method load_<ident>(heap: IArray, address: Int) returns (retval: Int)
+    requires address == ...
+    ensures 0 <= retval < ...
+
+// define the behaviour of a shared memory store
+method store_<ident>(heap: IArray, address: Int, value: Int)
+    requires address == ...
+    ensures boundedX(value)
+```
+These methods can then be registered in our Pancake with the following top-level annotation:
+```c
+/@ shared <op-type> <op-width> <ident>[<address>] @/
+// op-type = r | w | rw (only load, only store, load/store)
+// op-width = u8 | u16 | u32 | u64
+// ident = the identifier used in the Viper model file
+// address = expr | lower_bound..upper_bound | lower_bound..upper_bound:stride
+```
+The upper bound is exclusive and the default stride is 0x1.
+Formally, the addresses that will be included are: forall offset > 0: lower_bound + offset * stride < upper_bound
+
+For example, if we have a board with two UARTs(at addresses UART0_BASE: 0x1000, UART1_BASE: 0x2000) we can register a shared memory region for the data register for both devices as follows:
+```c
+// UART_SIZE = UART1_BASE - UART0_BASE
+/@ shared rw u8 UART_DATA[UART0_BASE..UART1_BASE + UART_SIZE: UART_SIZE] // registers the `UART_DATA` function for both 0x1000 and 0x2000
+```
+
+If memory regions are overlapping the transpiler will issue warnings. These can be disabled with `--ignore-warnings`.
+
+Given that the model includes a lot of boilerplate, a skeleton can be generate from a Pancake file with `/@ shared ... @/` annotations using `pancake2viper generate foo.🥞 model.pnk`.
+
+#### State and model invariants
+
+In order to keep the state of our model we can use Viper `Ref`s in the model and access it's fields. As this requires access permissions we can define a predicate and use that as a state invariant.
+
+```c
+////// Model
+
+field data: Int
+
+// Define a state invariant
+predicate state_invariant(state: Ref) {
+    acc(state.data) && bounded8(state.data)
+}
+
+// Define a load method for !ld8 0x1000
+method load_data(heap: IArray, state: Ref, address: Int) returns (retval: Int)
+    requires state_invariant(state)
+    requires address == 4096
+    ensures unfolding state_invariant(state) in retval == state.data
+    ensures state_invariant(state)
+{
+    retval := state.data
+}
+
+////// Pancake
+
+// Provide declaration for the state reference, state invariant and shared memory load
+/@ model field state @/
+/@ model predicate state_invariant(state: Ref) @/
+/@ shared r u8 data[0x1000] @/
+```
+
+#### Extern predicates and fields
+
+If you want to use predicates or fields defined in the model in the Pancake code provide declarations as follows:
+```c
+/@ extern field <name>: <type> @/
+/@ extern predicate <name> @/
+```
 
 ### Other examples
 
