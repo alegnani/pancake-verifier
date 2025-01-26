@@ -73,11 +73,9 @@ fun sum(1 n) {
     return accu + n;
 }
 ```
+Annotations in Pancake are specified using block comments (`/@ ... @/`) and are mostly the same as the ones available in Viper. It is recommended to first check out the (well written) [Viper tutorial](https://viper.ethz.ch/tutorial).
 
-The annotations possible in Pancake are mostly the same as the ones available in Viper. It is recommended to first check out the (well written) [Viper tutorial](https://viper.ethz.ch/tutorial).
-
-Annotations in Pancake are specified inside special block comments `/@ ... @/`.
-Note that they always have to be inside a block (`{...}`) and not outside, as is the case in Viper.
+Note that they have to be inside a block (`{...}`) and not outside, as is the case in Viper.
 ```c
 // Viper
 method foo_bar() 
