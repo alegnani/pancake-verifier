@@ -1,24 +1,28 @@
 # Pancake Verifier
 
-The Pancake Verifier is a verifier for the Pancake systems programming language based on the [CakeML](https://cakeml.orgca) verified compiler.
-Under the hood it transpiles Pancake into the Viper intermediate language and uses the Viper toolchain to verify it.
+The Pancake Verifier is a verification tool for the Pancake systems programming language, built on the [CakeML](https://cakeml.orgca) verified compiler.
+It transpiles Pancake code into the Viper intermediate language and uses the Viper toolchain for formal verification.
 
 ## Getting the verifier
 
-The verifier comes both as a standalone program usable via the CLI called `pancake2viper`, found [here](https://github.com/alegnani/pancake-verifier/releases/), and a VS Code extension available [here](https://marketplace.visualstudio.com/items?itemName=alegnani.pancake-ide).
+The verifier is available as:
+ - A standalone CLI program called `pancake2viper`, downloadable [here](https://github.com/alegnani/pancake-verifier/releases/)
+ - A VS Code extension, available [here](https://marketplace.visualstudio.com/items?itemName=alegnani.pancake-ide).
 
 ## Dependencies
 
 - JDK11 or newer
-- Viper toolchain (available as part of the [VS Code extension](https://marketplace.visualstudio.com/items?itemName=viper-admin.viper) or as a standalone [program](https://github.com/viperproject/viper-ide/releases/tag/v.24.08-release).
+- Viper toolchain (available as part of the [VS Code extension](https://marketplace.visualstudio.com/items?itemName=viper-admin.viper) or as a standalone [release](https://github.com/viperproject/viper-ide/releases/tag/v.24.08-release).
 - CakeML compiler rev. [d8b47adc](https://cakeml.org/regression.cgi/job/2697) 
-- z3 (included as part of the Viper toolchain) 
+- z3 (included in the Viper toolchain) 
 
-By default it expects for `cake` to be on the path or `$CAKE_ML` to be set. To override the path use the `--cake <CAKE_PATH>` flag.  
-The path to `viperserver.jar` can either be set via `$VIPER_HOME` or using the `--viper <VIPER_PATH>` flag.  
-The path to the `z3` executable can either be set via `$Z3_EXE` or using the `--z3 <Z3_PATH>` flag.
-A compatible version of z3 can be found at `ViperTools/z3/bin/z3`.  
-The Viper installation provided by the Viper VS Code extension can be found under `~/.config/Code/User/globalStorage/viper-admin.viper/Stable/ViperTools/`.
+### Configuration
+
+ - The path to the CakeML compiler can be set via the `--cake <CAKE_PATH>` flag or by ensuring `cake` is in your system PATH or `$CAKE_ML` is set.
+ - The path to `viperserver.jar` can be set via the `--viper <VIPER_PATH>` flag or by setting `$VIPER_HOME`.
+ - The path to the `z3` executable can be set via the `--z3 <Z3_PATH>` flag or by setting `$Z3_EXE`.
+
+A compatible z3 binary is included at `ViperTools/z3/bin/z3` when using the Viper VS Code extension, which is typically installed at `~/.config/Code/User/globalStorage/viper-admin.viper/Stable/ViperTools/`.
 
 ## How to run
 
