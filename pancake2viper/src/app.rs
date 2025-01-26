@@ -98,20 +98,28 @@ impl App {
             .map_err(|e| anyhow!(format!("Error: Could not write to temporary file:\n{}", e)))?;
         let path = Path::new(&self.options.viper_path).join("viperserver.jar");
         let include = format!("--includeMethods={}", include);
+        let mut args = vec![
+            "-Xss300M",
+            "-cp",
+            path.to_str().unwrap(),
+            "viper.silicon.SiliconRunner",
+            "--logLevel=OFF",
+            "--exhaleMode=1",
+            &include,
+        ];
+
+        if self.options.counter_example {
+            args.push("--counterexample=mapped");
+        }
+
+        args.push(
+            file.path()
+                .to_str()
+                .expect("Failed to get path to temporary file"),
+        );
 
         let verify = Command::new("java")
-            .args([
-                "-Xss300M",
-                "-cp",
-                path.to_str().unwrap(),
-                "viper.silicon.SiliconRunner",
-                "--logLevel=OFF",
-                "--exhaleMode=1",
-                &include,
-                file.path()
-                    .to_str()
-                    .expect("Failed to get path to temporary file"),
-            ])
+            .args(args)
             .spawn()?
             .wait_with_output()?;
         file.close()?;
