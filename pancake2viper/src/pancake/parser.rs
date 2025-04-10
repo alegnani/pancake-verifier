@@ -191,7 +191,7 @@ impl Stmt {
             }
 
             [Symbol(op), Symbol(size), List(addr), List(exp)]
-                if op == "shared_mem_store" && size == "halfword" =>
+                if op == "shared_mem_store" && size == "word32" =>
             {
                 Ok(Self::SharedStoreBits(SharedStoreBits {
                     address: Expr::parse(addr)?,
@@ -231,7 +231,7 @@ impl Stmt {
             }
 
             [Symbol(op), Symbol(size), Symbol(dst), List(exp)]
-                if op == "shared_mem_load" && size == "halfword" =>
+                if op == "shared_mem_load" && size == "word32" =>
             {
                 Ok(Self::SharedLoadBits(SharedLoadBits {
                     address: Expr::parse(exp)?,
