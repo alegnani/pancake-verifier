@@ -30,6 +30,10 @@ method store_base8(heap: IArray, state: Ref, address: Int, value: Int)
     requires address == 0
     requires 0 <= value < 256
 
+method store_base16(heap: IArray, state: Ref, address: Int, value: Int)
+    requires address == 0
+    requires 0 <= value < 256 * 256
+
 method store_base32(heap: IArray, state: Ref, address: Int, value: Int)
     requires address == 0
     requires 0 <= value < 4294967296
@@ -41,6 +45,10 @@ method store_base64(heap: IArray, state: Ref, address: Int, value: Int)
 method load_base8(heap: IArray, state: Ref, address: Int) returns (retval: Int)
     requires address == 0
     ensures 0 <= retval < 256
+
+method load_base16(heap: IArray, state: Ref, address: Int) returns (retval: Int)
+    requires address == 0
+    ensures 0 <= retval < 256 * 256
 
 method load_base32(heap: IArray, state: Ref, address: Int) returns (retval: Int)
     requires address == 0
