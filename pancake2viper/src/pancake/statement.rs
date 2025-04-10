@@ -42,6 +42,7 @@ pub struct Assign {
 pub enum MemOpBytes {
     Byte,
     HalfWord,
+    QuarterWord
 }
 
 impl MemOpBytes {
@@ -49,6 +50,7 @@ impl MemOpBytes {
         match self {
             Self::Byte => 8,
             Self::HalfWord => 32,
+            Self::QuarterWord => 16,
         }
     }
 }

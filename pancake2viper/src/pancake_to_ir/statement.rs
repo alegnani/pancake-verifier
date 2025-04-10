@@ -43,6 +43,7 @@ impl TryToIR for pancake::MemOpBytes {
         Ok(match self {
             Byte => Self::Output::Byte,
             HalfWord => Self::Output::HalfWord,
+            QuarterWord => Self::Output::QuarterWord,
         })
     }
 }
