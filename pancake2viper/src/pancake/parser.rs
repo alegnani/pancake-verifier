@@ -191,12 +191,22 @@ impl Stmt {
             }
 
             [Symbol(op), Symbol(size), List(addr), List(exp)]
-                if op == "shared_mem_store" && size == "halfword" =>
+                if op == "shared_mem_store" && size == "word32" =>
             {
                 Ok(Self::SharedStoreBits(SharedStoreBits {
                     address: Expr::parse(addr)?,
                     value: Expr::parse(exp)?,
                     size: MemOpBytes::HalfWord,
+                }))
+            }
+
+            [Symbol(op), Symbol(size), List(addr), List(exp)]
+            if op == "shared_mem_store" && size == "word16" =>
+            {
+                Ok(Self::SharedStoreBits(SharedStoreBits {
+                    address: Expr::parse(addr)?,
+                    value: Expr::parse(exp)?,
+                    size: MemOpBytes::QuarterWord,
                 }))
             }
 
@@ -221,12 +231,22 @@ impl Stmt {
             }
 
             [Symbol(op), Symbol(size), Symbol(dst), List(exp)]
-                if op == "shared_mem_load" && size == "halfword" =>
+                if op == "shared_mem_load" && size == "word32" =>
             {
                 Ok(Self::SharedLoadBits(SharedLoadBits {
                     address: Expr::parse(exp)?,
                     dst: Expr::Var(dst.into()),
                     size: MemOpBytes::HalfWord,
+                }))
+            }
+
+            [Symbol(op), Symbol(size), Symbol(dst), List(exp)]
+            if op == "shared_mem_load" && size == "word16" =>
+            {
+                Ok(Self::SharedLoadBits(SharedLoadBits {
+                    address: Expr::parse(exp)?,
+                    dst: Expr::Var(dst.into()),
+                    size: MemOpBytes::QuarterWord,
                 }))
             }
 
