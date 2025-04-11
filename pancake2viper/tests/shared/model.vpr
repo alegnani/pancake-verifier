@@ -27,7 +27,7 @@ field device4: Seq[Bool]
 field device5: Ref
 
 method store_base8(heap: IArray, state: Ref, address: Int, value: Int)
-    requires address == 0
+    requires 0 == address
     requires 0 <= value < 256
 
 method store_base16(heap: IArray, state: Ref, address: Int, value: Int)
@@ -43,7 +43,7 @@ method store_base64(heap: IArray, state: Ref, address: Int, value: Int)
     requires 0 <= value < 4294967296 * 4294967296
 
 method load_base8(heap: IArray, state: Ref, address: Int) returns (retval: Int)
-    requires address == 0
+    requires 0 == address
     ensures 0 <= retval < 256
 
 method load_base16(heap: IArray, state: Ref, address: Int) returns (retval: Int)
@@ -89,3 +89,77 @@ method store_STRIDE(heap: IArray, state: Ref, address: Int, value: Int)
 method load_STRIDE(heap: IArray, state: Ref, address: Int) returns (retval: Int)
     requires 1056 <= address && address < 1120 && address % 16 == 0
     ensures 0 <= retval < 256
+
+// 16 bits test
+
+field device_base_low: Int
+field device_base_high: Int
+
+predicate state_16_bit(heap: IArray, state: Ref) {
+    acc(state.device_base_low) && acc(state.device_base_high) && 0 <= state.device_base_low < 256 && 0 <= state.device_base_high < 256
+}
+
+method store_base8_16(heap: IArray, state: Ref, address: Int, value: Int)
+    requires state_16_bit(heap, state)
+    requires 0 <= address <= 1
+    requires 0 <= value < 256
+    ensures state_16_bit(heap, state)
+    ensures unfolding state_16_bit(heap, state) in (address == 0 ==> state.device_base_low == value && old(unfolding state_16_bit(heap, state) in state.device_base_high) == state.device_base_high)
+    ensures unfolding state_16_bit(heap, state) in (address == 1 ==> state.device_base_high == value && old(unfolding state_16_bit(heap, state) in state.device_base_low) == state.device_base_low)
+{
+    unfold state_16_bit(heap, state)
+    if (address == 0) {
+        state.device_base_low := value
+    } else {
+        state.device_base_high := value
+    }
+    fold state_16_bit(heap, state)
+}
+
+method store_base16_16(heap: IArray, state: Ref, address: Int, value: Int)
+    requires state_16_bit(heap, state)
+    requires address == 0
+    requires 0 <= value < 65536
+    ensures state_16_bit(heap, state)
+    ensures unfolding state_16_bit(heap, state) in state.device_base_low == value % 256 && state.device_base_high == value / 256
+{
+    unfold state_16_bit(heap, state)
+    state.device_base_low := value % 256
+    state.device_base_high := value / 256
+    fold state_16_bit(heap, state)
+}
+
+method load_base8_16(heap: IArray, state: Ref, address: Int) returns (retval: Int)
+    requires state_16_bit(heap, state)
+    requires 0 <= address <= 1
+    ensures state_16_bit(heap, state)
+    ensures 0 <= retval < 256
+    ensures (unfolding state_16_bit(heap, state) in state.device_base_low) == old(unfolding state_16_bit(heap, state) in state.device_base_low)
+    ensures (unfolding state_16_bit(heap, state) in state.device_base_high) == old(unfolding state_16_bit(heap, state) in state.device_base_high)
+    ensures unfolding state_16_bit(heap, state) in address == 0 ==> retval == state.device_base_low
+    ensures unfolding state_16_bit(heap, state) in address == 1 ==> retval == state.device_base_high
+{
+    unfold state_16_bit(heap, state)
+    if (address == 0) {
+        retval := state.device_base_low
+    } else {
+        retval := state.device_base_high
+    }
+    fold state_16_bit(heap, state)
+
+}
+
+method load_base16_16(heap: IArray, state: Ref, address: Int) returns (retval: Int)
+    requires state_16_bit(heap, state)
+    requires 0 == address
+    ensures state_16_bit(heap, state)
+    ensures 0 <= retval < 65536
+    ensures (unfolding state_16_bit(heap, state) in state.device_base_low) == old(unfolding state_16_bit(heap, state) in state.device_base_low)
+    ensures (unfolding state_16_bit(heap, state) in state.device_base_high) == old(unfolding state_16_bit(heap, state) in state.device_base_high)
+    ensures unfolding state_16_bit(heap, state) in (retval == state.device_base_low + state.device_base_high * 256)
+{
+    unfold state_16_bit(heap, state)
+    retval := state.device_base_low + state.device_base_high * 256
+    fold state_16_bit(heap, state)
+}
+

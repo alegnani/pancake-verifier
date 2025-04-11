@@ -1,0 +1,35 @@
+/@ shared rw u8 base8_16[@base..@base+2] @/
+/@ shared rw u16 base16_16[@base] @/
+/@ model field state @/
+/@ model predicate state_16_bit() @/
+/@ extern field device_base_low: Int @/
+/@ extern field device_base_high: Int @/
+
+fun main() {
+    /@ requires acc(heap[0]) @/
+
+	!st8 @base, 17;
+
+	/@ unfold state_16_bit() @/
+	/@ assert state.device_base_low == 17 @/
+	/@ fold state_16_bit() @/
+
+	!st8 @base + 1, 42;
+
+	/@ unfold state_16_bit() @/
+	/@ assert state.device_base_high == 42 @/
+	/@ assert state.device_base_low == 17 @/
+	/@ fold state_16_bit() @/
+
+    var x = 0;
+    !ld16 x, @base;
+
+	/@ unfold state_16_bit() @/
+	/@ assert state.device_base_low == 17 @/
+	/@ assert state.device_base_high == 42 @/
+	/@ fold state_16_bit() @/
+
+    /@ assert 0 <= x && x < 256 * 256 @/
+	/@ assert x == 17 + 256 * 42 @/
+    return 0;
+}
