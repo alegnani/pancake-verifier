@@ -1,0 +1,8 @@
+fun dummy(1 x)
+{
+  /@ requires x == 42 @/
+  /@ requires acc(heap[0..x], 1/2) @/
+  /@ ensures acc(heap[0..x], 1/2) @/
+
+  return 0;
+}

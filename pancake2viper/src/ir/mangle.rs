@@ -70,7 +70,11 @@ impl Mangleable for ir::Expr {
                 tern.right.mangle(mangler)?
             }
             // XXX: should the indices be expressions instead of ints?
-            AccessSlice(slice) => slice.field.mangle(mangler)?,
+            AccessSlice(slice) => {
+                slice.field.mangle(mangler)?;
+                slice.lower.mangle(mangler)?;
+                slice.upper.mangle(mangler)?;
+            }
             Old(old) => old.expr.mangle(mangler)?,
             ViperFieldAccess(field) => field.obj.mangle(mangler)?,
         }
