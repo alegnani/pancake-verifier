@@ -281,6 +281,10 @@ fn parse_expr(pairs: Pairs<Rule>) -> Expr {
             Rule::biw => Expr::BytesInWord,
             Rule::true_lit => Expr::BoolLit(true),
             Rule::false_lit => Expr::BoolLit(false),
+            Rule::seq_length => Expr::SeqLength(
+                SeqLength {
+                    expr: Box::new(parse_expr(primary.into_inner())),
+            }),
             _ => unreachable!(),
         })
         .map_prefix(|op, rhs| {

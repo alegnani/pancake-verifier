@@ -83,6 +83,9 @@ impl ConstEvalExpr for Expr {
                 obj: Box::new(f.obj.const_eval(options)),
                 field: f.field,
             }),
+            SeqLength(s) => SeqLength(ir::SeqLength {
+                expr: Box::new(s.expr.const_eval(options)),
+            }),
         }
     }
 }

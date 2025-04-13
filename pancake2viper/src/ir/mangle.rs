@@ -77,6 +77,7 @@ impl Mangleable for ir::Expr {
             }
             Old(old) => old.expr.mangle(mangler)?,
             ViperFieldAccess(field) => field.obj.mangle(mangler)?,
+            SeqLength(seq) => seq.expr.mangle(mangler)?,
         }
         Ok(())
     }
