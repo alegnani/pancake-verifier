@@ -254,6 +254,7 @@ impl ExprSubstitution for Expr {
             Self::Load(load) => load.address.substitute(old, new),
             Self::LoadBits(load) => load.address.substitute(old, new),
             Self::Old(o) => o.expr.substitute(old, new),
+            Self::SeqLength(s) => s.expr.substitute(old, new),
             Self::Shift(shift) => shift.value.substitute(old, new),
             Self::Struct(s) => s.elements.substitute(old, new),
             Self::Ternary(tern) => {

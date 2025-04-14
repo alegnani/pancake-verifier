@@ -442,6 +442,7 @@ impl<'a> TryToViper<'a> for ir::Expr {
                 BaseAddr => ast.zero(),
                 BytesInWord => ast.int_lit(ctx.options.word_size as i64 / 8),
                 Old(old) => ast.old(old.expr.to_viper(ctx)?),
+                SeqLength(s) => ast.seq_length(s.expr.to_viper(ctx)?),
                 _ => unreachable!(),
             }),
         }

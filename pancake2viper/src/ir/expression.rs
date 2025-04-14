@@ -29,6 +29,7 @@ pub enum Expr {
     AccessSlice(AccessSlice),
     Old(Old),
     ViperFieldAccess(ViperFieldAccess),
+    SeqLength(SeqLength),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -211,4 +212,9 @@ pub struct Old {
 pub struct ViperFieldAccess {
     pub obj: Box<Expr>,
     pub field: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SeqLength {
+    pub expr: Box<Expr>,
 }

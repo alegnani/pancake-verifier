@@ -51,6 +51,7 @@ impl ExprTypeResolution for ir::Expr {
                 Ok(Type::Bool)
             }
             Old(old) => old.expr.resolve_expr_type(is_annot, ctx),
+            SeqLength(_) => Ok(Type::Int),
             ViperFieldAccess(acc) => ctx.get_field_type(&acc.field),
         }
     }
