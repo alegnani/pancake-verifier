@@ -1,92 +1,92 @@
-predicate valid_state(heap: IArray, state: Ref) {
+predicate valid_state(heap: Seq[Ref], state: Ref) {
     acc(state.device) && state.device == 42 && other_pred(heap, state) && seq_pred(heap, state)
 }
 
-predicate other_pred(heap: IArray, state: Ref) {
+predicate other_pred(heap: Seq[Ref], state: Ref) {
     acc(state.device2) && state.device2 >= 0 && acc(state.device3) && acc(slot(state.device3, 0).heap_elem) && slot(state.device3, 0).heap_elem == 17
 }
 
-predicate seq_pred(heap: IArray, state: Ref) {
+predicate seq_pred(heap: Seq[Ref], state: Ref) {
     acc(state.device4) && |state.device4| == 2 && state.device4[0] == false && state.device4[1] == false
 }
 
-predicate valid_device(heap: IArray, device_v: Ref) {
+predicate valid_device(heap: Seq[Ref], device_v: Ref) {
     true
 }
 
-predicate some_pred(heap: IArray, device_v: Ref) {
+predicate some_pred(heap: Seq[Ref], device_v: Ref) {
     true
 }
 
-method microkit_notify(heap: IArray, x1: Int, x2: Int, x3: Int, x4: Int)
+method microkit_notify(heap: Seq[Ref], x1: Int, x2: Int, x3: Int, x4: Int)
 
 field device: Int
 field device2: Int
-field device3: IArray
+field device3: Seq[Ref]
 field device4: Seq[Bool]
 field device5: Ref
 
-method store_base8(heap: IArray, state: Ref, address: Int, value: Int)
+method store_base8(heap: Seq[Ref], state: Ref, address: Int, value: Int)
     requires 0 == address
     requires 0 <= value < 256
 
-method store_base16(heap: IArray, state: Ref, address: Int, value: Int)
+method store_base16(heap: Seq[Ref], state: Ref, address: Int, value: Int)
     requires address == 0
     requires 0 <= value < 256 * 256
 
-method store_base32(heap: IArray, state: Ref, address: Int, value: Int)
+method store_base32(heap: Seq[Ref], state: Ref, address: Int, value: Int)
     requires address == 0
     requires 0 <= value < 4294967296
 
-method store_base64(heap: IArray, state: Ref, address: Int, value: Int)
+method store_base64(heap: Seq[Ref], state: Ref, address: Int, value: Int)
     requires address == 0
     requires 0 <= value < 4294967296 * 4294967296
 
-method load_base8(heap: IArray, state: Ref, address: Int) returns (retval: Int)
+method load_base8(heap: Seq[Ref], state: Ref, address: Int) returns (retval: Int)
     requires 0 == address
     ensures 0 <= retval < 256
 
-method load_base16(heap: IArray, state: Ref, address: Int) returns (retval: Int)
+method load_base16(heap: Seq[Ref], state: Ref, address: Int) returns (retval: Int)
     requires address == 0
     ensures 0 <= retval < 256 * 256
 
-method load_base32(heap: IArray, state: Ref, address: Int) returns (retval: Int)
+method load_base32(heap: Seq[Ref], state: Ref, address: Int) returns (retval: Int)
     requires address == 0
     ensures 0 <= retval < 4294967296
 
-method load_base64(heap: IArray, state: Ref, address: Int) returns (retval: Int)
+method load_base64(heap: Seq[Ref], state: Ref, address: Int) returns (retval: Int)
     requires address == 0
     ensures 0 <= retval < 4294967296 * 4294967296
 
-method store_align(heap: IArray, address: Int, value: Int)
+method store_align(heap: Seq[Ref], address: Int, value: Int)
     requires address == 4
     requires 0 <= value < 4294967296
 
-method load_align(heap: IArray, address: Int) returns (retval: Int)
+method load_align(heap: Seq[Ref], address: Int) returns (retval: Int)
     requires address == 4
     ensures 0 <= retval < 4294967296
 
-method store_A(heap: IArray, state: Ref, address: Int, value: Int)
+method store_A(heap: Seq[Ref], state: Ref, address: Int, value: Int)
     requires 200 <= address < 208
     requires 0 <= value < 4294967296 * 4294967296
 
-method load_A(heap: IArray, state: Ref, address: Int) returns (retval: Int)
+method load_A(heap: Seq[Ref], state: Ref, address: Int) returns (retval: Int)
     requires 200 <= address < 208
     ensures 0 <= retval < 4294967296 * 4294967296
 
-method store_B(heap: IArray, state: Ref, address: Int, value: Int)
+method store_B(heap: Seq[Ref], state: Ref, address: Int, value: Int)
     requires address == 100
     requires 0 <= value < 256
 
-method load_B(heap: IArray, state: Ref, address: Int) returns (retval: Int)
+method load_B(heap: Seq[Ref], state: Ref, address: Int) returns (retval: Int)
     requires address == 100
     ensures 0 <= retval < 256
 
-method store_STRIDE(heap: IArray, state: Ref, address: Int, value: Int)
+method store_STRIDE(heap: Seq[Ref], state: Ref, address: Int, value: Int)
     requires 1056 <= address && address < 1120 && address % 16 == 0
     requires 0 <= value < 256
 
-method load_STRIDE(heap: IArray, state: Ref, address: Int) returns (retval: Int)
+method load_STRIDE(heap: Seq[Ref], state: Ref, address: Int) returns (retval: Int)
     requires 1056 <= address && address < 1120 && address % 16 == 0
     ensures 0 <= retval < 256
 
@@ -95,11 +95,11 @@ method load_STRIDE(heap: IArray, state: Ref, address: Int) returns (retval: Int)
 field device_base_low: Int
 field device_base_high: Int
 
-predicate state_16_bit(heap: IArray, state: Ref) {
+predicate state_16_bit(heap: Seq[Ref], state: Ref) {
     acc(state.device_base_low) && acc(state.device_base_high) && 0 <= state.device_base_low < 256 && 0 <= state.device_base_high < 256
 }
 
-method store_base8_16(heap: IArray, state: Ref, address: Int, value: Int)
+method store_base8_16(heap: Seq[Ref], state: Ref, address: Int, value: Int)
     requires state_16_bit(heap, state)
     requires 0 <= address <= 1
     requires 0 <= value < 256
@@ -116,7 +116,7 @@ method store_base8_16(heap: IArray, state: Ref, address: Int, value: Int)
     fold state_16_bit(heap, state)
 }
 
-method store_base16_16(heap: IArray, state: Ref, address: Int, value: Int)
+method store_base16_16(heap: Seq[Ref], state: Ref, address: Int, value: Int)
     requires state_16_bit(heap, state)
     requires address == 0
     requires 0 <= value < 65536
@@ -129,7 +129,7 @@ method store_base16_16(heap: IArray, state: Ref, address: Int, value: Int)
     fold state_16_bit(heap, state)
 }
 
-method load_base8_16(heap: IArray, state: Ref, address: Int) returns (retval: Int)
+method load_base8_16(heap: Seq[Ref], state: Ref, address: Int) returns (retval: Int)
     requires state_16_bit(heap, state)
     requires 0 <= address <= 1
     ensures state_16_bit(heap, state)
@@ -149,7 +149,7 @@ method load_base8_16(heap: IArray, state: Ref, address: Int) returns (retval: In
 
 }
 
-method load_base16_16(heap: IArray, state: Ref, address: Int) returns (retval: Int)
+method load_base16_16(heap: Seq[Ref], state: Ref, address: Int) returns (retval: Int)
     requires state_16_bit(heap, state)
     requires 0 == address
     ensures state_16_bit(heap, state)
