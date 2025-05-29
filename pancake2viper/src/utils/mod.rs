@@ -23,7 +23,6 @@ lazy_static::lazy_static! {
         ("write", Type::Void),
         ("wildcard", Type::Void),
         ("acc", Type::Bool),
-        ("alen", Type::Int),
         ("old", Type::Wildcard),
         ("result", Type::Wildcard),
         ("bounded", Type::Bool),

@@ -316,13 +316,14 @@ impl<'a> TryToViper<'a> for ir::ArrayAccess {
             .obj
             .resolve_expr_type(ctx.get_mode().is_annot(), ctx.typectx_get_mut())?;
         let obj = self.obj.to_viper(ctx)?;
-        let access = match typ {
-            Type::Seq(inner) => match *inner {
-                Type::Ref => ctx.heapseq.access(obj, idx),
-                _ => ctx.ast.seq_index(obj, idx),
-            },
-            _ => return Err(ToViperError::IndexNotSeq),
-        };
+        // let access = match typ {
+        //     Type::Seq(inner) => match *inner {
+        //         Type::Ref => ctx.heapseq.access(obj, idx),
+        //         _ => ctx.ast.seq_index(obj, idx),
+        //     },
+        //     _ => return Err(ToViperError::IndexNotSeq),
+        // };
+        let access = ctx.heapseq.access(obj, idx);
         Ok(access)
     }
 }
