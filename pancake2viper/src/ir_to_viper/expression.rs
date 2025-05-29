@@ -250,10 +250,6 @@ impl<'a> TryToViper<'a> for ir::FunctionCall {
         let args = self.args.to_viper(ctx)?;
         let mut base_args = ctx.get_default_args().1;
         Ok(match self.fname.as_str() {
-            "f_alen" => {
-                let arr = args[0];
-                ctx.iarray.len_f(arr)
-            }
             "f_old" => ast.old(args[0]),
             pred if ctx.is_predicate(pred) => {
                 base_args.extend(args);
@@ -320,10 +316,14 @@ impl<'a> TryToViper<'a> for ir::ArrayAccess {
             .obj
             .resolve_expr_type(ctx.get_mode().is_annot(), ctx.typectx_get_mut())?;
         let obj = self.obj.to_viper(ctx)?;
-        Ok(match typ {
-            Type::Seq(_) => ctx.ast.seq_index(obj, idx),
-            _ => ctx.iarray.access(obj, idx),
-        })
+        let access = match typ {
+            Type::Seq(inner) => match *inner {
+                Type::Ref => ctx.heapseq.access(obj, idx),
+                _ => ctx.ast.seq_index(obj, idx),
+            },
+            _ => return Err(ToViperError::IndexNotSeq),
+        };
+        Ok(access)
     }
 }
 
@@ -390,7 +390,7 @@ impl<'a> TryToViper<'a> for ir::AccessSlice {
             }),
         );
         let perm = self.perm.to_viper(ctx);
-        Ok(ctx.iarray.array_acc_expr(field, lower, length, perm))
+        Ok(ctx.heapseq.seq_acc_expr(field, lower, length, perm))
     }
 }
 

@@ -7,7 +7,7 @@ use viper::{AstFactory, Declaration, LocalVarDecl};
 
 use crate::{
     ir::{self, shared::SharedContext, types::Type, AnnotationType, FnDec, Model},
-    viper_prelude::{utils::Utils, IArrayHelper},
+    viper_prelude::{heapseq::HeapSeq, utils::Utils},
 };
 
 use super::{mangler::Mangler, TranslationError, RESERVED};
@@ -135,7 +135,7 @@ pub struct ViperEncodeCtx<'a> {
     pub declarations: Vec<viper::LocalVarDecl<'a>>,
     while_counter: u64,
     types: TypeContext,
-    pub iarray: IArrayHelper<'a>,
+    pub heapseq: HeapSeq<'a>,
     pub utils: Utils<'a>,
     pub options: EncodeOptions,
     pub consume_stack: bool,
@@ -190,7 +190,7 @@ impl<'a> ViperEncodeCtx<'a> {
         model: Model,
         extern_methods: HashSet<String>,
     ) -> Self {
-        let iarray = IArrayHelper::new(ast);
+        let heapseq = HeapSeq::new(ast);
         Self {
             mode: TranslationMode::Normal,
             ast,
@@ -199,8 +199,8 @@ impl<'a> ViperEncodeCtx<'a> {
             declarations: vec![],
             types,
             while_counter: 0,
-            iarray,
-            utils: Utils::new(ast, iarray.get_type(), model.clone()),
+            heapseq,
+            utils: Utils::new(ast, heapseq.typ(), model.clone()),
             options,
             consume_stack: true,
             invariants: vec![],
@@ -223,7 +223,7 @@ impl<'a> ViperEncodeCtx<'a> {
             declarations: vec![],
             types: self.types.child(),
             while_counter: self.while_counter,
-            iarray: self.iarray,
+            heapseq: self.heapseq,
             utils: self.utils.clone(),
             options: self.options,
             consume_stack: self.consume_stack,
@@ -278,7 +278,7 @@ impl<'a> ViperEncodeCtx<'a> {
     }
 
     pub fn heap_type(&self) -> viper::Type {
-        self.iarray.get_type()
+        self.heapseq.typ()
     }
 
     pub fn heap_var(&self) -> (viper::LocalVarDecl, viper::Expr) {

@@ -1,11 +1,11 @@
 pub mod bitvector;
 pub mod ext_calls;
-pub mod iarray;
+pub mod heapseq;
 pub mod shared_mem;
 pub mod utils;
 
 use bitvector::create_bv_domain;
-pub use iarray::IArrayHelper;
+use heapseq::HeapSeq;
 use shared_mem::create_shared_mem_methods;
 use utils::{bound_bits_function, bound_function, Utils};
 use viper::{AstFactory, Domain, Field, Function, Method};
@@ -20,10 +20,10 @@ pub fn create_viper_prelude(
     if !options.include_prelude {
         return (vec![], vec![], vec![], vec![]);
     }
-    let iarray = IArrayHelper::new(ast);
-    let utils = Utils::new(ast, iarray.get_type(), model);
-    let domains = vec![iarray.domain, create_bv_domain(ast)];
-    let fields = vec![iarray.field()];
+    let heapseq = HeapSeq::new(ast);
+    let utils = Utils::new(ast, heapseq.typ(), model);
+    let domains = vec![create_bv_domain(ast)];
+    let fields = vec![heapseq.field()];
     let methods = create_shared_mem_methods(ast, &utils);
     (
         domains,

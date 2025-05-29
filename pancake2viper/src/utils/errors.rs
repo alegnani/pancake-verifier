@@ -18,6 +18,8 @@ pub enum ToViperError {
     MismatchedShapes(Shape, Shape),
     #[error("Can't specify pre-/post-conditions in this position, consider moving it up")]
     InvalidAnnotation,
+    #[error("Can't index into non-Seq type")]
+    IndexNotSeq,
 }
 
 #[derive(thiserror::Error, Debug)]

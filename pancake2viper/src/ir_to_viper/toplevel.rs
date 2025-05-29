@@ -63,7 +63,7 @@ impl<'a> TryToViper<'a> for FnDec {
         pres.insert(
             0,
             ast.eq_cmp(
-                ctx.iarray.len_f(ctx.heap_var().1),
+                ast.seq_length(ctx.heap_var().1),
                 ast.int_lit(ctx.options.heap_size as i64),
             ),
         );
