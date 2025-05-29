@@ -6,7 +6,7 @@ use viper::AstFactory;
 
 use crate::utils::{
     EncodeOptions, ForceToBool, MethodContext, ProgramToViper, ToViper, ToViperError, ToViperType,
-    TranslationMode, TryToViper, TypeContext, ViperEncodeCtx,
+    TranslationMode, TryToViper, TypeContext, ViperEncodeCtx, ViperUtils,
 };
 use crate::viper_prelude::create_viper_prelude;
 
@@ -59,7 +59,7 @@ impl<'a> TryToViper<'a> for FnDec {
         ctx.set_mode(TranslationMode::PrePost);
         pres.extend(self.pres.force_to_bool(ctx)?);
 
-        // add precondition about heap size: `requires alen(heap) == HEAP_SIZE`
+        // add precondition about heap size: `requires |heap| == HEAP_SIZE`
         pres.insert(
             0,
             ast.eq_cmp(
@@ -67,6 +67,9 @@ impl<'a> TryToViper<'a> for FnDec {
                 ast.int_lit(ctx.options.heap_size as i64),
             ),
         );
+        // add precondition about injectivity of the heap:
+        // `requires forall i: Int, j: Int :: 0 <= i < j < |heap| ==> heap[i] != heap[j]`
+        pres.insert(1, ctx.heapseq.seq_inj(ctx.heap_var().1));
         posts.extend(self.posts.force_to_bool(ctx)?);
         ctx.set_mode(TranslationMode::Normal);
 
@@ -128,6 +131,17 @@ impl<'a> TryToViper<'a> for Function {
             .iter()
             .filter_map(|a| a.precondition(true, ctx))
             .collect::<Vec<_>>();
+        // add precondition about heap size: `requires |heap| == HEAP_SIZE`
+        pres.insert(
+            0,
+            ast.eq_cmp(
+                ast.seq_length(ctx.heap_var().1),
+                ast.int_lit(ctx.options.heap_size as i64),
+            ),
+        );
+        // add precondition about injectivity of the heap:
+        // `requires forall i: Int, j: Int :: 0 <= i < j < |heap| ==> heap[i] != heap[j]`
+        pres.insert(1, ctx.heapseq.seq_inj(ctx.heap_var().1));
         pres.extend(self.pres.force_to_bool(ctx)?);
         let posts = self.posts.force_to_bool(ctx)?;
         let body = self

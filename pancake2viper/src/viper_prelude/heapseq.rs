@@ -87,4 +87,24 @@ impl<'a> HeapSeq<'a> {
 
         ast.forall(&[j_decl], &[], ast.implies(guard, access))
     }
+
+    /// Encodes the following expression about the injectivity of a HeapSeq
+    /// ```viper
+    ///     forall j: Int :: 0 <= i < j < |heap| ==> heap[i] != heap[j]
+    /// ```
+    pub fn seq_inj(&self, heap: Expr) -> Expr<'a> {
+        let ast = self.ast;
+        let (i_decl, i) = ast.new_var("i", ast.int_type());
+        let (j_decl, j) = ast.new_var("j", ast.int_type());
+        let upper = ast.seq_length(heap);
+        let zero = ast.zero();
+
+        let i0 = ast.le_cmp(zero, i);
+        let ij = ast.lt_cmp(i, j);
+        let jl = ast.lt_cmp(j, upper);
+        let guard = ast.and(ast.and(i0, ij), jl);
+        let ineq = ast.ne_cmp(ast.seq_index(heap, i), ast.seq_index(heap, j));
+
+        ast.forall(&[i_decl, j_decl], &[], ast.implies(guard, ineq))
+    }
 }
