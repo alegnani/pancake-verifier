@@ -65,7 +65,7 @@ fn precedence() {
 fn functions() {
     let f = "/@ function sum(heap: Seq[Ref], base: Int, len: Int): Int 
     requires base >= 0 && len >= 0 
-    requires base + len <= alen(heap)
+    requires base + len <= (|heap|)
     requires forall i: Int :: base <= i && i < base + len ==> acc(heap[i], read)
     { 1 }
     @/";
